@@ -1,131 +1,119 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, ClipboardList, CheckCircle, XCircle, AlertCircle, BarChart3 } from 'lucide-react'
+import { History, RefreshCw, CheckCheck, Crown } from 'lucide-react'
 import * as homeworkApi from '@/lib/homework'
 import * as studentApi from '@/lib/students'
-import type { Homework, StudentWithGroup } from '@/types'
+import * as groupApi from '@/lib/groups'
+import type { StudentWithGroup, Group } from '@/types'
+import type { HomeworkStatus } from '@/lib/homework'
 
-const STATUS_OPTIONS = [
-  { value: 'complete', label: '已交齐', color: 'bg-green-100 text-green-700', icon: CheckCircle },
-  { value: 'incomplete', label: '未交齐', color: 'bg-yellow-100 text-yellow-700', icon: AlertCircle },
-  { value: 'not_submitted', label: '未交', color: 'bg-red-100 text-red-700', icon: XCircle },
-] as const
+const ALL_SUBJECTS = ['语文', '数学', '英语', '历史', '道法', '生物', '地理', '物理', '化学']
+const DEFAULT_SELECTED = ['语文', '数学', '英语']
 
-type StatusValue = typeof STATUS_OPTIONS[number]['value']
+const STATUS_MAP: Record<HomeworkStatus, { label: string; color: string; icon: string }> = {
+  complete:   { label: '交齐',   color: 'bg-green-100 text-green-700 border-green-300', icon: '✓' },
+  incomplete:  { label: '未交',   color: 'bg-red-100 text-red-700 border-red-300',     icon: '✗' },
+  partial:    { label: '未交齐',  color: 'bg-yellow-100 text-yellow-700 border-yellow-300', icon: '◐' },
+}
+
+const STATUS_ORDER: HomeworkStatus[] = ['complete', 'incomplete', 'partial']
 
 export default function HomeworkPage() {
-  const [homeworkList, setHomeworkList] = useState<Homework[]>([])
   const [students, setStudents] = useState<StudentWithGroup[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [submissions, setSubmissions] = useState<Map<string, string>>(new Map())
+  const [groups, setGroups] = useState<Group[]>([])
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [subjects, setSubjects] = useState<string[]>([...DEFAULT_SELECTED])
+  const [records, setRecords] = useState<Map<string, HomeworkStatus>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyData, setHistoryData] = useState<homeworkApi.HomeworkRecordWithStudent[]>([])
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
-  // 表单状态
-  const [showForm, setShowForm] = useState(false)
-  const [editHw, setEditHw] = useState<Homework | null>(null)
-  const [formTitle, setFormTitle] = useState('')
-  const [formDesc, setFormDesc] = useState('')
-  const [formDueDate, setFormDueDate] = useState('')
-
-  const loadHomework = useCallback(async () => {
-    const list = await homeworkApi.getAllHomework()
-    setHomeworkList(list)
-    setLoading(false)
-  }, [])
-
-  const loadStudents = useCallback(async () => {
-    const s = await studentApi.getAllStudents()
+  const loadAll = useCallback(async () => {
+    const [s, allGroups, subjs, recs] = await Promise.all([
+      studentApi.getAllStudents(),
+      groupApi.getAllGroups(),
+      homeworkApi.getDailySubjects(date),
+      homeworkApi.getRecordsByDate(date),
+    ])
     setStudents(s)
-  }, [])
+    setGroups(allGroups)
+    setSubjects(subjs)
 
-  const loadSubmissions = useCallback(async (hwId: string) => {
-    const details = await homeworkApi.getSubmissionDetails(hwId)
-    const map = new Map<string, string>()
-    details.forEach(d => { if (d.id) map.set(d.studentId, d.status) })
-    setSubmissions(map)
-  }, [])
-
-  useEffect(() => { loadHomework(); loadStudents() }, [loadHomework, loadStudents])
-  useEffect(() => {
-    if (selectedId) loadSubmissions(selectedId)
-  }, [selectedId, loadSubmissions])
-
-  const selectedHw = homeworkList.find(h => h.id === selectedId)
-  const stats = homeworkApi.getHomeworkStats // reference the function for inline calc
-
-  // 创建/编辑作业
-  const handleSaveHomework = async () => {
-    if (!formTitle.trim()) return
-    if (editHw) {
-      await homeworkApi.updateHomework(editHw.id, {
-        title: formTitle.trim(),
-        description: formDesc.trim(),
-        dueDate: formDueDate,
-      })
-    } else {
-      const today = new Date().toISOString().slice(0, 10)
-      await homeworkApi.createHomework({
-        title: formTitle.trim(),
-        description: formDesc.trim(),
-        assignDate: today,
-        dueDate: formDueDate,
-      })
+    if (!selectedGroup && allGroups.length > 0) {
+      setSelectedGroup(allGroups[0].id)
     }
-    setShowForm(false)
-    setEditHw(null)
-    setFormTitle('')
-    setFormDesc('')
-    setFormDueDate('')
-    await loadHomework()
+
+    const map = new Map<string, HomeworkStatus>()
+    recs.forEach(r => { map.set(`${r.student_id}:${r.subject}`, r.status) })
+    setRecords(map)
+
+    setLoading(false)
+  }, [date])
+
+  useEffect(() => { loadAll() }, [loadAll])
+
+  const toggleSubject = async (subj: string) => {
+    const next = subjects.includes(subj)
+      ? subjects.filter(s => s !== subj)
+      : [...subjects, subj]
+    setSubjects(next)
+    await homeworkApi.setDailySubjects(date, next)
   }
 
-  // 删除作业
-  const handleDelete = async (hw: Homework) => {
-    if (!window.confirm(`确认删除作业"${hw.title}"？`)) return
-    await homeworkApi.deleteHomework(hw.id)
-    if (selectedId === hw.id) setSelectedId(null)
-    await loadHomework()
-  }
-
-  // 切换提交状态
-  const handleCycleStatus = async (studentId: string) => {
-    const current = submissions.get(studentId) || 'not_submitted'
-    const idx = STATUS_OPTIONS.findIndex(o => o.value === current)
-    const next = STATUS_OPTIONS[(idx + 1) % STATUS_OPTIONS.length].value
-    if (!selectedId) return
-    await homeworkApi.setSubmission(selectedId, studentId, next)
-    setSubmissions(prev => {
-      const nextMap = new Map(prev)
-      nextMap.set(studentId, next)
-      return nextMap
+  const cycleStatus = async (studentId: string, subject: string) => {
+    const key = `${studentId}:${subject}`
+    const current = records.get(key) || 'complete'
+    const nextIdx = (STATUS_ORDER.indexOf(current) + 1) % STATUS_ORDER.length
+    const nextStatus = STATUS_ORDER[nextIdx]
+    await homeworkApi.setHomeworkStatus(studentId, date, subject, nextStatus)
+    setRecords(prev => {
+      const next = new Map(prev)
+      if (nextStatus === 'complete') {
+        next.delete(key)
+      } else {
+        next.set(key, nextStatus)
+      }
+      return next
     })
   }
 
-  // 批量设置
-  const handleBatchSet = async (status: StatusValue) => {
-    if (!selectedId) return
-    const studentIds = students.map(s => s.id)
-    await homeworkApi.batchSetSubmission(selectedId, studentIds, status)
-    await loadSubmissions(selectedId)
-  }
-
-  // 统计
-  const calcStats = () => {
-    let complete = 0, incomplete = 0, notSubmitted = 0, total = 0
-    for (const [, v] of submissions) {
-      total++
-      if (v === 'complete') complete++
-      else if (v === 'incomplete') incomplete++
-      else notSubmitted++
+  const resetStudentAllIncomplete = async (studentId: string) => {
+    for (const subj of subjects) {
+      await homeworkApi.setHomeworkStatus(studentId, date, subj, 'incomplete')
     }
-    // 未出现在 submissions 中的学生也算未交
-    const unsubmittedCount = students.length - total
-    notSubmitted += unsubmittedCount
-    total += unsubmittedCount
-    return { total, complete, incomplete, notSubmitted }
+    setRecords(prev => {
+      const next = new Map(prev)
+      for (const subj of subjects) {
+        next.set(`${studentId}:${subj}`, 'incomplete')
+      }
+      return next
+    })
   }
 
-  const { total, complete, incomplete, notSubmitted } = calcStats()
-  const completionRate = total > 0 ? Math.round((complete / total) * 100) : 0
+  const resetGroupAllComplete = async () => {
+    if (!selectedGroup) return
+    const groupStudents = students.filter(s => s.group_id === selectedGroup)
+    for (const s of groupStudents) {
+      for (const subj of subjects) {
+        await homeworkApi.setHomeworkStatus(s.id, date, subj, 'complete')
+      }
+    }
+    setRecords(prev => {
+      const next = new Map(prev)
+      for (const s of groupStudents) {
+        for (const subj of subjects) {
+          next.delete(`${s.id}:${subj}`)
+        }
+      }
+      return next
+    })
+  }
+
+  const openHistory = async () => {
+    const data = await homeworkApi.getUnsubmittedHistory()
+    setHistoryData(data)
+    setShowHistory(true)
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
@@ -133,219 +121,197 @@ export default function HomeworkPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-6 max-w-6xl mx-auto">
+        {/* 顶部 */}
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-800">作业管理</h1>
           <button
-            onClick={() => { setShowForm(true); setEditHw(null) }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
+            onClick={openHistory}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
           >
-            <Plus size={18} /> 发布作业
+            <History size={18} /> 未交记录
           </button>
         </div>
 
-        <div className="flex gap-6">
-          {/* 左侧：作业列表 */}
-          <div className="w-72 shrink-0">
-            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-              <div className="px-4 py-3 border-b bg-gray-50">
-                <h2 className="font-medium text-gray-700 flex items-center gap-2">
-                  <ClipboardList size={18} /> 作业列表
-                </h2>
-              </div>
-              <div className="divide-y divide-gray-100 max-h-[500px] overflow-auto">
-                {homeworkList.map(hw => (
-                  <button
-                    key={hw.id}
-                    onClick={() => setSelectedId(hw.id)}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${
-                      selectedId === hw.id ? 'bg-primary-50 border-l-2 border-primary-500' : ''
-                    }`}
-                  >
-                    <div className="font-medium text-sm truncate">{hw.title}</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      {hw.due_date ? `截止 ${hw.due_date}` : '无截止日期'}
-                    </div>
-                  </button>
-                ))}
-                {homeworkList.length === 0 && (
-                  <div className="text-center py-8 text-gray-400 text-sm">暂无作业</div>
-                )}
-              </div>
-            </div>
+        {/* 日期和科目选择 */}
+        <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
+          <div className="flex items-center gap-4 mb-3">
+            <span className="text-sm text-gray-500">日期：</span>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+            />
           </div>
-
-          {/* 右侧：提交详情 */}
-          <div className="flex-1 min-w-0">
-            {!selectedHw ? (
-              <div className="bg-white rounded-xl shadow-sm border flex items-center justify-center h-64 text-gray-400">
-                <div className="text-center">
-                  <ClipboardList size={48} className="mx-auto mb-2 opacity-30" />
-                  <p>选择左侧作业查看提交详情</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* 作业信息 */}
-                <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h2 className="text-lg font-semibold">{selectedHw.title}</h2>
-                      {selectedHw.description && (
-                        <p className="text-sm text-gray-500 mt-1">{selectedHw.description}</p>
-                      )}
-                      <div className="flex gap-4 mt-2 text-xs text-gray-400">
-                        <span>布置：{selectedHw.assign_date}</span>
-                        {selectedHw.due_date && <span>截止：{selectedHw.due_date}</span>}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => { setEditHw(selectedHw); setFormTitle(selectedHw.title); setFormDesc(selectedHw.description || ''); setFormDueDate(selectedHw.due_date || ''); setShowForm(true) }}
-                        className="p-1.5 text-gray-400 hover:text-primary-500 rounded hover:bg-gray-100"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(selectedHw)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 统计卡片 */}
-                <div className="grid grid-cols-4 gap-3 mb-4">
-                  {[
-                    { label: '完成率', value: `${completionRate}%`, color: 'text-green-600' },
-                    { label: '已交齐', value: complete, color: 'text-green-600' },
-                    { label: '未交齐', value: incomplete, color: 'text-yellow-600' },
-                    { label: '未交', value: notSubmitted, color: 'text-red-600' },
-                  ].map(item => (
-                    <div key={item.label} className="bg-white rounded-lg border p-3 text-center">
-                      <div className="text-xs text-gray-500">{item.label}</div>
-                      <div className={`text-lg font-bold ${item.color}`}>{item.value}</div>
-                    </div>
-                  ))}
-                </div>
-                {/* 完成率进度条 */}
-                <div className="bg-white rounded-lg border p-3 mb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-500">完成进度 ({total}人)</span>
-                  </div>
-                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 transition-all duration-300" style={{ width: `${completionRate}%` }} />
-                  </div>
-                </div>
-
-                {/* 批量操作 */}
-                <div className="flex gap-2 mb-4">
-                  {STATUS_OPTIONS.map(o => (
-                    <button
-                      key={o.value}
-                      onClick={() => handleBatchSet(o.value)}
-                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${o.color} hover:opacity-80`}
-                    >
-                      全部设为"{o.label}"
-                    </button>
-                  ))}
-                </div>
-
-                {/* 学生提交表 */}
-                <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gray-50 border-b">
-                        <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">姓名</th>
-                        <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">小组</th>
-                        <th className="text-center px-4 py-2 text-sm font-medium text-gray-500">提交状态</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {students.map(s => {
-                        const status = (submissions.get(s.id) || 'not_submitted') as StatusValue
-                        const opt = STATUS_OPTIONS.find(o => o.value === status)!
-                        const Icon = opt.icon
-                        return (
-                          <tr key={s.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 font-medium text-sm">{s.name}</td>
-                            <td className="px-4 py-2 text-xs text-gray-500">{s.group_name || '-'}</td>
-                            <td className="px-2 py-2 text-center">
-                              <button
-                                onClick={() => handleCycleStatus(s.id)}
-                                className={`inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full cursor-pointer transition-colors ${opt.color}`}
-                              >
-                                <Icon size={12} />
-                                {opt.label}
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                      {students.length === 0 && (
-                        <tr>
-                          <td colSpan={3} className="text-center py-8 text-gray-400 text-sm">
-                            还没有学生，请先在学生管理中添加学生
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-gray-500 mr-1">今日科目：</span>
+            {ALL_SUBJECTS.map(subj => (
+              <button
+                key={subj}
+                onClick={() => toggleSubject(subj)}
+                className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                  subjects.includes(subj)
+                    ? 'bg-primary-100 text-primary-700 border-primary-300'
+                    : 'bg-gray-50 text-gray-400 border-gray-200'
+                }`}
+              >
+                {subj}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* 小组切换按钮组 */}
+        <div className="grid grid-cols-4 gap-1.5 mb-3">
+          {groups.map(g => (
+            <button
+              key={g.id}
+              onClick={() => setSelectedGroup(g.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                selectedGroup === g.id
+                  ? `${g.color} text-white border-transparent`
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {g.name}{g.leader_name ? `（${g.leader_name}）` : ''}
+            </button>
+          ))}
+        </div>
+
+        {/* 当前小组作业表 */}
+        {selectedGroup && subjects.length > 0 ? (
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            {(() => {
+              const group = groups.find(g => g.id === selectedGroup)
+              const groupStudents = students.filter(s => s.group_id === selectedGroup)
+              return (
+                <>
+                  <div className={`px-4 py-2 text-white text-sm font-medium ${group?.color || 'bg-gray-400'} flex items-center justify-between`}>
+                    <span>{group?.name}{group?.leader_name ? `（${group.leader_name}）` : ''} · {groupStudents.length}人</span>
+                    <button
+                      onClick={resetGroupAllComplete}
+                      className="flex items-center gap-1 px-2 py-0.5 text-xs bg-white/20 rounded hover:bg-white/30 transition-colors"
+                      title="本组所有学生全科设为交齐"
+                    >
+                      <CheckCheck size={12} /> 全部交齐
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {groupStudents.length > 0 ? (
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-50 border-b">
+                            <th className="text-left px-4 py-2 text-sm font-medium text-gray-500 sticky left-0 bg-gray-50">
+                              姓名
+                            </th>
+                            {subjects.map(subj => (
+                              <th key={subj} className="text-center px-3 py-2 text-sm font-medium text-gray-500 min-w-[80px]">
+                                {subj}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {groupStudents.map(s => (
+                            <tr key={s.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 text-sm font-medium sticky left-0 bg-white">
+                                <div className="flex items-center gap-1">
+                                  <span>{s.name}</span>
+                                  {group?.leader_name === s.name && (
+                                    <Crown size={13} className="text-yellow-500" title="组长" />
+                                  )}
+                                  <button
+                                    onClick={() => resetStudentAllIncomplete(s.id)}
+                                    className="p-0.5 text-gray-300 hover:text-red-500 transition-colors"
+                                    title="全科设为未交"
+                                  >
+                                    <RefreshCw size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                              {subjects.map(subj => {
+                                const status = records.get(`${s.id}:${subj}`) || 'complete'
+                                const cfg = STATUS_MAP[status]
+                                return (
+                                  <td key={subj} className="px-2 py-1.5 text-center">
+                                    <button
+                                      onClick={() => cycleStatus(s.id, subj)}
+                                      className={`text-xs px-3 py-1 rounded-full border cursor-pointer transition-colors ${cfg.color}`}
+                                    >
+                                      {cfg.icon} {cfg.label}
+                                    </button>
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400 text-sm">该小组暂无学生</div>
+                    )}
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        ) : selectedGroup && subjects.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">请先选择今天的科目</div>
+        ) : null}
+
+        {/* 底部提示 */}
+        <p className="text-xs text-gray-400 mt-3">
+          默认所有同学状态为"交齐"，点击按钮切换：交齐 → 未交 → 未交齐 → 交齐
+        </p>
       </div>
 
-      {/* 作业表单弹窗 */}
-      {showForm && (
+      {/* 未交记录弹窗 */}
+      {showHistory && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[440px] shadow-xl">
-            <h3 className="text-lg font-semibold mb-4">
-              {editHw ? '编辑作业' : '发布作业'}
-            </h3>
-            <input
-              type="text"
-              placeholder="作业标题"
-              value={formTitle}
-              onChange={e => setFormTitle(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-400"
-              autoFocus
-            />
-            <textarea
-              placeholder="作业描述（可选）"
-              value={formDesc}
-              onChange={e => setFormDesc(e.target.value)}
-              rows={2}
-              className="w-full border rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
-            />
-            <div className="mb-3">
-              <label className="text-sm text-gray-500 mb-1 block">截止日期</label>
-              <input
-                type="date"
-                value={formDueDate}
-                onChange={e => setFormDueDate(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
-              />
+          <div className="bg-white rounded-xl p-6 w-[640px] max-h-[70vh] shadow-xl flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">未交作业记录</h3>
+              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => { setShowForm(false); setEditHw(null) }}
-                className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSaveHomework}
-                disabled={!formTitle.trim()}
-                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50"
-              >
-                {editHw ? '保存' : '发布'}
-              </button>
+            <div className="flex-1 overflow-auto">
+              {historyData.length === 0 ? (
+                <p className="text-center text-gray-400 py-8">太棒了，没有未交作业记录！</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">日期</th>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">姓名</th>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">小组</th>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">科目</th>
+                      <th className="text-left px-3 py-2 text-gray-500 font-medium">状态</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {historyData.map(r => {
+                      const cfg = STATUS_MAP[r.status]
+                      return (
+                        <tr key={r.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 text-gray-600">{r.date}</td>
+                          <td className="px-3 py-2 font-medium">{r.student_name}</td>
+                          <td className="px-3 py-2 text-gray-500">{r.group_name || '-'}</td>
+                          <td className="px-3 py-2">{r.subject}</td>
+                          <td className="px-3 py-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.color}`}>
+                              {cfg.label}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
+            <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+              关闭
+            </button>
           </div>
         </div>
       )}

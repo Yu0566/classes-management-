@@ -32,15 +32,42 @@ export async function createStudent(data: {
   return (await getStudent(id))!
 }
 
+// 批量创建学生
+export async function batchCreateStudents(
+  names: string[],
+  groupId: string
+): Promise<number> {
+  const now = Date.now()
+  const validNames = names.map(n => n.trim()).filter(n => n.length > 0)
+  if (validNames.length === 0) return 0
+
+  const sqls: { sql: string; params: unknown[] }[] = []
+  for (const name of validNames) {
+    sqls.push({
+      sql: `INSERT INTO students (id, name, group_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+      params: [uuid(), name, groupId, now, now],
+    })
+  }
+
+  // 逐条执行
+  for (const { sql, params } of sqls) {
+    await executeRun(sql, params)
+  }
+
+  return validNames.length
+}
+
 // 更新学生
 export async function updateStudent(id: string, data: {
   name?: string
   sort_order?: number
+  practice_label?: string
 }): Promise<void> {
   const sets: string[] = []
   const params: unknown[] = []
   if (data.name !== undefined) { sets.push('name = ?'); params.push(data.name) }
   if (data.sort_order !== undefined) { sets.push('sort_order = ?'); params.push(data.sort_order) }
+  if (data.practice_label !== undefined) { sets.push('practice_label = ?'); params.push(data.practice_label) }
   if (sets.length === 0) return
   sets.push('updated_at = ?')
   params.push(Date.now(), id)
@@ -57,5 +84,7 @@ export async function deleteStudent(id: string): Promise<void> {
   await executeRun('DELETE FROM attendance_records WHERE student_id = ?', [id])
   await executeRun('DELETE FROM lunch_rest_records WHERE student_id = ?', [id])
   await executeRun('DELETE FROM daily_practice_records WHERE student_id = ?', [id])
+  await executeRun('DELETE FROM practice_signins WHERE student_id = ?', [id])
+  await executeRun('DELETE FROM practice_score_awards WHERE student_id = ?', [id])
   await executeRun('DELETE FROM students WHERE id = ?', [id])
 }

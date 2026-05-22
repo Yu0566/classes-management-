@@ -36,9 +36,9 @@ export default function DashboardPage() {
 
   // 统计
   const attendanceStats = {
-    normal: todayStatuses.filter(s => s.attendance === 'normal').length,
+    signed: todayStatuses.filter(s => s.attendance === 'signed').length,
     late: todayStatuses.filter(s => s.attendance === 'late').length,
-    absent: todayStatuses.filter(s => s.attendance === 'absent').length,
+    unsigned: todayStatuses.filter(s => s.attendance === 'unsigned').length,
     leave: todayStatuses.filter(s => s.attendance === 'leave').length,
   }
 
@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
   const totalStatusCount = todayStatuses.length
   const attendanceRate = totalStatusCount > 0
-    ? Math.round(((attendanceStats.normal + attendanceStats.late + attendanceStats.leave) / totalStatusCount) * 100)
+    ? Math.round(((attendanceStats.signed + attendanceStats.late + attendanceStats.leave) / totalStatusCount) * 100)
     : 0
 
   // Top 3 小组
@@ -109,7 +109,7 @@ export default function DashboardPage() {
                         style={{ width: `${Math.min(100, (g.study_score / Math.max(1, top3[0]?.study_score || 1)) * 100)}%` }}
                       />
                     </div>
-                    <span className="font-medium text-sm">{g.name}</span>
+                    <span className="font-medium text-sm">{g.name}{g.leader_name ? `（${g.leader_name}）` : ''}</span>
                     <span className="font-bold text-sm">{g.study_score}</span>
                   </div>
                 ))}
@@ -130,8 +130,8 @@ export default function DashboardPage() {
                 {attendanceStats.late > 0 && (
                   <p className="text-yellow-600">⚠ 迟到：{attendanceStats.late} 人</p>
                 )}
-                {attendanceStats.absent > 0 && (
-                  <p className="text-red-600">✘ 缺勤：{attendanceStats.absent} 人</p>
+                {attendanceStats.unsigned > 0 && (
+                  <p className="text-gray-500">◐ 待处理：{attendanceStats.unsigned} 人</p>
                 )}
                 {practiceStats.unsigned > 0 && (
                   <p className="text-red-600">✘ 未签到：{practiceStats.unsigned} 人</p>
@@ -142,7 +142,7 @@ export default function DashboardPage() {
                 {homeworkStats.notSubmitted > 0 && (
                   <p className="text-red-600">✘ 作业未交：{homeworkStats.notSubmitted} 人</p>
                 )}
-                {attendanceStats.late === 0 && attendanceStats.absent === 0 &&
+                {attendanceStats.late === 0 && attendanceStats.unsigned === 0 &&
                  practiceStats.unsigned === 0 && homeworkStats.incomplete === 0 &&
                  homeworkStats.notSubmitted === 0 && (
                   <p className="text-green-600">✓ 今日无异常，一切正常</p>

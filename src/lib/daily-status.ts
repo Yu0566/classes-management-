@@ -96,7 +96,7 @@ export type StatusField = 'daily_practice' | 'attendance' | 'homework' | 'lunch_
 // 各项状态的循环选项
 export const STATUS_CYCLES: Record<StatusField, string[]> = {
   daily_practice: ['unsigned', 'signed', 'not_applicable'],
-  attendance: ['normal', 'late', 'absent', 'leave'],
+  attendance: ['signed', 'unsigned', 'late', 'leave'],
   homework: ['not_submitted', 'incomplete', 'complete'],
   lunch_rest: ['normal', 'violation', 'absent'],
 }
@@ -107,7 +107,7 @@ export const STATUS_LABELS: Record<StatusField, Record<string, string>> = {
     signed: '已签', unsigned: '未签', not_applicable: '不参与',
   },
   attendance: {
-    normal: '正常', late: '迟到', absent: '缺勤', leave: '请假',
+    signed: '已签到', unsigned: '未签到', late: '迟到', leave: '请假',
   },
   homework: {
     complete: '已交齐', incomplete: '未交齐', not_submitted: '未交',
@@ -123,8 +123,8 @@ export const STATUS_COLORS: Record<StatusField, Record<string, string>> = {
     signed: 'bg-green-100 text-green-700', unsigned: 'bg-red-100 text-red-700', not_applicable: 'bg-gray-100 text-gray-500',
   },
   attendance: {
-    normal: 'bg-green-100 text-green-700', late: 'bg-yellow-100 text-yellow-700',
-    absent: 'bg-red-100 text-red-700', leave: 'bg-gray-100 text-gray-500',
+    signed: 'bg-green-100 text-green-700', unsigned: 'bg-gray-100 text-gray-500',
+    late: 'bg-yellow-100 text-yellow-700', leave: 'bg-blue-100 text-blue-700',
   },
   homework: {
     complete: 'bg-green-100 text-green-700', incomplete: 'bg-yellow-100 text-yellow-700',

@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, Clock, LogIn, LogOut, AlertTriangle, Check } from 'lucide-react'
 import * as dutyApi from '@/lib/duty'
 import * as studentApi from '@/lib/students'
-import type { DutyRecord, DutyStudent, StudentWithGroup } from '@/types'
+import * as groupApi from '@/lib/groups'
+import type { DutyRecord, DutyStudent, StudentWithGroup, Group } from '@/types'
 
 function todayStr(): string {
   const d = new Date()
@@ -16,6 +17,7 @@ export default function DutyPage() {
   const [dutyRecord, setDutyRecord] = useState<DutyRecord | null>(null)
   const [dutyStudents, setDutyStudents] = useState<DutyStudent[]>([])
   const [allStudents, setAllStudents] = useState<StudentWithGroup[]>([])
+  const [groupMap, setGroupMap] = useState<Map<string, Group>>(new Map())
   const [windowState, setWindowState] = useState<WindowState>('idle')
   const [countdown, setCountdown] = useState(300) // 5分钟秒数
   const [signOutRemaining, setSignOutRemaining] = useState(300)
@@ -26,12 +28,14 @@ export default function DutyPage() {
   const signOutRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadData = useCallback(async () => {
-    const [record, students] = await Promise.all([
+    const [record, students, gs] = await Promise.all([
       dutyApi.getOrCreateDutyRecord(date),
       studentApi.getAllStudents(),
+      groupApi.getAllGroups(),
     ])
     setDutyRecord(record)
     setAllStudents(students)
+    setGroupMap(new Map(gs.map(g => [g.id, g])))
 
     const ds = await dutyApi.getDutyStudents(record.id)
     setDutyStudents(ds)
@@ -436,7 +440,7 @@ export default function DutyPage() {
                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center justify-between"
                   >
                     <span>{s.name}</span>
-                    <span className="text-xs text-gray-400">{s.group_name}</span>
+                    <span className="text-xs text-gray-400">{(() => { const g = groupMap.get(s.group_id); return g ? `${g.name}${g.leader_name ? `（${g.leader_name}）` : ''}` : (s.group_name || '-'); })()}</span>
                   </button>
                 ))
               )}

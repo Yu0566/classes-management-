@@ -7,6 +7,7 @@ export interface Group {
   snapshot_diff: number
   color: string
   icon: string
+  leader_name: string
   sort_order: number
   created_at: number
   updated_at: number
@@ -18,6 +19,7 @@ export interface Student {
   name: string
   group_id: string
   manual_offset: number
+  practice_label: string
   sort_order: number
   created_at: number
   updated_at: number
@@ -34,7 +36,7 @@ export interface DailyStatus {
   student_id: string
   date: string
   daily_practice: 'signed' | 'unsigned' | 'not_applicable'
-  attendance: 'normal' | 'late' | 'absent' | 'leave'
+  attendance: 'signed' | 'unsigned' | 'late' | 'leave'
   homework: 'complete' | 'incomplete' | 'not_submitted'
   lunch_rest: 'normal' | 'violation' | 'absent'
   created_at: number
@@ -136,6 +138,27 @@ export interface AttendanceRecord {
   updated_at: number
 }
 
+// 考勤时段（一天可多个）
+export interface AttendanceWindow {
+  id: string
+  date: string
+  label: string
+  window_start: string
+  window_end: string
+  status: 'idle' | 'active' | 'closed'
+  created_at: number
+  updated_at: number
+}
+
+// 考勤时段内学生签到记录
+export interface AttendanceWindowRecord {
+  id: string
+  window_id: string
+  student_id: string
+  status: 'signed' | 'unsigned' | 'late' | 'leave'
+  updated_at: number
+}
+
 // 午餐午休记录
 export interface LunchRestRecord {
   id: string
@@ -156,10 +179,37 @@ export interface DailyPracticeRecord {
   updated_at: number
 }
 
+// 每日一练签到记录（新系统）
+export interface PracticeSignIn {
+  id: string
+  student_id: string
+  date: string
+  label: string
+  sign_in_order: number
+  signed_at: number
+}
+
+// 每日一练加分记录
+export interface PracticeScoreAward {
+  id: string
+  student_id: string
+  group_id: string
+  date: string
+  label: string
+  score_delta: number
+  created_at: number
+}
+
+export const PRACTICE_LABEL_MAP: Record<string, string> = {
+  qiangji: '强基',
+  tisheng: '提升',
+}
+
 // 宝龙币小组
 export interface CoinGroup {
   id: string
   name: string
+  group_id: string | null
   coins: number
   created_at: number
   updated_at: number

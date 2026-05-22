@@ -11,6 +11,7 @@ export function runMigrations(db: SqlJsDatabase): void {
       snapshot_diff INTEGER DEFAULT 0,
       color TEXT DEFAULT 'bg-blue-500',
       icon TEXT DEFAULT 'fa-users',
+      leader_name TEXT DEFAULT '',
       sort_order INTEGER DEFAULT 0,
       created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
       updated_at INTEGER DEFAULT (strftime('%s','now') * 1000)
@@ -136,6 +137,29 @@ export function runMigrations(db: SqlJsDatabase): void {
       UNIQUE(homework_id, student_id)
     );
 
+    -- 考勤时段（支持一天多个时段）
+    CREATE TABLE IF NOT EXISTS attendance_windows (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL,
+      label TEXT DEFAULT '',
+      window_start TEXT,
+      window_end TEXT,
+      status TEXT DEFAULT 'idle',
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      updated_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    );
+
+    -- 考勤时段内每个学生的签到状态
+    CREATE TABLE IF NOT EXISTS attendance_window_records (
+      id TEXT PRIMARY KEY,
+      window_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      status TEXT DEFAULT 'unsigned',
+      updated_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY (window_id) REFERENCES attendance_windows(id),
+      UNIQUE(window_id, student_id)
+    );
+
     -- 每日考勤
     CREATE TABLE IF NOT EXISTS attendance_records (
       id TEXT PRIMARY KEY,
@@ -176,6 +200,7 @@ export function runMigrations(db: SqlJsDatabase): void {
     CREATE TABLE IF NOT EXISTS coin_groups (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      group_id TEXT,
       coins INTEGER DEFAULT 0,
       created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
       updated_at INTEGER DEFAULT (strftime('%s','now') * 1000)
@@ -189,6 +214,52 @@ export function runMigrations(db: SqlJsDatabase): void {
       reason TEXT,
       timestamp INTEGER NOT NULL,
       FOREIGN KEY (coin_group_id) REFERENCES coin_groups(id)
+    );
+
+    -- 每日作业科目
+    CREATE TABLE IF NOT EXISTS homework_daily (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      subjects TEXT NOT NULL DEFAULT '["语文","数学","英语"]',
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    );
+
+    -- 作业未交记录（仅记录非"交齐"状态）
+    CREATE TABLE IF NOT EXISTS homework_records (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'incomplete',
+      updated_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      UNIQUE(student_id, date, subject)
+    );
+
+    -- 每日一练签到记录（新系统：名单制+双标签）
+    CREATE TABLE IF NOT EXISTS practice_signins (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      label TEXT NOT NULL,
+      sign_in_order INTEGER NOT NULL,
+      signed_at INTEGER NOT NULL,
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      UNIQUE(student_id, date, label)
+    );
+
+    -- 每日一练加分记录（每个组每个标签每天最多+1）
+    CREATE TABLE IF NOT EXISTS practice_score_awards (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      label TEXT NOT NULL,
+      score_delta INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (group_id) REFERENCES groups(id),
+      UNIQUE(group_id, date, label)
     );
   `)
 
@@ -205,7 +276,20 @@ export function runMigrations(db: SqlJsDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_attendance_records_date ON attendance_records(date);
     CREATE INDEX IF NOT EXISTS idx_lunch_rest_records_date ON lunch_rest_records(date);
     CREATE INDEX IF NOT EXISTS idx_daily_practice_records_date ON daily_practice_records(date);
+    CREATE INDEX IF NOT EXISTS idx_homework_records_date ON homework_records(date);
+    CREATE INDEX IF NOT EXISTS idx_homework_records_student ON homework_records(student_id);
+    CREATE INDEX IF NOT EXISTS idx_practice_signins_date_label ON practice_signins(date, label);
+    CREATE INDEX IF NOT EXISTS idx_practice_score_awards_date_label ON practice_score_awards(date, label);
   `)
+
+  // 兼容已有数据库：尝试添加 leader_name 列
+  try { db.exec("ALTER TABLE groups ADD COLUMN leader_name TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
+
+  // 兼容已有数据库：尝试添加 practice_label 列
+  try { db.exec("ALTER TABLE students ADD COLUMN practice_label TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
+
+  // 兼容已有数据库：尝试添加 group_id 列到 coin_groups
+  try { db.exec("ALTER TABLE coin_groups ADD COLUMN group_id TEXT") } catch (_) { /* 列已存在 */ }
 
   console.log('数据库迁移完成')
 }

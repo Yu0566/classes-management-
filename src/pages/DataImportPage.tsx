@@ -212,7 +212,7 @@ async function importData(data: Record<string, unknown>): Promise<ImportResult> 
           params: [
             st.id || uuid(), st.studentId || st.student_id, st.date,
             st.dailyPractice || st.daily_practice || 'unsigned',
-            st.attendance || 'normal',
+            st.attendance || 'unsigned',
             st.homework || 'complete',
             st.lunchRest || st.lunch_rest || 'normal',
             now, now,

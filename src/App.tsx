@@ -20,8 +20,6 @@ function App() {
       <Route path="/" element={<MainLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="groups" element={<GroupsPage />} />
-        <Route path="score-calc" element={<GroupsPage />} />
-        <Route path="score-history" element={<GroupsPage />} />
         <Route path="students" element={<StudentsPage />} />
         <Route path="daily-register" element={<DailyRegisterPage />} />
         <Route path="student-scores" element={<StudentScoresPage />} />

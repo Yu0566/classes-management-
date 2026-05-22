@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
-  LayoutDashboard, Star, Users, Calculator, History,
+  LayoutDashboard, Star, Users,
   ClipboardCheck, BarChart3, AlertTriangle,
   CalendarCheck, Utensils, Pencil, Coins,
   Settings, ChevronLeft, ChevronRight, ClipboardList, Contact
@@ -11,24 +11,17 @@ import {
 // 导航菜单配置
 const navItems = [
   { path: '/', label: '仪表盘', icon: LayoutDashboard, exact: true },
-  {
-    label: '积分管理', icon: Star, children: [
-      { path: '/groups', label: '小组积分', icon: Users },
-      { path: '/score-calc', label: '一键算分', icon: Calculator },
-      { path: '/score-history', label: '操作历史', icon: History },
-    ]
-  },
+  { path: '/groups', label: '小组积分', icon: Star },
+  { path: '/students', label: '学生管理', icon: Contact },
   {
     label: '个人积分', icon: Users, children: [
-      { path: '/students', label: '学生管理', icon: Contact },
-      { path: '/daily-register', label: '每日登记', icon: ClipboardCheck },
       { path: '/student-scores', label: '积分一览', icon: BarChart3 },
       { path: '/deductions', label: '扣分记录', icon: AlertTriangle },
     ]
   },
   { path: '/duty', label: '值日管理', icon: CalendarCheck },
   { path: '/homework', label: '作业管理', icon: ClipboardList },
-  { path: '/attendance', label: '每日考勤', icon: CalendarCheck },
+  { path: '/daily-register', label: '每日考勤', icon: ClipboardCheck },
   { path: '/lunch-rest', label: '午餐午休', icon: Utensils },
   { path: '/daily-practice', label: '每日一练', icon: Pencil },
   { path: '/coins', label: '宝龙币', icon: Coins },

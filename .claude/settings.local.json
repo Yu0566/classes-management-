@@ -5,7 +5,31 @@
       "Bash(winget *)",
       "Bash(npx tsc *)",
       "Bash(npx vite *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 14348 //F)",
+      "Bash(taskkill //PID 6480 //F)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(taskkill //F //IM electron.exe)",
+      "Bash(npx electron:dev)",
+      "WebFetch(domain:localhost)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s http://localhost:5173/src/main.tsx)",
+      "Bash(curl -s http://localhost:5173/src/App.tsx)",
+      "Bash(curl -s \"http://localhost:5173/src/pages/HomeworkPage.tsx\")",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(awk '{print $NF}')",
+      "Bash(taskkill /F /PID 23844 /PID 26672)",
+      "Bash(cmd //c \"taskkill /F /PID 23844 & taskkill /F /PID 26672\")",
+      "Bash(cmd //c \"taskkill /F /IM node.exe 2>nul\")",
+      "mcp__ide__getDiagnostics",
+      "Bash(cmd *)",
+      "Bash(python3 -c \"from PIL import Image; img = Image.open\\(r'C:\\\\\\\\Users\\\\\\\\ad\\\\\\\\Desktop\\\\\\\\考勤界面1.png'\\); print\\(img.size, img.mode\\)\")",
+      "Bash(python -c \"from PIL import Image; img = Image.open\\(r'C:\\\\\\\\Users\\\\\\\\ad\\\\\\\\Desktop\\\\\\\\考勤界面1.png'\\); print\\(img.size, img.mode\\)\")",
+      "Bash(curl -s \"http://localhost:5173/src/pages/DailyRegisterPage.tsx\")",
+      "Bash(electron . *)",
+      "Bash(npx electron *)",
+      "Bash(rm -rf node_modules/.vite)"
     ]
   }
 }

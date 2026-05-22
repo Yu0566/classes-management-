@@ -3,6 +3,9 @@ import path from 'path'
 import { initDatabase, getDatabase, closeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc-handlers'
 
+// 禁用 GPU 加速以解决 Windows 上的兼容性问题
+app.disableHardwareAcceleration()
+
 let mainWindow: BrowserWindow | null = null
 const isDev = !app.isPackaged
 
