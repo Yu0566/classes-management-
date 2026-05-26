@@ -16,6 +16,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 680,
     title: '课堂管理系统',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -35,14 +36,15 @@ app.whenReady().then(async () => {
   const dbPath = path.join(app.getPath('userData'), 'class-management.db')
   await initDatabase(dbPath)
 
-  // 移除默认菜单栏
-  Menu.setApplicationMenu(null)
-
   // 注册 IPC 处理器
   registerIpcHandlers()
 
   // 创建窗口
   createWindow()
+
+  // 移除菜单栏（Windows下需窗口创建后再移除）
+  Menu.setApplicationMenu(null)
+  mainWindow?.setMenu(null)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
