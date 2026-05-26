@@ -9,7 +9,6 @@ import AttendancePage from './pages/AttendancePage'
 import LunchRestPage from './pages/LunchRestPage'
 import DailyPracticePage from './pages/DailyPracticePage'
 import DutyPage from './pages/DutyPage'
-import DeductionsPage from './pages/DeductionsPage'
 import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import CoinsPage from './pages/CoinsPage'
@@ -23,7 +22,6 @@ function App() {
         <Route path="students" element={<StudentsPage />} />
         <Route path="daily-register" element={<DailyRegisterPage />} />
         <Route path="student-scores" element={<StudentScoresPage />} />
-        <Route path="deductions" element={<DeductionsPage />} />
         <Route path="duty" element={<DutyPage />} />
         <Route path="homework" element={<HomeworkPage />} />
         <Route path="attendance" element={<AttendancePage />} />

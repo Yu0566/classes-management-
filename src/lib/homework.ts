@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { queryAll, queryOne, executeRun, executeTransaction } from './db'
+import { upsertDailyStatus } from './daily-status'
 
 const ALL_SUBJECTS = ['语文', '数学', '英语', '历史', '道法', '生物', '地理', '物理', '化学']
 const DEFAULT_SELECTED = ['语文', '数学', '英语']
@@ -79,6 +80,31 @@ export async function getStudentRecords(
   )
 }
 
+// 将作业状态映射到 daily_status 的 homework 字段
+function mapToDailyStatus(status: HomeworkStatus): string {
+  switch (status) {
+    case 'incomplete': return 'not_submitted'
+    case 'partial': return 'incomplete'
+    default: return 'complete'
+  }
+}
+
+// 汇总某学生当天所有科目的最差状态，同步到 daily_statuses
+async function syncHomeworkToDailyStatus(studentId: string, date: string): Promise<void> {
+  const records = await queryAll<HomeworkRecord>(
+    'SELECT * FROM homework_records WHERE student_id = ? AND date = ?',
+    [studentId, date]
+  )
+  // 优先级：incomplete(未交) > partial(未交齐) > complete(交齐)
+  if (records.some(r => r.status === 'incomplete')) {
+    await upsertDailyStatus(studentId, date, 'homework', 'not_submitted')
+  } else if (records.some(r => r.status === 'partial')) {
+    await upsertDailyStatus(studentId, date, 'homework', 'incomplete')
+  } else {
+    await upsertDailyStatus(studentId, date, 'homework', 'complete')
+  }
+}
+
 // 设置学生某科目的作业状态
 export async function setHomeworkStatus(
   studentId: string,
@@ -111,6 +137,9 @@ export async function setHomeworkStatus(
       )
     }
   }
+
+  // 同步到 daily_statuses，触发积分计算和扣分记录
+  await syncHomeworkToDailyStatus(studentId, date)
 }
 
 // 获取所有有记录的历史日期

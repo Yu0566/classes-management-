@@ -1,24 +1,20 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Reorder } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Star, Users,
-  ClipboardCheck, BarChart3, AlertTriangle,
-  CalendarCheck, Utensils, Pencil, Coins,
-  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact
+  ClipboardCheck, CalendarCheck, Utensils, Pencil, Coins,
+  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, GripVertical
 } from 'lucide-react'
 
-// 导航菜单配置
-const navItems = [
-  { path: '/', label: '仪表盘', icon: LayoutDashboard, exact: true },
+const STORAGE_KEY = 'nav-item-order'
+
+const defaultNavItems = [
+  { path: '/', label: '班级看板', icon: LayoutDashboard, exact: true },
   { path: '/groups', label: '小组积分', icon: Star },
   { path: '/students', label: '学生管理', icon: Contact },
-  {
-    label: '个人积分', icon: Users, children: [
-      { path: '/student-scores', label: '积分一览', icon: BarChart3 },
-      { path: '/deductions', label: '扣分记录', icon: AlertTriangle },
-    ]
-  },
+  { path: '/student-scores', label: '个人积分', icon: Users },
   { path: '/duty', label: '值日管理', icon: CalendarCheck },
   { path: '/homework', label: '作业管理', icon: ClipboardList },
   { path: '/daily-register', label: '每日考勤', icon: ClipboardCheck },
@@ -27,79 +23,43 @@ const navItems = [
   { path: '/coins', label: '宝龙币', icon: Coins },
 ]
 
-interface NavItemProps {
-  path: string
-  label: string
-  icon: LucideIcon
-  collapsed: boolean
-  exact?: boolean
+function loadNavOrder() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const order: string[] = JSON.parse(saved)
+      const ordered = order
+        .map(p => defaultNavItems.find(item => item.path === p))
+        .filter(Boolean) as typeof defaultNavItems
+      const missing = defaultNavItems.filter(item => !order.includes(item.path))
+      return [...ordered, ...missing]
+    }
+  } catch { /* ignore */ }
+  return defaultNavItems
 }
 
-function NavItem({ path, label, icon: Icon, collapsed, exact }: NavItemProps) {
-  return (
-    <NavLink
-      to={path}
-      end={exact}
-      className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 ${
-          isActive
-            ? 'bg-primary-100 text-primary-700 font-medium'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-        }`
-      }
-    >
-      <Icon size={20} />
-      {!collapsed && <span className="text-sm whitespace-nowrap">{label}</span>}
-    </NavLink>
-  )
-}
-
-interface NavGroupProps {
-  label: string
-  icon: LucideIcon
-  children: { path: string; label: string; icon: LucideIcon }[]
-  collapsed: boolean
-}
-
-function NavGroup({ label, icon: Icon, children, collapsed }: NavGroupProps) {
-  const [open, setOpen] = useState(true)
-  const location = useLocation()
-  const isChildActive = children.some(c => location.pathname.startsWith(c.path))
-
-  return (
-    <div>
-      <button
-        onClick={() => setOpen(!open)}
-        className={`flex items-center gap-3 px-3 py-2 w-full rounded-lg transition-colors duration-150 text-left ${
-          isChildActive
-            ? 'text-primary-600 font-medium'
-            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-        }`}
-      >
-        <Icon size={20} />
-        {!collapsed && (
-          <>
-            <span className="text-sm font-medium flex-1 whitespace-nowrap">{label}</span>
-            <ChevronRight
-              size={14}
-              className={`transition-transform ${open ? 'rotate-90' : ''}`}
-            />
-          </>
-        )}
-      </button>
-      {open && !collapsed && (
-        <div className="ml-4 mt-1 space-y-1 border-l border-gray-200 pl-3">
-          {children.map(c => (
-            <NavItem key={c.path} path={c.path} label={c.label} icon={c.icon} collapsed={false} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
+function saveNavOrder(items: typeof defaultNavItems) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(i => i.path)))
 }
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
+  const [navItems, setNavItems] = useState(loadNavOrder)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const handleReorder = (paths: string[]) => {
+    const reordered = paths
+      .map(p => navItems.find(i => i.path === p))
+      .filter(Boolean) as typeof navItems
+    setNavItems(reordered)
+    saveNavOrder(reordered)
+  }
+
+  const isActive = (item: typeof defaultNavItems[number]) => {
+    if (item.exact) return location.pathname === item.path
+    return location.pathname.startsWith(item.path)
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -119,35 +79,70 @@ export default function MainLayout() {
         </div>
 
         {/* 导航 */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-          {navItems.map(item => {
-            if ('children' in item && item.children) {
+        <nav className="flex-1 overflow-y-auto py-3 px-2">
+          <Reorder.Group
+            axis="y"
+            values={navItems.map(i => i.path)}
+            onReorder={handleReorder}
+            as="div"
+            className="space-y-1"
+          >
+            {navItems.map(item => {
+              const active = isActive(item)
+              const Icon = item.icon
               return (
-                <NavGroup
-                  key={item.label}
-                  label={item.label}
-                  icon={item.icon}
-                  children={item.children}
-                  collapsed={collapsed}
-                />
+                <Reorder.Item
+                  key={item.path}
+                  value={item.path}
+                  as="div"
+                  whileDrag={{
+                    scale: 1.05,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                    borderRadius: '8px',
+                    backgroundColor: '#fff',
+                    zIndex: 50,
+                  }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  className="relative group rounded-lg"
+                  style={{ touchAction: 'none' }}
+                >
+                  {/* 拖拽手柄 */}
+                  {!collapsed && (
+                    <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 cursor-grab active:cursor-grabbing z-10 p-0.5">
+                      <GripVertical size={14} />
+                    </div>
+                  )}
+                  {/* 导航按钮 */}
+                  <button
+                    onClick={() => navigate(item.path)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left ${
+                      active
+                        ? 'bg-primary-100 text-primary-700 font-medium'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    <Icon size={20} />
+                    {!collapsed && <span className="text-sm whitespace-nowrap">{item.label}</span>}
+                  </button>
+                </Reorder.Item>
               )
-            }
-            return (
-              <NavItem
-                key={item.path!}
-                path={item.path!}
-                label={item.label}
-                icon={item.icon}
-                collapsed={collapsed}
-                exact={item.exact}
-              />
-            )
-          })}
+            })}
+          </Reorder.Group>
         </nav>
 
         {/* 底部设置 */}
         <div className="border-t border-gray-200 p-2">
-          <NavItem path="/settings" label="系统设置" icon={Settings} collapsed={collapsed} />
+          <button
+            onClick={() => navigate('/settings')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left ${
+              location.pathname === '/settings'
+                ? 'bg-primary-100 text-primary-700 font-medium'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            }`}
+          >
+            <Settings size={20} />
+            {!collapsed && <span className="text-sm whitespace-nowrap">系统设置</span>}
+          </button>
         </div>
 
         {/* 折叠按钮 */}

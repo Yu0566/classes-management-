@@ -29,7 +29,7 @@ export default function CoinsPage() {
   useEffect(() => { loadData() }, [loadData])
 
   const handleAdjust = async (groupId: string, delta: number) => {
-    await coinsApi.adjustCoins(groupId, delta, '快捷操作')
+    await coinsApi.adjustCoins(groupId, delta, '快捷操作', target)
     await loadData()
   }
 
@@ -42,7 +42,7 @@ export default function CoinsPage() {
     if (isNaN(val) || val < 0) { setEditingCoin(null); return }
     const group = groups.find(g => g.id === editingCoin)
     if (!group) return
-    await coinsApi.adjustCoins(editingCoin, val - group.coins, '手动编辑')
+    await coinsApi.adjustCoins(editingCoin, val - group.coins, '手动编辑', target)
     setEditingCoin(null)
     await loadData()
   }
@@ -51,17 +51,6 @@ export default function CoinsPage() {
     const h = await coinsApi.getCoinHistory(groupId)
     setHistory(h)
     setShowHistory(groupId)
-  }
-
-  // 结算：计算并应用到总积分
-  const handleSettle = async () => {
-    if (!window.confirm(
-      `将按目标 ${target} 进行宝龙币结算：\n` +
-      `每个小组：(宝龙币数 - ${target}) × 3 计入总积分\n` +
-      `加分上限15分，扣分不设限。\n确认执行？`
-    )) return
-    await groupApi.applyCoinsSettlement(target)
-    alert('结算完成，已计入各小组总积分')
   }
 
   const displayName = (g: CoinGroup) => {
@@ -97,19 +86,19 @@ export default function CoinsPage() {
               <input
                 type="number"
                 value={target}
-                onChange={e => setTarget(Number(e.target.value))}
+                onChange={e => {
+                  const newTarget = Number(e.target.value)
+                  if (isNaN(newTarget) || newTarget < 0) return
+                  const oldTarget = target
+                  setTarget(newTarget)
+                  coinsApi.recalculateAllCoinScores(oldTarget, newTarget).then(() => loadData())
+                }}
                 className="w-20 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               />
             </div>
-            <button
-              onClick={handleSettle}
-              className="px-4 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium"
-            >
-              确认结算
-            </button>
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            公式：(宝龙币数 - {target}) × 3 计入总积分 · 加分上限15分 · 扣分不设限
+            公式：(宝龙币数 - {target}) × 3 计入总积分 · 加分上限12分 · 扣分不设限（每次调整宝龙币实时生效）
           </p>
 
           {/* 结算预览 */}
@@ -119,14 +108,14 @@ export default function CoinsPage() {
               <div className="grid grid-cols-4 gap-2">
                 {groups.map(g => {
                   const rawDelta = (g.coins - target) * 3
-                  const delta = rawDelta > 0 ? Math.min(rawDelta, 15) : rawDelta
+                  const delta = rawDelta > 0 ? Math.min(rawDelta, 12) : rawDelta
                   return (
                     <div key={g.id} className="text-xs bg-gray-50 rounded p-2 text-center">
                       <span className="font-medium">{displayName(g)}</span>
                       <span className="text-gray-400 ml-1">{g.coins}币</span>
                       <span className={`block mt-0.5 font-bold ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : 'text-gray-400'}`}>
                         {delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '0'}
-                        {rawDelta > 15 ? <span className="text-gray-400 font-normal"> (上限)</span> : null}
+                        {rawDelta > 12 ? <span className="text-gray-400 font-normal"> (上限)</span> : null}
                       </span>
                     </div>
                   )

@@ -248,6 +248,12 @@ export function runMigrations(db: SqlJsDatabase): void {
       UNIQUE(student_id, date, label)
     );
 
+    -- 积分扣分项开关（每日一练/考勤/作业，默认关闭）
+    CREATE TABLE IF NOT EXISTS score_category_settings (
+      category TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0
+    );
+
     -- 每日一练加分记录（每个组每个标签每天最多+1）
     CREATE TABLE IF NOT EXISTS practice_score_awards (
       id TEXT PRIMARY KEY,
@@ -287,6 +293,12 @@ export function runMigrations(db: SqlJsDatabase): void {
 
   // 兼容已有数据库：尝试添加 practice_label 列
   try { db.exec("ALTER TABLE students ADD COLUMN practice_label TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
+
+  // 兼容已有数据库：尝试添加 lunch_label 列
+  try { db.exec("ALTER TABLE students ADD COLUMN lunch_label TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
+
+  // 兼容已有数据库：尝试添加 lunch_longterm 列（长期请假标记）
+  try { db.exec("ALTER TABLE students ADD COLUMN lunch_longterm INTEGER DEFAULT 0") } catch (_) { /* 列已存在 */ }
 
   // 兼容已有数据库：尝试添加 group_id 列到 coin_groups
   try { db.exec("ALTER TABLE coin_groups ADD COLUMN group_id TEXT") } catch (_) { /* 列已存在 */ }

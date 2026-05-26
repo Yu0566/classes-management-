@@ -3,15 +3,17 @@ import { queryAll, executeRun, executeTransaction } from './db'
 import { upsertDailyStatus } from './daily-status'
 import type { LunchRestRecord } from '@/types'
 
-export type LunchRestStatus = 'normal' | 'violation' | 'absent'
+export type LunchRestStatus = 'unsigned' | 'signed' | 'leave'
 
-export const LUNCH_REST_STATUS: Record<LunchRestStatus, { label: string; color: string; score: number }> = {
-  normal: { label: '正常', color: 'bg-green-100 text-green-700', score: 0 },
-  violation: { label: '违纪', color: 'bg-red-100 text-red-700', score: -1 },
-  absent: { label: '缺席', color: 'bg-gray-100 text-gray-500', score: -1 },
+export const LUNCH_REST_STATUS: Record<LunchRestStatus, { label: string; color: string }> = {
+  unsigned: { label: '未设置', color: 'bg-gray-100 text-gray-500' },
+  signed: { label: '签到', color: 'bg-green-100 text-green-700' },
+  leave: { label: '请假', color: 'bg-yellow-100 text-yellow-700' },
 }
 
-export const LUNCH_REST_CYCLE: LunchRestStatus[] = ['normal', 'violation', 'absent']
+export const LUNCH_REST_CYCLE: LunchRestStatus[] = ['unsigned', 'signed', 'leave']
+
+export const LUNCH_LABEL_NAME = '在校就餐'
 
 export async function upsertLunchRest(
   studentId: string, date: string, status: LunchRestStatus, remark: string = ''
@@ -53,15 +55,34 @@ export async function batchSetLunchRest(
 }
 
 export async function getLunchRestWithStudents(date: string): Promise<{
-  studentId: string; studentName: string; groupName: string; status: string; remark: string
+  studentId: string; studentName: string; groupName: string; status: string; remark: string; longterm: boolean
 }[]> {
-  return queryAll(
+  const rows = await queryAll<{
+    studentId: string; studentName: string; groupName: string
+    status: string; remark: string; longterm: number
+  }>(
     `SELECT s.id as studentId, s.name as studentName, COALESCE(g.name, '') as groupName,
-            COALESCE(lr.status, 'normal') as status, COALESCE(lr.remark, '') as remark
+            COALESCE(lr.status, 'unsigned') as status, COALESCE(lr.remark, '') as remark,
+            s.lunch_longterm as longterm
      FROM students s
      LEFT JOIN groups g ON g.id = s.group_id
      LEFT JOIN lunch_rest_records lr ON lr.student_id = s.id AND lr.date = ?
+     WHERE s.lunch_label != ''
      ORDER BY g.sort_order, s.sort_order, s.name`,
     [date]
+  )
+  return rows.map(r => ({ ...r, longterm: r.longterm === 1 }))
+}
+
+// 切换长期请假状态
+export async function toggleLongtermLeave(studentId: string): Promise<void> {
+  const rows = await queryAll<{ lunch_longterm: number }>(
+    'SELECT lunch_longterm FROM students WHERE id = ?', [studentId]
+  )
+  if (rows.length === 0) return
+  const newVal = rows[0].lunch_longterm === 1 ? 0 : 1
+  await executeRun(
+    'UPDATE students SET lunch_longterm = ?, updated_at = ? WHERE id = ?',
+    [newVal, Date.now(), studentId]
   )
 }

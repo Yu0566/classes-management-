@@ -20,6 +20,8 @@ export interface Student {
   group_id: string
   manual_offset: number
   practice_label: string
+  lunch_label: string
+  lunch_longterm: number
   sort_order: number
   created_at: number
   updated_at: number
@@ -38,7 +40,7 @@ export interface DailyStatus {
   daily_practice: 'signed' | 'unsigned' | 'not_applicable'
   attendance: 'signed' | 'unsigned' | 'late' | 'leave'
   homework: 'complete' | 'incomplete' | 'not_submitted'
-  lunch_rest: 'normal' | 'violation' | 'absent'
+  lunch_rest: 'unsigned' | 'signed' | 'leave'
   created_at: number
   updated_at: number
 }
@@ -198,6 +200,12 @@ export interface PracticeScoreAward {
   label: string
   score_delta: number
   created_at: number
+}
+
+// 积分扣分项开关
+export interface ScoreCategorySetting {
+  category: string
+  enabled: number
 }
 
 export const PRACTICE_LABEL_MAP: Record<string, string> = {

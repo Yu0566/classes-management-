@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { queryAll, queryOne, executeRun, executeTransaction } from './db'
+import { upsertDailyStatus } from './daily-status'
 import type { AttendanceWindowRecord } from '@/types'
 
 export async function getWindowRecords(windowId: string): Promise<AttendanceWindowRecord[]> {
@@ -37,6 +38,14 @@ export async function upsertWindowRecord(
       [uuid(), windowId, studentId, status, now]
     )
   }
+
+  // 同步到 daily_statuses 供积分系统使用
+  const win = await queryOne<{ date: string }>(
+    'SELECT date FROM attendance_windows WHERE id = ?', [windowId]
+  )
+  if (win) {
+    await upsertDailyStatus(studentId, win.date, 'attendance', status)
+  }
 }
 
 export async function initWindowRecords(
@@ -57,5 +66,17 @@ export async function initWindowRecords(
   }
   if (ops.length > 0) {
     await executeTransaction(ops)
+  }
+
+  // 同步初始状态到 daily_statuses
+  const win = await queryOne<{ date: string }>(
+    'SELECT date FROM attendance_windows WHERE id = ?', [windowId]
+  )
+  if (win) {
+    for (const sid of studentIds) {
+      if (!existingIds.has(sid)) {
+        await upsertDailyStatus(sid, win.date, 'attendance', 'unsigned')
+      }
+    }
   }
 }

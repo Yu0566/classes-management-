@@ -190,7 +190,7 @@ export default function DailyPracticePage() {
         </div>
 
         {/* 学生列表 */}
-        <div className="divide-y divide-gray-50 max-h-[500px] overflow-auto">
+        <div className="divide-y divide-gray-50">
           {students.map(s => {
             const signed = s.sign_in_order !== null
             const group = groupMap.get(s.group_id)

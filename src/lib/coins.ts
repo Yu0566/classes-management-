@@ -75,12 +75,41 @@ export async function deleteCoinGroup(id: string): Promise<void> {
 }
 
 export async function adjustCoins(
-  groupId: string, delta: number, reason: string
+  groupId: string, delta: number, reason: string, target = 15
 ): Promise<void> {
   const group = await getCoinGroup(groupId)
   if (!group) throw new Error('小组不存在')
-  const newCoins = Math.max(0, group.coins + delta)
+  const oldCoins = group.coins
+  const newCoins = Math.max(0, oldCoins + delta)
   const now = Date.now()
+
+  // 计算宝龙币对总积分的贡献：(coins - target) × 3，加分上限12，扣分不设限
+  const calcContribution = (coins: number) => {
+    const raw = (coins - target) * 3
+    return raw > 0 ? Math.min(raw, 12) : raw
+  }
+  const scoreDelta = calcContribution(newCoins) - calcContribution(oldCoins)
+
+  // 查找关联的班级小组，同步更新总积分
+  let scoreOps: { sql: string; params: unknown[] }[] = []
+  if (scoreDelta !== 0 && group.group_id) {
+    const { getGroup } = await import('./groups')
+    const classGroup = await getGroup(group.group_id)
+    if (classGroup) {
+      const newTotalScore = Math.max(-10000, Math.min(10000, classGroup.total_score + scoreDelta))
+      scoreOps = [
+        {
+          sql: 'UPDATE groups SET total_score = ?, updated_at = ? WHERE id = ?',
+          params: [newTotalScore, now, group.group_id],
+        },
+        {
+          sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at)
+                VALUES (?, ?, ?, ?, ?)`,
+          params: [uuid(), group.group_id, scoreDelta, `宝龙币${reason}`, now],
+        },
+      ]
+    }
+  }
 
   await executeTransaction([
     {
@@ -92,7 +121,48 @@ export async function adjustCoins(
             VALUES (?, ?, ?, ?, ?)`,
       params: [uuid(), groupId, delta, reason, now],
     },
+    ...scoreOps,
   ])
+}
+
+// 当目标数量变更时，全部小组按新旧公式差额更新积分
+export async function recalculateAllCoinScores(oldTarget: number, newTarget: number): Promise<void> {
+  if (oldTarget === newTarget) return
+  const coinGroups = await getAllCoinGroups()
+  const { getAllGroups } = await import('./groups')
+  const classGroups = await getAllGroups()
+  const now = Date.now()
+
+  const calc = (coins: number, target: number) => {
+    const raw = (coins - target) * 3
+    return raw > 0 ? Math.min(raw, 12) : raw
+  }
+
+  const ops: { sql: string; params: unknown[] }[] = []
+  for (const cg of coinGroups) {
+    const classGroup = classGroups.find(g => g.id === cg.group_id)
+    if (!classGroup) continue
+
+    const oldContribution = calc(cg.coins, oldTarget)
+    const newContribution = calc(cg.coins, newTarget)
+    const delta = newContribution - oldContribution
+    if (delta === 0) continue
+
+    const newTotalScore = Math.max(-10000, Math.min(10000, classGroup.total_score + delta))
+    ops.push({
+      sql: 'UPDATE groups SET total_score = ?, updated_at = ? WHERE id = ?',
+      params: [newTotalScore, now, classGroup.id],
+    })
+    ops.push({
+      sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at)
+            VALUES (?, ?, ?, ?, ?)`,
+      params: [uuid(), classGroup.id, delta, `宝龙币目标调整为${newTarget}`, now],
+    })
+  }
+
+  if (ops.length > 0) {
+    await executeTransaction(ops)
+  }
 }
 
 export async function getCoinHistory(groupId: string): Promise<CoinHistory[]> {

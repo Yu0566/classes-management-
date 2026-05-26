@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { queryAll, queryOne, executeRun } from './db'
-import type { Student, StudentWithGroup } from '@/types'
+import type { Student, StudentWithGroup, ManualAdjustRecord } from '@/types'
 
 // 获取所有学生
 export async function getAllStudents(): Promise<StudentWithGroup[]> {
@@ -61,17 +61,66 @@ export async function batchCreateStudents(
 export async function updateStudent(id: string, data: {
   name?: string
   sort_order?: number
+  manual_offset?: number
   practice_label?: string
+  lunch_label?: string
+  lunch_longterm?: number
 }): Promise<void> {
   const sets: string[] = []
   const params: unknown[] = []
   if (data.name !== undefined) { sets.push('name = ?'); params.push(data.name) }
   if (data.sort_order !== undefined) { sets.push('sort_order = ?'); params.push(data.sort_order) }
+  if (data.manual_offset !== undefined) { sets.push('manual_offset = ?'); params.push(data.manual_offset) }
   if (data.practice_label !== undefined) { sets.push('practice_label = ?'); params.push(data.practice_label) }
+  if (data.lunch_label !== undefined) { sets.push('lunch_label = ?'); params.push(data.lunch_label) }
+  if (data.lunch_longterm !== undefined) { sets.push('lunch_longterm = ?'); params.push(data.lunch_longterm) }
   if (sets.length === 0) return
   sets.push('updated_at = ?')
   params.push(Date.now(), id)
   await executeRun(`UPDATE students SET ${sets.join(', ')} WHERE id = ?`, params)
+}
+
+// 批量设置午餐午休标签：根据名单自动匹配学生
+export async function batchSetLunchLabel(names: string[]): Promise<{ matched: string[]; unmatched: string[] }> {
+  const cleanNames = names.map(n => n.trim()).filter(n => n.length > 0)
+  const allStudents = await getAllStudents()
+  const matched: string[] = []
+  const unmatched: string[] = []
+
+  const now = Date.now()
+  for (const name of cleanNames) {
+    const student = allStudents.find(s => s.name === name)
+    if (student) {
+      await executeRun(
+        'UPDATE students SET lunch_label = ?, updated_at = ? WHERE id = ?',
+        ['zaixiao', now, student.id]
+      )
+      matched.push(name)
+    } else {
+      unmatched.push(name)
+    }
+  }
+  return { matched, unmatched }
+}
+
+// 手动调整学生积分（同时更新 student.manual_offset 和插入 manual_adjust_records）
+export async function adjustStudentScore(
+  studentId: string,
+  studentName: string,
+  delta: number,
+  reason: string
+): Promise<void> {
+  const student = await getStudent(studentId)
+  if (!student) throw new Error('学生不存在')
+  const newOffset = (student.manual_offset || 0) + delta
+  await updateStudent(studentId, { manual_offset: newOffset })
+  const id = uuid()
+  const now = Date.now()
+  await executeRun(
+    `INSERT INTO manual_adjust_records (id, student_id, student_name, delta, reason, timestamp)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, studentId, studentName, delta, reason, now]
+  )
 }
 
 // 删除学生

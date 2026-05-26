@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Search, MoveRight, Users, Building2, ArrowLeftRight, RefreshCw } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, MoveRight, Users, Building2, ArrowLeftRight, RefreshCw, Upload } from 'lucide-react'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
 import type { StudentWithGroup, Group } from '@/types'
@@ -31,6 +31,8 @@ export default function StudentsPage() {
   const [editStudent, setEditStudent] = useState<StudentWithGroup | null>(null)
   const [editName, setEditName] = useState('')
   const [editPracticeLabel, setEditPracticeLabel] = useState('')
+  const [editLunchLabel, setEditLunchLabel] = useState('')
+  const [editLunchLongterm, setEditLunchLongterm] = useState(false)
 
   // 批量添加
   const [showBatchAdd, setShowBatchAdd] = useState(false)
@@ -53,6 +55,11 @@ export default function StudentsPage() {
   // 换组（交换学生）
   const [swapSource, setSwapSource] = useState<Group | null>(null)
   const [swapTargetId, setSwapTargetId] = useState('')
+
+  // 批量导入午餐午休名单
+  const [showLunchImport, setShowLunchImport] = useState(false)
+  const [lunchImportText, setLunchImportText] = useState('')
+  const [lunchImportResult, setLunchImportResult] = useState<{ matched: string[]; unmatched: string[] } | null>(null)
 
   const loadData = useCallback(async () => {
     const [s, g] = await Promise.all([
@@ -95,13 +102,39 @@ export default function StudentsPage() {
     await loadData()
   }
 
+  // 批量导入午餐午休名单
+  const handleLunchImport = async () => {
+    const names = lunchImportText.split(/[\n,，]+/).filter(n => n.trim())
+    if (names.length === 0) {
+      alert('请粘贴学生姓名')
+      return
+    }
+    try {
+      const result = await studentApi.batchSetLunchLabel(names)
+      setLunchImportResult(result)
+      if (result.matched.length > 0) {
+        await loadData()
+      }
+    } catch (err) {
+      console.error('[handleLunchImport]', err)
+      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   // 编辑学生
   const handleEdit = async () => {
     if (!editStudent || !editName.trim()) return
-    await studentApi.updateStudent(editStudent.id, { name: editName.trim(), practice_label: editPracticeLabel })
+    await studentApi.updateStudent(editStudent.id, {
+      name: editName.trim(),
+      practice_label: editPracticeLabel,
+      lunch_label: editLunchLabel,
+      lunch_longterm: editLunchLongterm ? 1 : 0,
+    })
     setEditStudent(null)
     setEditName('')
     setEditPracticeLabel('')
+    setEditLunchLabel('')
+    setEditLunchLongterm(false)
     await loadData()
   }
 
@@ -113,6 +146,8 @@ export default function StudentsPage() {
       setEditStudent(null)
       setEditName('')
       setEditPracticeLabel('')
+      setEditLunchLabel('')
+      setEditLunchLongterm(false)
     }
     if (moveStudent?.id === student.id) {
       setMoveStudent(null)
@@ -247,6 +282,12 @@ export default function StudentsPage() {
               >
                 <Plus size={18} /> 添加学生
               </button>
+              <button
+                onClick={() => { setShowLunchImport(true); setLunchImportText(''); setLunchImportResult(null) }}
+                className="flex items-center gap-2 px-4 py-2 border border-green-200 text-green-600 rounded-lg hover:bg-green-50"
+              >
+                <Upload size={18} /> 午餐午休导入
+              </button>
             </div>
             {/* 搜索 */}
             <div className="relative w-64">
@@ -269,7 +310,7 @@ export default function StudentsPage() {
                   <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">姓名</th>
                   <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">所属小组</th>
                   <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">每日一练</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">手动偏移</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">午餐午休</th>
                   <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">操作</th>
                 </tr>
               </thead>
@@ -294,9 +335,16 @@ export default function StudentsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={s.manual_offset !== 0 ? 'text-red-500 font-medium' : 'text-gray-400'}>
-                        {s.manual_offset}
-                      </span>
+                      {s.lunch_label ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">在校就餐</span>
+                          {(s as any).lunch_longterm === 1 && (
+                            <span className="text-xs px-1 py-0.5 rounded bg-amber-100 text-amber-700">长期请假</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-300">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -305,6 +353,8 @@ export default function StudentsPage() {
                             setEditStudent(s)
                             setEditName(s.name)
                             setEditPracticeLabel(s.practice_label || '')
+                            setEditLunchLabel(s.lunch_label || '')
+                            setEditLunchLongterm((s as any).lunch_longterm === 1)
                           }}
                           className="p-1.5 text-gray-400 hover:text-primary-500 rounded hover:bg-gray-100"
                         >
@@ -559,9 +609,37 @@ export default function StudentsPage() {
                 <option value="tisheng">提升</option>
               </select>
             </div>
+            <div className="mb-3">
+              <label className="text-sm text-gray-500 block mb-1">午餐午休标签</label>
+              <select
+                value={editLunchLabel}
+                onChange={e => setEditLunchLabel(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+              >
+                <option value="">不参与午餐午休</option>
+                <option value="zaixiao">在校就餐</option>
+              </select>
+            </div>
+            {editLunchLabel === 'zaixiao' && (
+              <div className="mb-3 flex items-center gap-2">
+                <label className="text-sm text-gray-500">长期请假</label>
+                <button
+                  type="button"
+                  onClick={() => setEditLunchLongterm(!editLunchLongterm)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    editLunchLongterm ? 'bg-amber-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    editLunchLongterm ? 'translate-x-4' : 'translate-x-1'
+                  }`} />
+                </button>
+                <span className="text-xs text-gray-400">{editLunchLongterm ? '每天自动请假' : '每日手动考勤'}</span>
+              </div>
+            )}
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel('') }}
+                onClick={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false) }}
                 className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
               >
                 取消
@@ -730,6 +808,59 @@ export default function StudentsPage() {
             <div className="flex gap-2 justify-end">
               <button onClick={() => { setSwapSource(null); setSwapTargetId('') }} className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
               <button onClick={handleSwap} disabled={!swapTargetId} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">确认交换</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 批量导入午餐午休名单弹窗 */}
+      {showLunchImport && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-[480px] shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">批量导入午餐午休名单</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              粘贴学生姓名，每行一个，或用逗号分隔。系统会自动匹配已有学生并设为"在校就餐"。
+            </p>
+            <textarea
+              placeholder={"张三\n李四\n王五"}
+              value={lunchImportText}
+              onChange={e => { setLunchImportText(e.target.value); setLunchImportResult(null) }}
+              className="w-full border rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-400 h-32 resize-none"
+              autoFocus
+            />
+            {lunchImportText.trim() && (
+              <p className="text-xs text-gray-400 mb-3">
+                识别到 {lunchImportText.split(/[\n,，]+/).filter(n => n.trim()).length} 个姓名
+              </p>
+            )}
+
+            {lunchImportResult && (
+              <div className="mb-3 text-xs">
+                {lunchImportResult.matched.length > 0 && (
+                  <p className="text-green-600">已匹配 {lunchImportResult.matched.length} 人：{lunchImportResult.matched.join('、')}</p>
+                )}
+                {lunchImportResult.unmatched.length > 0 && (
+                  <p className="text-red-500 mt-1">未匹配 {lunchImportResult.unmatched.length} 人：{lunchImportResult.unmatched.join('、')}</p>
+                )}
+                {lunchImportResult.unmatched.length === 0 && lunchImportResult.matched.length > 0 && (
+                  <p className="text-green-600 mt-1">全部匹配成功！</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setShowLunchImport(false); setLunchImportText(''); setLunchImportResult(null) }}
+                className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50 text-sm"
+              >
+                关闭
+              </button>
+              <button
+                onClick={handleLunchImport}
+                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm"
+              >
+                确认导入
+              </button>
             </div>
           </div>
         </div>

@@ -2,6 +2,14 @@ import { v4 as uuid } from 'uuid'
 import { queryAll, queryOne, executeRun, executeTransaction } from './db'
 import type { DailyStatus } from '@/types'
 
+// 违规扣分规则：哪些状态值触发自动扣分
+const VIOLATION_RULES: Record<string, Record<string, { points: number; reason: string }>> = {
+  daily_practice: { unsigned: { points: -1, reason: '每日一练未签到' } },
+  attendance: { late: { points: -1, reason: '考勤迟到' }, absent: { points: -1, reason: '考勤未签到' } },
+  homework: { incomplete: { points: -1, reason: '作业未交齐' }, not_submitted: { points: -1, reason: '作业未交' } },
+  lunch_rest: {},
+}
+
 // 获取指定日期的所有学生状态
 export async function getDailyStatuses(date: string): Promise<DailyStatus[]> {
   return queryAll<DailyStatus>(
@@ -33,7 +41,7 @@ export async function getStudentStatusRange(
   )
 }
 
-// 更新或插入学生的每日状态
+// 更新或插入学生的每日状态，并自动同步扣分记录
 export async function upsertDailyStatus(
   studentId: string,
   date: string,
@@ -41,6 +49,7 @@ export async function upsertDailyStatus(
   value: string
 ): Promise<void> {
   const existing = await getStudentDailyStatus(studentId, date)
+  const oldValue = existing ? (existing[field] || '') : ''
 
   if (existing) {
     await executeRun(
@@ -54,6 +63,44 @@ export async function upsertDailyStatus(
       `INSERT INTO daily_statuses (id, student_id, date, ${field}, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [id, studentId, date, value, now, now]
+    )
+  }
+
+  // 同步违规扣分记录
+  await syncViolationRecord(studentId, date, field, oldValue, value)
+}
+
+async function syncViolationRecord(
+  studentId: string, date: string, field: string,
+  oldValue: string, newValue: string
+): Promise<void> {
+  const rules = VIOLATION_RULES[field]
+  if (!rules) return
+
+  const oldViolation = rules[oldValue]
+  const newViolation = rules[newValue]
+
+  // 没变化就不处理
+  if (oldValue === newValue) return
+
+  // 删除旧的违规记录
+  if (oldViolation) {
+    await executeRun(
+      'DELETE FROM deduction_records WHERE student_id = ? AND date = ? AND reason = ?',
+      [studentId, date, oldViolation.reason]
+    )
+  }
+
+  // 插入新的违规记录
+  if (newViolation) {
+    const student = await queryOne<{ name: string }>(
+      'SELECT name FROM students WHERE id = ?', [studentId]
+    )
+    const studentName = student?.name || studentId
+    await executeRun(
+      `INSERT INTO deduction_records (id, student_id, student_name, points, reason, date, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [uuid(), studentId, studentName, Math.abs(newViolation.points), newViolation.reason, date, Date.now()]
     )
   }
 }
@@ -98,7 +145,7 @@ export const STATUS_CYCLES: Record<StatusField, string[]> = {
   daily_practice: ['unsigned', 'signed', 'not_applicable'],
   attendance: ['signed', 'unsigned', 'late', 'leave'],
   homework: ['not_submitted', 'incomplete', 'complete'],
-  lunch_rest: ['normal', 'violation', 'absent'],
+  lunch_rest: ['unsigned', 'signed', 'leave'],
 }
 
 // 状态显示标签
@@ -113,7 +160,7 @@ export const STATUS_LABELS: Record<StatusField, Record<string, string>> = {
     complete: '已交齐', incomplete: '未交齐', not_submitted: '未交',
   },
   lunch_rest: {
-    normal: '正常', violation: '违纪', absent: '缺席',
+    unsigned: '未设置', signed: '签到', leave: '请假', normal: '正常', violation: '违纪', absent: '缺席',
   },
 }
 
@@ -131,6 +178,7 @@ export const STATUS_COLORS: Record<StatusField, Record<string, string>> = {
     not_submitted: 'bg-red-100 text-red-700',
   },
   lunch_rest: {
+    unsigned: 'bg-gray-100 text-gray-500', signed: 'bg-green-100 text-green-700', leave: 'bg-yellow-100 text-yellow-700',
     normal: 'bg-green-100 text-green-700', violation: 'bg-red-100 text-red-700',
     absent: 'bg-gray-100 text-gray-500',
   },

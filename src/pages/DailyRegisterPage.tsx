@@ -28,6 +28,45 @@ const CARD_COLORS: Record<AttendStatus, { card: string; label: string }> = {
 const DEFAULT_START = '07:10'
 const DEFAULT_END = '07:40'
 
+function parseTime(time: string): [number, number] {
+  const [h, m] = time.split(':').map(Number)
+  return [isNaN(h) ? 0 : h, isNaN(m) ? 0 : m]
+}
+
+function TimeInput({ time, onChange, disabled }: {
+  time: string
+  onChange: (val: string) => void
+  disabled?: boolean
+}) {
+  const [h, m] = parseTime(time)
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  return (
+    <div className="inline-flex items-center gap-0.5 border rounded-lg bg-white px-1 py-1 font-mono text-sm">
+      <input
+        type="number"
+        min={0}
+        max={23}
+        value={h}
+        onChange={e => onChange(`${pad(Number(e.target.value) || 0)}:${pad(m)}`)}
+        disabled={disabled}
+        className="w-12 text-center focus:outline-none bg-transparent border-0 p-0"
+      />
+      <span className="text-gray-400">:</span>
+      <input
+        type="number"
+        min={0}
+        max={59}
+        step={5}
+        value={m}
+        onChange={e => onChange(`${pad(h)}:${pad(Number(e.target.value) || 0)}`)}
+        disabled={disabled}
+        className="w-12 text-center focus:outline-none bg-transparent border-0 p-0"
+      />
+    </div>
+  )
+}
+
 export default function DailyRegisterPage() {
   const [date, setDate] = useState(todayStr())
   const [students, setStudents] = useState<StudentWithGroup[]>([])
@@ -291,20 +330,16 @@ export default function DailyRegisterPage() {
                   <span className="text-sm font-medium text-gray-600">
                     {isDefault ? '默认时段' : '时段'}：
                   </span>
-                  <input
-                    type="time"
-                    value={w.window_start || DEFAULT_START}
-                    onChange={e => handleSaveWindow(w.id, e.target.value, w.window_end || DEFAULT_END)}
+                  <TimeInput
+                    time={w.window_start || DEFAULT_START}
+                    onChange={val => handleSaveWindow(w.id, val, w.window_end || DEFAULT_END)}
                     disabled={isActive || isDefault}
-                    className="border rounded-lg px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 bg-white"
                   />
                   <span className="text-gray-400">—</span>
-                  <input
-                    type="time"
-                    value={w.window_end || DEFAULT_END}
-                    onChange={e => handleSaveWindow(w.id, w.window_start || DEFAULT_START, e.target.value)}
+                  <TimeInput
+                    time={w.window_end || DEFAULT_END}
+                    onChange={val => handleSaveWindow(w.id, w.window_start || DEFAULT_START, val)}
                     disabled={isActive || isDefault}
-                    className="border rounded-lg px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50 bg-white"
                   />
                   {w.status === 'idle' || !w.status ? (
                     <button
