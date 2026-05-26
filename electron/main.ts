@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import path from 'path'
 import { initDatabase, getDatabase, closeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc-handlers'
@@ -34,6 +34,9 @@ app.whenReady().then(async () => {
   // 初始化数据库
   const dbPath = path.join(app.getPath('userData'), 'class-management.db')
   await initDatabase(dbPath)
+
+  // 移除默认菜单栏
+  Menu.setApplicationMenu(null)
 
   // 注册 IPC 处理器
   registerIpcHandlers()

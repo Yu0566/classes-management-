@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Calculator, History, TrendingUp, Undo } from 'lucide-react'
+import { Calculator, History, TrendingUp, Undo, Trash2 } from 'lucide-react'
 import * as groupApi from '@/lib/groups'
 import type { Group, GroupScoreHistory } from '@/types'
 
@@ -107,31 +107,32 @@ export default function GroupsPage() {
           <div className="flex gap-2">
             <button
               onClick={handleResetAll}
-              className="flex items-center gap-2 px-4 py-2 text-red-500 border border-red-200 rounded-lg hover:bg-red-50"
-              title="所有小组学习积分清零"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
+              title="所有小组积分清零"
             >
+              <Trash2 size={16} />
               清零
             </button>
             <button
               onClick={handleUndo}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
               title="撤销上一步积分操作"
             >
-              <Undo size={18} />
+              <Undo size={16} />
               撤销
             </button>
             <button
               onClick={handleRankingBonus}
-              className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <Calculator size={18} />
+              <Calculator size={16} />
               一键算分
             </button>
             <button
               onClick={() => setShowHistory(true)}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <History size={18} />
+              <History size={16} />
               操作历史
             </button>
           </div>

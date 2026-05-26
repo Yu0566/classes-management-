@@ -197,3 +197,11 @@ export async function autoAssignDutyStudents(date: string): Promise<{
 
   return { added }
 }
+
+// 测试用：重置值日状态（删除记录和名单，回到idle状态）
+export async function resetDutyRecord(date: string): Promise<void> {
+  const record = await getDutyRecord(date)
+  if (!record) return
+  await executeRun('DELETE FROM duty_students WHERE duty_record_id = ?', [record.id])
+  await executeRun('DELETE FROM duty_records WHERE id = ?', [record.id])
+}

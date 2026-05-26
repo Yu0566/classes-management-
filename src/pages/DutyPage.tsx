@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, Clock, LogIn, AlertTriangle, Check, Lock, Settings } from 'lucide-react'
 import * as dutyApi from '@/lib/duty'
+import { resetDutyRecord } from '@/lib/duty'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
+import { upsertDailyStatus } from '@/lib/daily-status'
 import type { DutyRecord, DutyStudent, StudentWithGroup, Group } from '@/types'
 
 function todayStr(): string {
@@ -27,11 +29,31 @@ export default function DutyPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordError, setPasswordError] = useState(false)
+  const [dutyPassword, setDutyPassword] = useState(() => {
+    return localStorage.getItem('duty_password') || dutyApi.DUTY_PASSWORD
+  })
+  const [showChangePwd, setShowChangePwd] = useState(false)
+  const [oldPwd, setOldPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdError, setPwdError] = useState('')
   const [showSettings, setShowSettings] = useState(false)
-  const [dutyDuration, setDutyDuration] = useState(dutyApi.DUTY_DURATION_MINUTES)
+  const [dutyDuration, setDutyDuration] = useState(() => {
+    const saved = localStorage.getItem('duty_duration')
+    return saved ? parseInt(saved, 10) : dutyApi.DUTY_DURATION_MINUTES
+  })
+  const [testMode, setTestMode] = useState(false)
+  const [testStudentId, setTestStudentId] = useState('')
+  const [testAttendance, setTestAttendance] = useState('signed')
+  const [testHomework, setTestHomework] = useState('complete')
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const signInRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const durationRef = useRef(dutyApi.DUTY_DURATION_MINUTES)
+  const durationRef = useRef(
+    (() => {
+      const saved = localStorage.getItem('duty_duration')
+      return saved ? parseInt(saved, 10) : dutyApi.DUTY_DURATION_MINUTES
+    })()
+  )
 
   const loadData = useCallback(async () => {
     const [record, students, gs] = await Promise.all([
@@ -152,7 +174,7 @@ export default function DutyPage() {
   }
 
   const handleForceEnd = async () => {
-    if (passwordInput !== dutyApi.DUTY_PASSWORD) {
+    if (passwordInput !== dutyPassword) {
       setPasswordError(true)
       return
     }
@@ -162,6 +184,48 @@ export default function DutyPage() {
     if (countdownRef.current) clearInterval(countdownRef.current)
     await dutyApi.forceEndCountdown(date)
     await handleCountdownEnd()
+  }
+
+  // 修改密码
+  const handleChangePassword = () => {
+    setPwdError('')
+    if (!oldPwd) { setPwdError('请输入旧密码'); return }
+    if (oldPwd !== dutyPassword) { setPwdError('旧密码错误'); return }
+    if (!newPwd) { setPwdError('请输入新密码'); return }
+    if (newPwd.length < 3) { setPwdError('新密码至少3位'); return }
+    if (newPwd !== confirmPwd) { setPwdError('两次新密码不一致'); return }
+    localStorage.setItem('duty_password', newPwd)
+    setDutyPassword(newPwd)
+    setOldPwd('')
+    setNewPwd('')
+    setConfirmPwd('')
+    setShowChangePwd(false)
+  }
+
+  // 测试：重置值日状态
+  const handleReset = async () => {
+    if (!window.confirm('重置后当前日期的值日记录将被清除，返回idle状态。确认？')) return
+    await resetDutyRecord(date)
+    setWindowState('idle')
+    setDutyStudents([])
+    setPenalties([])
+    setDutyRecord(null)
+    await loadData()
+  }
+
+  // 测试：快速设置学生状态
+  const handleSetStudentStatus = async () => {
+    if (!testStudentId) return alert('请选择学生')
+    await upsertDailyStatus(testStudentId, date, 'attendance', testAttendance)
+    await upsertDailyStatus(testStudentId, date, 'homework', testHomework)
+    alert('状态已设置，请刷新查看值日名单')
+    await loadData()
+  }
+
+  // 测试：手动关闭签到窗口
+  const handleManualCloseWindow = async () => {
+    if (signInRef.current) clearInterval(signInRef.current)
+    await handleSignInWindowEnd()
   }
 
   // 添加/移除值日学生
@@ -262,13 +326,6 @@ export default function DutyPage() {
           {showSettings && (
             <div className="mt-4 pt-4 border-t space-y-4">
               <div>
-                <label className="block text-sm text-gray-500 mb-1">管理员密码</label>
-                <div className="flex items-center gap-2">
-                  <code className="bg-gray-100 px-3 py-1.5 rounded text-sm font-mono select-all">{dutyApi.DUTY_PASSWORD}</code>
-                  <span className="text-xs text-gray-400">强制结束倒计时时需输入此密码</span>
-                </div>
-              </div>
-              <div>
                 <label className="block text-sm text-gray-500 mb-1">倒计时时长（分钟）</label>
                 <input
                   type="number"
@@ -279,14 +336,153 @@ export default function DutyPage() {
                     const v = Math.max(1, Math.min(120, parseInt(e.target.value) || 1))
                     setDutyDuration(v)
                     durationRef.current = v
+                    localStorage.setItem('duty_duration', String(v))
                   }}
                   className="w-24 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
                 <span className="text-xs text-gray-400 ml-2">范围 1-120 分钟</span>
               </div>
+              <div>
+                <label className="block text-sm text-gray-500 mb-1">管理员密码</label>
+                {showChangePwd ? (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <input
+                      type="password" placeholder="旧密码"
+                      value={oldPwd} onChange={e => setOldPwd(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                    />
+                    <input
+                      type="password" placeholder="新密码（至少3位）"
+                      value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                    />
+                    <input
+                      type="password" placeholder="确认新密码"
+                      value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleChangePassword()}
+                      className="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                    />
+                    {pwdError && <p className="text-xs text-red-500">{pwdError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleChangePassword}
+                        className="px-3 py-1.5 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600"
+                      >
+                        确认修改
+                      </button>
+                      <button
+                        onClick={() => { setShowChangePwd(false); setOldPwd(''); setNewPwd(''); setConfirmPwd(''); setPwdError('') }}
+                        className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-100"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowChangePwd(true)}
+                    className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 text-gray-600"
+                  >
+                    修改密码
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-500">测试模式</label>
+                <button
+                  type="button"
+                  onClick={() => setTestMode(!testMode)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    testMode ? 'bg-orange-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    testMode ? 'translate-x-4' : 'translate-x-1'
+                  }`} />
+                </button>
+                <span className="text-xs text-gray-400">开启后可重置状态、设置学生状态等</span>
+              </div>
             </div>
           )}
         </div>
+
+        {/* 测试模式控制面板 */}
+        {testMode && (
+          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
+            <h3 className="font-semibold text-orange-700 mb-3 flex items-center gap-2">
+              <AlertTriangle size={16} /> 测试模式
+            </h3>
+
+            {/* 重置按钮 */}
+            <div className="mb-3">
+              <button
+                onClick={handleReset}
+                className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              >
+                重置值日状态（回到 idle）
+              </button>
+              <span className="text-xs text-orange-400 ml-2">清除当前日期的所有值日数据</span>
+            </div>
+
+            {/* 手动关闭签到窗口 */}
+            {windowState === 'signing_in' && (
+              <div className="mb-3">
+                <button
+                  onClick={handleManualCloseWindow}
+                  className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  手动关闭签到窗口
+                </button>
+                <span className="text-xs text-orange-400 ml-2">模拟签到窗口超时，执行扣分</span>
+              </div>
+            )}
+
+            {/* 学生状态快速设置 */}
+            <div className="border-t border-orange-200 pt-3">
+              <p className="text-sm font-medium text-orange-700 mb-2">快速设置学生状态（用于测试自动名单）</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={testStudentId}
+                  onChange={e => setTestStudentId(e.target.value)}
+                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
+                >
+                  <option value="">选择学生...</option>
+                  {allStudents.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}（{s.group_name || '-'}）</option>
+                  ))}
+                </select>
+                <select
+                  value={testAttendance}
+                  onChange={e => setTestAttendance(e.target.value)}
+                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
+                >
+                  <option value="signed">考勤：已签到</option>
+                  <option value="unsigned">考勤：未签到</option>
+                  <option value="late">考勤：迟到</option>
+                  <option value="leave">考勤：请假</option>
+                </select>
+                <select
+                  value={testHomework}
+                  onChange={e => setTestHomework(e.target.value)}
+                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
+                >
+                  <option value="complete">作业：交齐</option>
+                  <option value="incomplete">作业：未交齐</option>
+                  <option value="not_submitted">作业：未交</option>
+                </select>
+                <button
+                  onClick={handleSetStudentStatus}
+                  className="px-3 py-1 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                >
+                  设置状态
+                </button>
+              </div>
+              <p className="text-xs text-orange-400 mt-1">
+                设置后会重新加载，自动扫描将根据状态生成值日名单（迟到/作业未交）
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* idle: 值日名单管理 */}
         {windowState === 'idle' && (
@@ -380,24 +576,63 @@ export default function DutyPage() {
 
         {/* 完成状态 */}
         {windowState === 'finished' && (
-          <div className="bg-gray-50 border rounded-xl p-6 mb-4 text-center">
-            <Check size={48} className="mx-auto mb-2 text-green-500" />
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">值日流程已完成</h3>
-            <p className="text-gray-500 text-sm">
-              签到 {signedInCount}/{dutyStudents.length} 人
-            </p>
+          <div className="bg-gray-50 border rounded-xl p-6 mb-4">
+            <div className="text-center mb-4">
+              <Check size={48} className="mx-auto mb-2 text-green-500" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-1">值日流程已完成</h3>
+              <p className="text-gray-500 text-sm">
+                签到 {signedInCount}/{dutyStudents.length} 人
+              </p>
+            </div>
+
+            {dutyStudents.length > 0 && (
+              <div className="grid grid-cols-2 gap-3">
+                {/* 已签到 */}
+                <div className="bg-green-50 rounded-lg p-3">
+                  <p className="text-sm font-medium text-green-700 mb-2">
+                    已签到（{dutyStudents.filter(d => d.sign_in_time).length}人）
+                  </p>
+                  {dutyStudents.filter(d => d.sign_in_time).length === 0 ? (
+                    <p className="text-xs text-green-400">无</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {dutyStudents.filter(d => d.sign_in_time).map(ds => (
+                        <span key={ds.id} className="inline-block text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">
+                          {ds.student_name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* 未签到 */}
+                <div className="bg-red-50 rounded-lg p-3">
+                  <p className="text-sm font-medium text-red-700 mb-2">
+                    未签到（{dutyStudents.filter(d => !d.sign_in_time).length}人）
+                  </p>
+                  {dutyStudents.filter(d => !d.sign_in_time).length === 0 ? (
+                    <p className="text-xs text-red-400">无</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {dutyStudents.filter(d => !d.sign_in_time).map(ds => (
+                        <span key={ds.id} className="inline-block text-xs bg-red-200 text-red-800 px-2 py-0.5 rounded">
+                          {ds.student_name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {penalties.length > 0 && (
-              <div className="mt-4 bg-red-50 rounded-lg p-3 text-left">
+              <div className="mt-3 bg-red-50 rounded-lg p-3 text-left">
                 <p className="text-sm font-medium text-red-700 flex items-center gap-1 mb-2">
-                  <AlertTriangle size={14} /> 自动扣分记录
+                  <AlertTriangle size={14} /> 扣分记录
                 </p>
                 {penalties.map((p, i) => (
                   <p key={i} className="text-sm text-red-600">{p.name}：未签到，扣除 {p.penalty} 分</p>
                 ))}
               </div>
-            )}
-            {penalties.length === 0 && dutyStudents.length > 0 && (
-              <p className="text-green-600 text-sm mt-2">全部已签到，无人被扣分</p>
             )}
           </div>
         )}
@@ -473,7 +708,6 @@ export default function DutyPage() {
               <Lock size={18} /> 强制结束倒计时
             </h3>
             <p className="text-sm text-gray-500 mb-3">请输入管理员密码以强制结束倒计时</p>
-            <p className="text-xs text-gray-400 mb-3">提示：默认密码为 <code className="bg-gray-100 px-1 rounded select-all">{dutyApi.DUTY_PASSWORD}</code></p>
             <input
               type="password"
               value={passwordInput}
