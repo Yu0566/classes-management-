@@ -56,9 +56,10 @@ export default function MainLayout() {
     saveNavOrder(reordered)
   }
 
+  const currentPath = location.hash.replace('#', '') || '/'
   const isActive = (item: typeof defaultNavItems[number]) => {
-    if (item.exact) return location.pathname === item.path
-    return location.pathname.startsWith(item.path)
+    if (item.exact) return currentPath === item.path
+    return currentPath.startsWith(item.path)
   }
 
   return (
@@ -135,7 +136,7 @@ export default function MainLayout() {
           <button
             onClick={() => navigate('/settings')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left ${
-              location.pathname === '/settings'
+              currentPath === '/settings'
                 ? 'bg-primary-100 text-primary-700 font-medium'
                 : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             }`}
