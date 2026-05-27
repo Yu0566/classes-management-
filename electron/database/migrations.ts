@@ -254,6 +254,17 @@ export function runMigrations(db: SqlJsDatabase): void {
       enabled INTEGER NOT NULL DEFAULT 0
     );
 
+    -- 数学作业等级记录（有记录=不合格，删除=合格）
+    CREATE TABLE IF NOT EXISTS math_homework_grades (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      UNIQUE(student_id, date)
+    );
+
     -- 每日一练加分记录（每个组每个标签每天最多+1）
     CREATE TABLE IF NOT EXISTS practice_score_awards (
       id TEXT PRIMARY KEY,
@@ -285,6 +296,7 @@ export function runMigrations(db: SqlJsDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_homework_records_date ON homework_records(date);
     CREATE INDEX IF NOT EXISTS idx_homework_records_student ON homework_records(student_id);
     CREATE INDEX IF NOT EXISTS idx_practice_signins_date_label ON practice_signins(date, label);
+    CREATE INDEX IF NOT EXISTS idx_math_hw_grades_date ON math_homework_grades(date);
     CREATE INDEX IF NOT EXISTS idx_practice_score_awards_date_label ON practice_score_awards(date, label);
   `)
 

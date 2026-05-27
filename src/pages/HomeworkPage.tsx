@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { History, RefreshCw, CheckCheck, Crown } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import * as homeworkApi from '@/lib/homework'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
@@ -219,7 +220,7 @@ export default function HomeworkPage() {
                                 <div className="flex items-center gap-1">
                                   <span>{s.name}</span>
                                   {group?.leader_name === s.name && (
-                                    <Crown size={13} className="text-yellow-500" title="组长" />
+                                    <Crown size={13} className="text-yellow-500" />
                                   )}
                                   <button
                                     onClick={() => resetStudentAllIncomplete(s.id)}
@@ -267,54 +268,44 @@ export default function HomeworkPage() {
       </div>
 
       {/* 未交记录弹窗 */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[640px] max-h-[70vh] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">未交作业记录</h3>
-              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <div className="flex-1 overflow-auto">
-              {historyData.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">太棒了，没有未交作业记录！</p>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">日期</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">姓名</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">小组</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">科目</th>
-                      <th className="text-left px-3 py-2 text-gray-500 font-medium">状态</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {historyData.map(r => {
-                      const cfg = STATUS_MAP[r.status]
-                      return (
-                        <tr key={r.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 text-gray-600">{r.date}</td>
-                          <td className="px-3 py-2 font-medium">{r.student_name}</td>
-                          <td className="px-3 py-2 text-gray-500">{r.group_name || '-'}</td>
-                          <td className="px-3 py-2">{r.subject}</td>
-                          <td className="px-3 py-2">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.color}`}>
-                              {cfg.label}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
-              关闭
-            </button>
-          </div>
-        </div>
-      )}
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="未交作业记录" width="lg">
+        {historyData.length === 0 ? (
+          <p className="text-center text-gray-400 py-8">太棒了，没有未交作业记录！</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-gray-50">
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">日期</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">姓名</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">小组</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">科目</th>
+                <th className="text-left px-3 py-2 text-gray-500 font-medium">状态</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {historyData.map(r => {
+                const cfg = STATUS_MAP[r.status]
+                return (
+                  <tr key={r.id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 text-gray-600">{r.date}</td>
+                    <td className="px-3 py-2 font-medium">{r.student_name}</td>
+                    <td className="px-3 py-2 text-gray-500">{r.group_name || '-'}</td>
+                    <td className="px-3 py-2">{r.subject}</td>
+                    <td className="px-3 py-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.color}`}>
+                        {cfg.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+          关闭
+        </button>
+      </Modal>
     </div>
   )
 }

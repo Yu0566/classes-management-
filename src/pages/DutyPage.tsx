@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, Clock, LogIn, AlertTriangle, Check, Lock, Settings } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import * as dutyApi from '@/lib/duty'
-import { resetDutyRecord } from '@/lib/duty'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
-import { upsertDailyStatus } from '@/lib/daily-status'
 import type { DutyRecord, DutyStudent, StudentWithGroup, Group } from '@/types'
 
 function todayStr(): string {
@@ -42,10 +41,6 @@ export default function DutyPage() {
     const saved = localStorage.getItem('duty_duration')
     return saved ? parseInt(saved, 10) : dutyApi.DUTY_DURATION_MINUTES
   })
-  const [testMode, setTestMode] = useState(false)
-  const [testStudentId, setTestStudentId] = useState('')
-  const [testAttendance, setTestAttendance] = useState('signed')
-  const [testHomework, setTestHomework] = useState('complete')
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const signInRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const durationRef = useRef(
@@ -158,7 +153,7 @@ export default function DutyPage() {
   const handleCountdownEnd = async () => {
     await dutyApi.openSignInWindow(date)
     const record = await dutyApi.getDutyRecord(date)
-    setDutyRecord(record)
+    setDutyRecord(record || null)
     setWindowState('signing_in')
     setSignInRemaining(dutyApi.SIGN_IN_WINDOW_SECONDS)
   }
@@ -200,32 +195,6 @@ export default function DutyPage() {
     setNewPwd('')
     setConfirmPwd('')
     setShowChangePwd(false)
-  }
-
-  // 测试：重置值日状态
-  const handleReset = async () => {
-    if (!window.confirm('重置后当前日期的值日记录将被清除，返回idle状态。确认？')) return
-    await resetDutyRecord(date)
-    setWindowState('idle')
-    setDutyStudents([])
-    setPenalties([])
-    setDutyRecord(null)
-    await loadData()
-  }
-
-  // 测试：快速设置学生状态
-  const handleSetStudentStatus = async () => {
-    if (!testStudentId) return alert('请选择学生')
-    await upsertDailyStatus(testStudentId, date, 'attendance', testAttendance)
-    await upsertDailyStatus(testStudentId, date, 'homework', testHomework)
-    alert('状态已设置，请刷新查看值日名单')
-    await loadData()
-  }
-
-  // 测试：手动关闭签到窗口
-  const handleManualCloseWindow = async () => {
-    if (signInRef.current) clearInterval(signInRef.current)
-    await handleSignInWindowEnd()
   }
 
   // 添加/移除值日学生
@@ -387,102 +356,9 @@ export default function DutyPage() {
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <label className="text-sm text-gray-500">测试模式</label>
-                <button
-                  type="button"
-                  onClick={() => setTestMode(!testMode)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                    testMode ? 'bg-orange-500' : 'bg-gray-300'
-                  }`}
-                >
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                    testMode ? 'translate-x-4' : 'translate-x-1'
-                  }`} />
-                </button>
-                <span className="text-xs text-gray-400">开启后可重置状态、设置学生状态等</span>
-              </div>
             </div>
           )}
         </div>
-
-        {/* 测试模式控制面板 */}
-        {testMode && (
-          <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
-            <h3 className="font-semibold text-orange-700 mb-3 flex items-center gap-2">
-              <AlertTriangle size={16} /> 测试模式
-            </h3>
-
-            {/* 重置按钮 */}
-            <div className="mb-3">
-              <button
-                onClick={handleReset}
-                className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-              >
-                重置值日状态（回到 idle）
-              </button>
-              <span className="text-xs text-orange-400 ml-2">清除当前日期的所有值日数据</span>
-            </div>
-
-            {/* 手动关闭签到窗口 */}
-            {windowState === 'signing_in' && (
-              <div className="mb-3">
-                <button
-                  onClick={handleManualCloseWindow}
-                  className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
-                >
-                  手动关闭签到窗口
-                </button>
-                <span className="text-xs text-orange-400 ml-2">模拟签到窗口超时，执行扣分</span>
-              </div>
-            )}
-
-            {/* 学生状态快速设置 */}
-            <div className="border-t border-orange-200 pt-3">
-              <p className="text-sm font-medium text-orange-700 mb-2">快速设置学生状态（用于测试自动名单）</p>
-              <div className="flex items-center gap-2 flex-wrap">
-                <select
-                  value={testStudentId}
-                  onChange={e => setTestStudentId(e.target.value)}
-                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
-                >
-                  <option value="">选择学生...</option>
-                  {allStudents.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}（{s.group_name || '-'}）</option>
-                  ))}
-                </select>
-                <select
-                  value={testAttendance}
-                  onChange={e => setTestAttendance(e.target.value)}
-                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
-                >
-                  <option value="signed">考勤：已签到</option>
-                  <option value="unsigned">考勤：未签到</option>
-                  <option value="late">考勤：迟到</option>
-                  <option value="leave">考勤：请假</option>
-                </select>
-                <select
-                  value={testHomework}
-                  onChange={e => setTestHomework(e.target.value)}
-                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
-                >
-                  <option value="complete">作业：交齐</option>
-                  <option value="incomplete">作业：未交齐</option>
-                  <option value="not_submitted">作业：未交</option>
-                </select>
-                <button
-                  onClick={handleSetStudentStatus}
-                  className="px-3 py-1 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-                >
-                  设置状态
-                </button>
-              </div>
-              <p className="text-xs text-orange-400 mt-1">
-                设置后会重新加载，自动扫描将根据状态生成值日名单（迟到/作业未交）
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* idle: 值日名单管理 */}
         {windowState === 'idle' && (
@@ -667,76 +543,61 @@ export default function DutyPage() {
       </div>
 
       {/* 学生选择弹窗 */}
-      {showStudentPicker && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-96 max-h-[70vh] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">选择值日学生</h3>
-              <button onClick={() => setShowStudentPicker(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <div className="flex-1 overflow-auto space-y-1">
-              {availableStudents.length === 0 ? (
-                <p className="text-center text-gray-400 py-4">所有学生已添加</p>
-              ) : (
-                availableStudents.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => handleAddStudent(s.id, s.name)}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center justify-between"
-                  >
-                    <span>{s.name}</span>
-                    <span className="text-xs text-gray-400">{(() => { const g = groupMap.get(s.group_id); return g ? `${g.name}${g.leader_name ? `（${g.leader_name}）` : ''}` : (s.group_name || '-'); })()}</span>
-                  </button>
-                ))
-              )}
-            </div>
-            <button
-              onClick={() => setShowStudentPicker(false)}
-              className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
-            >
-              完成
-            </button>
-          </div>
+      <Modal open={showStudentPicker} onClose={() => setShowStudentPicker(false)} title="选择值日学生" width="sm">
+        <div className="space-y-1">
+          {availableStudents.length === 0 ? (
+            <p className="text-center text-gray-400 py-4">所有学生已添加</p>
+          ) : (
+            availableStudents.map(s => (
+              <button
+                key={s.id}
+                onClick={() => handleAddStudent(s.id, s.name)}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center justify-between"
+              >
+                <span>{s.name}</span>
+                <span className="text-xs text-gray-400">{(() => { const g = groupMap.get(s.group_id); return g ? `${g.name}${g.leader_name ? `（${g.leader_name}）` : ''}` : (s.group_name || '-'); })()}</span>
+              </button>
+            ))
+          )}
         </div>
-      )}
+        <button
+          onClick={() => setShowStudentPicker(false)}
+          className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+        >
+          完成
+        </button>
+      </Modal>
 
       {/* 密码弹窗 */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-80 shadow-xl">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Lock size={18} /> 强制结束倒计时
-            </h3>
-            <p className="text-sm text-gray-500 mb-3">请输入管理员密码以强制结束倒计时</p>
-            <input
-              type="password"
-              value={passwordInput}
-              onChange={e => { setPasswordInput(e.target.value); setPasswordError(false) }}
-              onKeyDown={e => e.key === 'Enter' && handleForceEnd()}
-              placeholder="输入密码"
-              className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 ${passwordError ? 'border-red-400' : ''}`}
-              autoFocus
-            />
-            {passwordError && (
-              <p className="text-xs text-red-500 mt-1">密码错误，请重试</p>
-            )}
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => { setShowPasswordModal(false); setPasswordInput(''); setPasswordError(false) }}
-                className="flex-1 py-2 text-sm border rounded-lg hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleForceEnd}
-                className="flex-1 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
-              >
-                确认结束
-              </button>
-            </div>
-          </div>
+      <Modal open={showPasswordModal} onClose={() => { setShowPasswordModal(false); setPasswordInput(''); setPasswordError(false) }} title="强制结束倒计时" width="sm">
+        <p className="text-sm text-gray-500 mb-3">请输入管理员密码以强制结束倒计时</p>
+        <input
+          type="password"
+          value={passwordInput}
+          onChange={e => { setPasswordInput(e.target.value); setPasswordError(false) }}
+          onKeyDown={e => e.key === 'Enter' && handleForceEnd()}
+          placeholder="输入密码"
+          className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 ${passwordError ? 'border-red-400' : ''}`}
+          autoFocus
+        />
+        {passwordError && (
+          <p className="text-xs text-red-500 mt-1">密码错误，请重试</p>
+        )}
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={() => { setShowPasswordModal(false); setPasswordInput(''); setPasswordError(false) }}
+            className="flex-1 py-2 text-sm border rounded-lg hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleForceEnd}
+            className="flex-1 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+          >
+            确认结束
+          </button>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }

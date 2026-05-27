@@ -46,6 +46,9 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "extraResources": [
+      { "from": "seed.json", "to": "seed.json" }
+    ],
     "win": {
       "target": "nsis",
       "icon": null

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Calculator, History, TrendingUp, Undo, Trash2 } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import * as groupApi from '@/lib/groups'
 import type { Group, GroupScoreHistory } from '@/types'
 
@@ -286,46 +287,36 @@ export default function GroupsPage() {
       </div>
 
       {/* 操作历史弹窗 */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[480px] max-h-[70vh] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">操作历史（最近30条）</h3>
-              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600">
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto space-y-2">
-              {history.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">暂无操作记录</p>
-              ) : (
-                history.map(h => (
-                  <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-100 text-sm">
-                    <div>
-                      <span className="font-medium">{h.group_name}</span>
-                      <span className="text-gray-400 ml-2">{h.reason}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`font-bold ${h.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {h.delta >= 0 ? '+' : ''}{h.delta}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(h.created_at).toLocaleString('zh-CN')}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <button
-              onClick={() => { setShowHistory(false); loadHistory() }}
-              className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
-            >
-              关闭
-            </button>
-          </div>
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="操作历史（最近30条）">
+        <div className="space-y-2">
+          {history.length === 0 ? (
+            <p className="text-center text-gray-400 py-8">暂无操作记录</p>
+          ) : (
+            history.map(h => (
+              <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-100 text-sm">
+                <div>
+                  <span className="font-medium">{h.group_name}</span>
+                  <span className="text-gray-400 ml-2">{h.reason}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`font-bold ${h.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {h.delta >= 0 ? '+' : ''}{h.delta}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(h.created_at).toLocaleString('zh-CN')}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      )}
+        <button
+          onClick={() => { setShowHistory(false); loadHistory() }}
+          className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+        >
+          关闭
+        </button>
+      </Modal>
 
     </div>
   )

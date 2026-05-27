@@ -231,3 +231,21 @@ export interface CoinHistory {
   reason: string
   timestamp: number
 }
+
+// 数学作业等级记录
+export interface MathHomeworkGrade {
+  id: string
+  student_id: string
+  date: string
+  reason: string
+  created_at: number
+}
+
+// 数学作业等级（含学生信息）
+export interface MathHomeworkGradeWithStudent extends MathHomeworkGrade {
+  student_name: string
+  group_name: string
+  group_id: string
+  group_color: string
+  group_leader_name: string
+}

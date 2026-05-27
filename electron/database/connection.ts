@@ -2,6 +2,7 @@ import initSqlJs, { Database as SqlJsDatabase } from 'sql.js'
 import fs from 'fs'
 import path from 'path'
 import { runMigrations } from './migrations'
+import { runSeed } from './seed'
 
 let db: SqlJsDatabase | null = null
 let dbPath: string = ''
@@ -33,6 +34,9 @@ export async function initDatabase(_dbPath: string): Promise<void> {
 
   // 运行迁移
   runMigrations(db)
+
+  // 导入种子数据（仅首次）
+  const seeded = runSeed(db)
 
   // 立即持久化
   saveDatabase()

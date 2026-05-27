@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Check, X, History } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import * as groupApi from '@/lib/groups'
 import { getRosterStudents, getSignIns, getScoreAwards, signInStudent, unSignStudent, LABEL_NAMES, type PracticeLabel } from '@/lib/practice-roster'
 import type { StudentWithGroup, Group, PracticeSignIn, PracticeScoreAward } from '@/types'
@@ -200,7 +201,7 @@ export default function DailyPracticePage() {
                   <span className="text-sm font-medium text-gray-800 truncate">{s.name}</span>
                   {group && (
                     <span className={`text-xs px-1.5 py-0.5 rounded-full text-white shrink-0 ${group.color}`}>
-                      {group.name}
+                      {group.name}{group.leader_name ? `（${group.leader_name}）` : ''}
                     </span>
                   )}
                 </div>
@@ -302,86 +303,73 @@ export default function DailyPracticePage() {
       </div>
 
       {/* 历史查询弹窗 */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[640px] max-h-[80vh] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">每日一练历史</h3>
-              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="每日一练历史" width="lg">
+        {/* 日期选择 */}
+        <div className="flex items-center gap-3 mb-4 pb-4 border-b">
+          <button onClick={() => changeHistoryDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
+          <input
+            type="date"
+            value={historyDate}
+            onChange={e => loadHistoryDate(e.target.value)}
+            min={`${new Date().getFullYear() - 3}-01-01`}
+            max={todayStr()}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 flex-1"
+          />
+          <button onClick={() => changeHistoryDate(1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18} /></button>
+          <button
+            onClick={() => loadHistoryDate(todayStr())}
+            className="px-3 py-1 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50"
+          >
+            今天
+          </button>
+        </div>
 
-            {/* 日期选择 */}
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b">
-              <button onClick={() => changeHistoryDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
-              <input
-                type="date"
-                value={historyDate}
-                onChange={e => loadHistoryDate(e.target.value)}
-                min={`${new Date().getFullYear() - 3}-01-01`}
-                max={todayStr()}
-                className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 flex-1"
-              />
-              <button onClick={() => changeHistoryDate(1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18} /></button>
-              <button
-                onClick={() => loadHistoryDate(todayStr())}
-                className="px-3 py-1 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50"
-              >
-                今天
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto">
-              {historyQiangji.filter(s => s.sign_in_order !== null).length === 0 && historyTisheng.filter(s => s.sign_in_order !== null).length === 0 ? (
-                <p className="text-center text-gray-400 py-8">{historyDate} 无签到记录</p>
-              ) : (
-                <div className="space-y-3">
-                  {/* 强基 */}
-                  {historyQiangji.filter(s => s.sign_in_order !== null).length > 0 && (
-                    <div className="border rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">强基</span>
-                        <span className="text-xs text-gray-400">{historyQiangji.filter(s => s.sign_in_order !== null).length}人签到</span>
-                        {historyQAwards.length > 0 && (
-                          <span className="text-xs text-green-600">（{historyQAwards.map(a => a.group_name).join('、')} 各+1分）</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {historyQiangji.filter(s => s.sign_in_order !== null).sort((a, b) => (a.sign_in_order ?? 0) - (b.sign_in_order ?? 0)).map(s => (
-                          <span key={s.id} className="inline-block mr-2 mb-1">
-                            <span className="font-mono text-gray-400">#{s.sign_in_order}</span> {s.name}
-                            <span className="text-gray-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {/* 提升 */}
-                  {historyTisheng.filter(s => s.sign_in_order !== null).length > 0 && (
-                    <div className="border rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-medium">提升</span>
-                        <span className="text-xs text-gray-400">{historyTisheng.filter(s => s.sign_in_order !== null).length}人签到</span>
-                        {historyTAwards.length > 0 && (
-                          <span className="text-xs text-green-600">（{historyTAwards.map(a => a.group_name).join('、')} 各+1分）</span>
-                        )}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {historyTisheng.filter(s => s.sign_in_order !== null).sort((a, b) => (a.sign_in_order ?? 0) - (b.sign_in_order ?? 0)).map(s => (
-                          <span key={s.id} className="inline-block mr-2 mb-1">
-                            <span className="font-mono text-gray-400">#{s.sign_in_order}</span> {s.name}
-                            <span className="text-gray-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+        {historyQiangji.filter(s => s.sign_in_order !== null).length === 0 && historyTisheng.filter(s => s.sign_in_order !== null).length === 0 ? (
+          <p className="text-center text-gray-400 py-8">{historyDate} 无签到记录</p>
+        ) : (
+          <div className="space-y-3">
+            {historyQiangji.filter(s => s.sign_in_order !== null).length > 0 && (
+              <div className="border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">强基</span>
+                  <span className="text-xs text-gray-400">{historyQiangji.filter(s => s.sign_in_order !== null).length}人签到</span>
+                  {historyQAwards.length > 0 && (
+                    <span className="text-xs text-green-600">（{historyQAwards.map(a => a.group_name).join('、')} 各+1分）</span>
                   )}
                 </div>
-              )}
-            </div>
-            <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+                <div className="text-xs text-gray-500">
+                  {historyQiangji.filter(s => s.sign_in_order !== null).sort((a, b) => (a.sign_in_order ?? 0) - (b.sign_in_order ?? 0)).map(s => (
+                    <span key={s.id} className="inline-block mr-2 mb-1">
+                      <span className="font-mono text-gray-400">#{s.sign_in_order}</span> {s.name}
+                      <span className="text-gray-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {historyTisheng.filter(s => s.sign_in_order !== null).length > 0 && (
+              <div className="border rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-medium">提升</span>
+                  <span className="text-xs text-gray-400">{historyTisheng.filter(s => s.sign_in_order !== null).length}人签到</span>
+                  {historyTAwards.length > 0 && (
+                    <span className="text-xs text-green-600">（{historyTAwards.map(a => a.group_name).join('、')} 各+1分）</span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {historyTisheng.filter(s => s.sign_in_order !== null).sort((a, b) => (a.sign_in_order ?? 0) - (b.sign_in_order ?? 0)).map(s => (
+                    <span key={s.id} className="inline-block mr-2 mb-1">
+                      <span className="font-mono text-gray-400">#{s.sign_in_order}</span> {s.name}
+                      <span className="text-gray-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+      </Modal>
     </div>
   )
 }

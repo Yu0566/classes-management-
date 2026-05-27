@@ -137,3 +137,12 @@ export async function deleteStudent(id: string): Promise<void> {
   await executeRun('DELETE FROM practice_score_awards WHERE student_id = ?', [id])
   await executeRun('DELETE FROM students WHERE id = ?', [id])
 }
+
+// 批量删除学生
+export async function batchDeleteStudents(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0
+  for (const id of ids) {
+    await deleteStudent(id)
+  }
+  return ids.length
+}

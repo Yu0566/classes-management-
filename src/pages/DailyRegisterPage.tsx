@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Play, Square, Clock, Plus, Trash2, History, X } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
 import * as winApi from '@/lib/attendance-session'
@@ -228,7 +229,7 @@ export default function DailyRegisterPage() {
       const next = new Map(prev)
       const recs = [...(next.get(displayWin.id) || [])]
       const idx = recs.findIndex(r => r.student_id === studentId)
-      if (idx >= 0) recs[idx] = { ...recs[idx], status: value as const }
+      if (idx >= 0) recs[idx] = { ...recs[idx], status: value as 'signed' | 'unsigned' | 'late' | 'leave' }
       else recs.push({ id: '', window_id: displayWin.id, student_id: studentId, status: value, updated_at: Date.now() })
       next.set(displayWin.id, recs)
       return next
@@ -479,42 +480,32 @@ export default function DailyRegisterPage() {
       </div>
 
       {/* 历史查询弹窗 */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[520px] max-h-[70vh] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">考勤历史</h3>
-              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-            </div>
-            <div className="flex-1 overflow-auto">
-              {historyData.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">暂无迟到或请假记录</p>
-              ) : (
-                <div className="space-y-3">
-                  {historyData.map(d => (
-                    <div key={d.date} className="border rounded-lg p-3">
-                      <div className="text-sm font-semibold text-gray-700 mb-2">{d.date}</div>
-                      {d.late.length > 0 && (
-                        <div className="flex items-start gap-2 text-xs mb-1">
-                          <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-medium shrink-0">迟到</span>
-                          <span className="text-gray-600">{d.late.join('、')}</span>
-                        </div>
-                      )}
-                      {d.leave.length > 0 && (
-                        <div className="flex items-start gap-2 text-xs">
-                          <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-medium shrink-0">请假</span>
-                          <span className="text-gray-600">{d.leave.join('、')}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+      <Modal open={showHistory} onClose={() => setShowHistory(false)} title="考勤历史">
+        {historyData.length === 0 ? (
+          <p className="text-center text-gray-400 py-8">暂无迟到或请假记录</p>
+        ) : (
+          <div className="space-y-3">
+            {historyData.map(d => (
+              <div key={d.date} className="border rounded-lg p-3">
+                <div className="text-sm font-semibold text-gray-700 mb-2">{d.date}</div>
+                {d.late.length > 0 && (
+                  <div className="flex items-start gap-2 text-xs mb-1">
+                    <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-medium shrink-0">迟到</span>
+                    <span className="text-gray-600">{d.late.join('、')}</span>
+                  </div>
+                )}
+                {d.leave.length > 0 && (
+                  <div className="flex items-start gap-2 text-xs">
+                    <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-medium shrink-0">请假</span>
+                    <span className="text-gray-600">{d.leave.join('、')}</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+      </Modal>
     </div>
   )
 }

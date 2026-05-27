@@ -119,7 +119,7 @@ export default function StudentScoresPage() {
             <button
               onClick={() => setTab('scores')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === 'scores' ? 'bg-primary-500 text-white' : 'border text-gray-600 hover:bg-gray-50'
+                tab === 'scores' ? 'bg-primary-500 text-white' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
               }`}
             >
               积分一览
@@ -127,14 +127,14 @@ export default function StudentScoresPage() {
             <button
               onClick={() => setTab('deductions')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === 'deductions' ? 'bg-primary-500 text-white' : 'border text-gray-600 hover:bg-gray-50'
+                tab === 'deductions' ? 'bg-primary-500 text-white' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
               }`}
             >
               扣分记录
             </button>
             <button
               onClick={handleReset}
-              className="px-3 py-2 rounded-lg text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
             >
               积分清零
             </button>

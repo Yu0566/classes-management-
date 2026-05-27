@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { History, Coins, Calculator } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import * as coinsApi from '@/lib/coins'
 import * as groupApi from '@/lib/groups'
 import type { CoinGroup, CoinHistory } from '@/types'
@@ -29,7 +30,13 @@ export default function CoinsPage() {
   useEffect(() => { loadData() }, [loadData])
 
   const handleAdjust = async (groupId: string, delta: number) => {
-    await coinsApi.adjustCoins(groupId, delta, '快捷操作', target)
+    await coinsApi.adjustCoins(groupId, delta, '快捷操作')
+    await loadData()
+  }
+
+  const handleSettle = async () => {
+    if (!window.confirm(`确认结算？\n将对各组宝龙币按公式（币数 - ${target}）× 3 计算积分（加分上限12），计入总分后全部归零。`)) return
+    await coinsApi.settleCoins(target)
     await loadData()
   }
 
@@ -42,7 +49,7 @@ export default function CoinsPage() {
     if (isNaN(val) || val < 0) { setEditingCoin(null); return }
     const group = groups.find(g => g.id === editingCoin)
     if (!group) return
-    await coinsApi.adjustCoins(editingCoin, val - group.coins, '手动编辑', target)
+    await coinsApi.adjustCoins(editingCoin, val - group.coins, '手动编辑')
     setEditingCoin(null)
     await loadData()
   }
@@ -89,17 +96,21 @@ export default function CoinsPage() {
                 onChange={e => {
                   const newTarget = Number(e.target.value)
                   if (isNaN(newTarget) || newTarget < 0) return
-                  const oldTarget = target
                   setTarget(newTarget)
-                  coinsApi.recalculateAllCoinScores(oldTarget, newTarget).then(() => loadData())
                 }}
                 className="w-20 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               />
             </div>
           </div>
           <p className="text-xs text-gray-400 mt-2">
-            公式：(宝龙币数 - {target}) × 3 计入总积分 · 加分上限12分 · 扣分不设限（每次调整宝龙币实时生效）
+            公式：(宝龙币数 - {target}) × 3 计入总积分 · 加分上限12分 · 扣分不设限 · 点击"结算"后计入总分并归零
           </p>
+          <button
+            onClick={handleSettle}
+            className="mt-3 w-full py-2 bg-yellow-500 text-white font-medium rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <Calculator size={18} /> 结算（计入总分并归零）
+          </button>
 
           {/* 结算预览 */}
           {groups.length > 0 && (
@@ -204,40 +215,32 @@ export default function CoinsPage() {
       </div>
 
       {/* 历史弹窗 */}
-      {showHistory && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-[480px] max-h-[70vh] shadow-xl flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
-                {(() => { const cg = groups.find(g => g.id === showHistory); return cg ? displayName(cg) : ''; })()} — 变动记录
-              </h3>
-              <button onClick={() => setShowHistory(null)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <div className="flex-1 overflow-auto space-y-2">
-              {history.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">暂无变动记录</p>
-              ) : (
-                history.map(h => (
-                  <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-100 text-sm">
-                    <div>
-                      <span className="text-gray-600">{h.reason || '无原因'}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`font-bold ${h.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {h.delta >= 0 ? '+' : ''}{h.delta}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {new Date(h.timestamp).toLocaleString('zh-CN')}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <button onClick={() => setShowHistory(null)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
-          </div>
+      <Modal
+        open={showHistory !== null}
+        onClose={() => setShowHistory(null)}
+        title={`${(() => { const cg = groups.find(g => g.id === showHistory); return cg ? displayName(cg) : ''; })()} — 变动记录`}
+      >
+        <div className="space-y-2">
+          {history.length === 0 ? (
+            <p className="text-center text-gray-400 py-8">暂无变动记录</p>
+          ) : (
+            history.map(h => (
+              <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-100 text-sm">
+                <span className="text-gray-600">{h.reason || '无原因'}</span>
+                <div className="flex items-center gap-3">
+                  <span className={`font-bold ${h.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {h.delta >= 0 ? '+' : ''}{h.delta}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(h.timestamp).toLocaleString('zh-CN')}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      )}
+        <button onClick={() => setShowHistory(null)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+      </Modal>
     </div>
   )
 }
