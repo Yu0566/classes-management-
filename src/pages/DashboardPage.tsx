@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { motion } from 'framer-motion'
 import {
   Users, Coins, Medal, AlertTriangle, CheckCircle, Calculator
 } from 'lucide-react'
@@ -28,8 +29,22 @@ function formatDate(date: string): string {
 }
 
 const GlowDot = ({ color }: { color: string }) => (
-  <span className={`inline-block w-2 h-2 rounded-full ${color} shadow-[0_0_6px] shadow-current opacity-80`} />
+  <motion.span
+    className={`inline-block w-2 h-2 rounded-full ${color} shadow-[0_0_6px] shadow-current`}
+    animate={{ opacity: [0.5, 1, 0.5] }}
+    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+  />
 )
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
+}
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+}
 
 export default function DashboardPage() {
   const [groups, setGroups] = useState<Group[]>([])
@@ -171,10 +186,13 @@ export default function DashboardPage() {
 
   return (
     <div className="h-full overflow-auto bg-slate-50">
-      <div className="p-5 max-w-6xl mx-auto space-y-4">
+      <motion.div className="p-5 max-w-6xl mx-auto space-y-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible">
 
         {/* ===== 顶部状态条 ===== */}
-        <div className="flex items-center justify-between">
+        <motion.div variants={cardVariants} className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 rounded-full bg-gradient-to-b from-indigo-400 to-indigo-600" />
             <h1 className="text-lg font-bold text-slate-700 tracking-wide">班级看板</h1>
@@ -196,10 +214,10 @@ export default function DashboardPage() {
             </div>
             <span className="text-xs text-slate-400 font-mono tabular-nums">{dateLabel}</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* ===== 考勤数据流（横向） ===== */}
-        <div className={`relative overflow-hidden rounded-2xl border backdrop-blur-sm ${
+        <motion.div variants={cardVariants} className={`relative overflow-hidden rounded-2xl border backdrop-blur-sm ${
           hasAttendanceIssues ? 'bg-red-50/60 border-red-200' : 'bg-emerald-50/60 border-emerald-200'
         }`}>
           {/* 顶部渐变线 */}
@@ -276,13 +294,13 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* ===== 中间双栏 ===== */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
           {/* ---- 左栏：TOP3 + 三个状态卡片 ---- */}
-          <div className="lg:col-span-2 flex flex-col gap-4 h-full">
+          <motion.div variants={cardVariants} className="lg:col-span-2 flex flex-col gap-4 h-full">
 
             {/* 前三小组 横条排名 */}
             <div className="bg-white/70 backdrop-blur rounded-2xl border border-slate-200 overflow-hidden">
@@ -428,10 +446,10 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* ---- 右栏 ---- */}
-          <div className="flex flex-col gap-4 h-full">
+          <motion.div variants={cardVariants} className="flex flex-col gap-4 h-full">
 
             {/* 数学作业等级 */}
             <div className="relative bg-white/70 backdrop-blur rounded-2xl border border-slate-200 overflow-hidden">
@@ -543,10 +561,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-          </div>
+          </motion.div>
         </div>
 
-      </div>
+      </motion.div>
     </div>
   )
 }
