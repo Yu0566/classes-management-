@@ -51,7 +51,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": null
+      "icon": null,
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": "dmg"
