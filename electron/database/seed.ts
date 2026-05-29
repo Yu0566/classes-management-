@@ -36,6 +36,15 @@ function getSeedPath(): string | null {
   return null
 }
 
+function exists(db: SqlJsDatabase, table: string, column: string, value: string): boolean {
+  const stmt = db.prepare(`SELECT COUNT(*) as cnt FROM ${table} WHERE ${column} = ?`)
+  stmt.bind([value])
+  const hasRow = stmt.step()
+  const cnt = hasRow ? (stmt.getAsObject().cnt as number) : 0
+  stmt.free()
+  return cnt > 0
+}
+
 export function runSeed(db: SqlJsDatabase): boolean {
   const seedPath = getSeedPath()
   if (!seedPath) {
@@ -51,35 +60,35 @@ export function runSeed(db: SqlJsDatabase): boolean {
     return false
   }
 
-  const existing = db.exec("SELECT COUNT(*) as cnt FROM students")
-  if (existing.length > 0 && existing[0].values[0][0] as number > 0) {
-    console.log('数据库已有学生数据，跳过种子导入')
-    return false
-  }
-
   const now = Date.now()
-  let imported = 0
+  let importedGroups = 0
+  let importedStudents = 0
 
+  // 增量导入小组：按名称检查，缺失则插入
   for (const g of seed.groups) {
+    if (exists(db, 'groups', 'name', g.name)) continue
+
     const id = randomUUID()
     db.run(
       `INSERT INTO groups (id, name, color, leader_name, sort_order, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, g.name, g.color, g.leader_name, g.sort_order || 0, now, now]
     )
+    importedGroups++
   }
 
+  // 增量导入学生：按姓名检查，缺失则插入
   for (const s of seed.students) {
-    const groupRow = seed.groups.find(g => g.name === s.group_name)
-    if (!groupRow) {
+    if (exists(db, 'students', 'name', s.name)) continue
+
+    const gStmt = db.prepare('SELECT id FROM groups WHERE name = ?')
+    gStmt.bind([s.group_name])
+    const groupId = gStmt.step() ? (gStmt.getAsObject().id as string) : null
+    gStmt.free()
+    if (!groupId) {
       console.warn(`学生 "${s.name}" 的小组 "${s.group_name}" 不存在，跳过`)
       continue
     }
-    const stmt = db.prepare("SELECT id FROM groups WHERE name = ?")
-    stmt.bind([s.group_name])
-    const groupId = stmt.step() ? stmt.getAsObject().id as string : null
-    stmt.free()
-    if (!groupId) continue
 
     const studentId = randomUUID()
     db.run(
@@ -87,9 +96,13 @@ export function runSeed(db: SqlJsDatabase): boolean {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [studentId, s.name, groupId, s.practice_label || '', s.lunch_label || '', s.lunch_longterm ? 1 : 0, now, now]
     )
-    imported++
+    importedStudents++
   }
 
-  console.log(`种子数据导入完成：${seed.groups.length} 个小组，${imported} 名学生`)
+  if (importedGroups > 0 || importedStudents > 0) {
+    console.log(`种子数据补充完成：${importedGroups} 个小组，${importedStudents} 名学生`)
+  } else {
+    console.log('种子数据已是最新，无需补充')
+  }
   return true
 }
