@@ -315,5 +315,8 @@ export function runMigrations(db: SqlJsDatabase): void {
   // 兼容已有数据库：尝试添加 group_id 列到 coin_groups
   try { db.exec("ALTER TABLE coin_groups ADD COLUMN group_id TEXT") } catch (_) { /* 列已存在 */ }
 
+  // 兼容已有数据库：尝试添加 seat_order 列（座位编排）
+  try { db.exec("ALTER TABLE students ADD COLUMN seat_order INTEGER DEFAULT -1") } catch (_) { /* 列已存在 */ }
+
   console.log('数据库迁移完成')
 }

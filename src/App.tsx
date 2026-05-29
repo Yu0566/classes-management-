@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import CoinsPage from './pages/CoinsPage'
 import MathHomeworkPage from './pages/MathHomeworkPage'
+import SeatingPage from './pages/SeatingPage'
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
         <Route path="daily-practice" element={<DailyPracticePage />} />
         <Route path="coins" element={<CoinsPage />} />
         <Route path="math-homework" element={<MathHomeworkPage />} />
+        <Route path="seating" element={<SeatingPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

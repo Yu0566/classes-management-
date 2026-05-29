@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Star, Users,
   ClipboardCheck, CalendarCheck, Utensils, Pencil, Coins,
-  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, GripVertical, Calculator
+  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, GripVertical, Calculator, Armchair
 } from 'lucide-react'
 
 const STORAGE_KEY = 'nav-item-order'
@@ -22,6 +22,7 @@ const defaultNavItems = [
   { path: '/daily-practice', label: '每日一练', icon: Pencil },
   { path: '/coins', label: '宝龙币', icon: Coins },
   { path: '/math-homework', label: '数学作业等级', icon: Calculator },
+  { path: '/seating', label: '座位编排', icon: Armchair },
 ]
 
 function loadNavOrder() {
