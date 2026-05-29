@@ -36,15 +36,6 @@ function getSeedPath(): string | null {
   return null
 }
 
-function exists(db: SqlJsDatabase, table: string, column: string, value: string): boolean {
-  const stmt = db.prepare(`SELECT COUNT(*) as cnt FROM ${table} WHERE ${column} = ?`)
-  stmt.bind([value])
-  const hasRow = stmt.step()
-  const cnt = hasRow ? (stmt.getAsObject().cnt as number) : 0
-  stmt.free()
-  return cnt > 0
-}
-
 export function runSeed(db: SqlJsDatabase): boolean {
   const seedPath = getSeedPath()
   if (!seedPath) {
@@ -60,7 +51,7 @@ export function runSeed(db: SqlJsDatabase): boolean {
     return false
   }
 
-  // 检查数据库是否完整：小组数 >= seed 中的小组数则认为数据完整，跳过
+  // 检查数据库小组数是否与 seed 一致
   const groupResult = db.exec('SELECT COUNT(*) as cnt FROM groups')
   const dbGroupCount = (groupResult.length > 0 ? groupResult[0].values[0][0] : 0) as number
   if (dbGroupCount >= seed.groups.length) {
@@ -68,28 +59,48 @@ export function runSeed(db: SqlJsDatabase): boolean {
     return false
   }
 
-  console.log(`数据库不完整（${dbGroupCount}/${seed.groups.length}组），补充缺失数据...`)
+  console.log(`数据库不完整（${dbGroupCount}/${seed.groups.length}组），清空旧数据并重新导入...`)
+
+  // 先删子表（引用 students/groups 的表），再删主表
+  const childTables = [
+    'practice_score_awards',
+    'practice_signins',
+    'math_homework_grades',
+    'homework_records',
+    'homework_submissions',
+    'daily_practice_records',
+    'lunch_rest_records',
+    'attendance_records',
+    'attendance_window_records',
+    'duty_students',
+    'daily_statuses',
+    'deduction_records',
+    'manual_adjust_records',
+    'group_score_history',
+    'score_snapshots',
+  ]
+
+  for (const table of childTables) {
+    db.run(`DELETE FROM ${table}`)
+  }
+  db.run('DELETE FROM students')
+  db.run('DELETE FROM groups')
+
   const now = Date.now()
-  let importedGroups = 0
-  let importedStudents = 0
 
-  // 增量导入小组：按名称检查，缺失则插入
+  // 全量导入小组
   for (const g of seed.groups) {
-    if (exists(db, 'groups', 'name', g.name)) continue
-
     const id = randomUUID()
     db.run(
       `INSERT INTO groups (id, name, color, leader_name, sort_order, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, g.name, g.color, g.leader_name, g.sort_order || 0, now, now]
     )
-    importedGroups++
   }
 
-  // 增量导入学生：按姓名检查，缺失则插入
+  // 全量导入学生
+  let importedStudents = 0
   for (const s of seed.students) {
-    if (exists(db, 'students', 'name', s.name)) continue
-
     const gStmt = db.prepare('SELECT id FROM groups WHERE name = ?')
     gStmt.bind([s.group_name])
     const groupId = gStmt.step() ? (gStmt.getAsObject().id as string) : null
@@ -108,6 +119,6 @@ export function runSeed(db: SqlJsDatabase): boolean {
     importedStudents++
   }
 
-  console.log(`种子数据补充完成：${importedGroups} 个小组，${importedStudents} 名学生`)
+  console.log(`种子数据导入完成：${seed.groups.length} 个小组，${importedStudents} 名学生`)
   return true
 }
