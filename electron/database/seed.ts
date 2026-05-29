@@ -60,6 +60,15 @@ export function runSeed(db: SqlJsDatabase): boolean {
     return false
   }
 
+  // 检查数据库是否完整：小组数 >= seed 中的小组数则认为数据完整，跳过
+  const groupResult = db.exec('SELECT COUNT(*) as cnt FROM groups')
+  const dbGroupCount = (groupResult.length > 0 ? groupResult[0].values[0][0] : 0) as number
+  if (dbGroupCount >= seed.groups.length) {
+    console.log('数据库已有完整数据，跳过种子导入')
+    return false
+  }
+
+  console.log(`数据库不完整（${dbGroupCount}/${seed.groups.length}组），补充缺失数据...`)
   const now = Date.now()
   let importedGroups = 0
   let importedStudents = 0
@@ -99,10 +108,6 @@ export function runSeed(db: SqlJsDatabase): boolean {
     importedStudents++
   }
 
-  if (importedGroups > 0 || importedStudents > 0) {
-    console.log(`种子数据补充完成：${importedGroups} 个小组，${importedStudents} 名学生`)
-  } else {
-    console.log('种子数据已是最新，无需补充')
-  }
+  console.log(`种子数据补充完成：${importedGroups} 个小组，${importedStudents} 名学生`)
   return true
 }
