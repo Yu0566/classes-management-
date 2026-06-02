@@ -1,4 +1,4 @@
-import { Database as SqlJsDatabase } from 'sql.js'
+import type { Database as SqlJsDatabase } from 'sql.js'
 
 export function runMigrations(db: SqlJsDatabase): void {
   db.exec(`
@@ -251,8 +251,7 @@ export function runMigrations(db: SqlJsDatabase): void {
     -- 积分扣分项开关（每日一练/考勤/作业，默认关闭）
     CREATE TABLE IF NOT EXISTS score_category_settings (
       category TEXT PRIMARY KEY,
-      enabled INTEGER NOT NULL DEFAULT 0,
-      points INTEGER NOT NULL DEFAULT 1
+      enabled INTEGER NOT NULL DEFAULT 0
     );
 
     -- 数学作业等级记录（有记录=不合格，删除=合格）
@@ -301,54 +300,16 @@ export function runMigrations(db: SqlJsDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_practice_score_awards_date_label ON practice_score_awards(date, label);
   `)
 
-  // 兼容已有数据库：尝试添加 leader_name 列
+  // 兼容已有数据库：尝试添加缺失的列
   try { db.exec("ALTER TABLE groups ADD COLUMN leader_name TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
-
-  // 兼容已有数据库：尝试添加 practice_label 列
   try { db.exec("ALTER TABLE students ADD COLUMN practice_label TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
-
-  // 兼容已有数据库：尝试添加 lunch_label 列
   try { db.exec("ALTER TABLE students ADD COLUMN lunch_label TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
-
-  // 兼容已有数据库：尝试添加 lunch_longterm 列（长期请假标记）
   try { db.exec("ALTER TABLE students ADD COLUMN lunch_longterm INTEGER DEFAULT 0") } catch (_) { /* 列已存在 */ }
-
-  // 兼容已有数据库：尝试添加 group_id 列到 coin_groups
   try { db.exec("ALTER TABLE coin_groups ADD COLUMN group_id TEXT") } catch (_) { /* 列已存在 */ }
-
-  // 兼容已有数据库：尝试添加 seat_order 列（座位编排）
   try { db.exec("ALTER TABLE students ADD COLUMN seat_order INTEGER DEFAULT -1") } catch (_) { /* 列已存在 */ }
-
-  // 兼容已有数据库：尝试添加 points 列到 score_category_settings（扣分分值，默认1）
-  try { db.exec("ALTER TABLE score_category_settings ADD COLUMN points INTEGER DEFAULT 1") } catch (_) { /* 列已存在 */ }
-
-  // 清理 duty_students 重复数据 + 添加唯一约束（防止同一学生在同一天值日名单中出现多次）
-  try {
-    db.exec("DELETE FROM duty_students WHERE rowid NOT IN (SELECT MIN(rowid) FROM duty_students GROUP BY duty_record_id, student_id)")
-  } catch (_) { /* ignore */ }
-  try {
-    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_duty_students_unique ON duty_students(duty_record_id, student_id)")
-  } catch (_) { /* 唯一索引已存在 */ }
-
-  // 通知历史记录
-  try {
-    db.exec(`CREATE TABLE IF NOT EXISTS notification_history (
-      id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      message TEXT NOT NULL,
-      mode TEXT DEFAULT 'fullscreen',
-      duration INTEGER DEFAULT 30,
-      image TEXT,
-      urgency TEXT DEFAULT '普通',
-      created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
-    )`)
-  } catch (_) { /* 表已存在 */ }
-  try { db.exec("ALTER TABLE notification_history ADD COLUMN urgency TEXT DEFAULT '普通'") } catch (_) { /* 列已存在 */ }
 
   // 清理：无 practice_label 的学生不参与每日一练，不应被扣分
   try {
     db.exec("UPDATE daily_statuses SET daily_practice = '' WHERE daily_practice = 'unsigned' AND student_id IN (SELECT id FROM students WHERE COALESCE(practice_label, '') = '')")
   } catch (_) { /* ignore */ }
-
-  console.log('数据库迁移完成')
 }

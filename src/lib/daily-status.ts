@@ -2,12 +2,19 @@ import { v4 as uuid } from 'uuid'
 import { queryAll, queryOne, executeRun, executeTransaction } from './db'
 import type { DailyStatus } from '@/types'
 
-// 违规扣分规则：哪些状态值触发自动扣分
-const VIOLATION_RULES: Record<string, Record<string, { points: number; reason: string }>> = {
-  daily_practice: { unsigned: { points: -1, reason: '每日一练未签到' } },
-  attendance: { late: { points: -1, reason: '考勤迟到' }, absent: { points: -1, reason: '考勤未签到' } },
-  homework: { incomplete: { points: -1, reason: '作业未交齐' }, not_submitted: { points: -1, reason: '作业未交' } },
+// 违规扣分规则：哪些状态值触发自动扣分（分值从 score_category_settings 读取）
+const VIOLATION_REASONS: Record<string, Record<string, string>> = {
+  daily_practice: { unsigned: '每日一练未签到' },
+  attendance: { late: '考勤迟到', absent: '考勤未签到' },
+  homework: { incomplete: '作业未交齐', not_submitted: '作业未交' },
   lunch_rest: {},
+}
+
+async function getCategoryPoints(category: string): Promise<number> {
+  const row = await queryOne<{ points: number }>(
+    'SELECT points FROM score_category_settings WHERE category = ?', [category]
+  )
+  return row?.points ?? 1
 }
 
 // 获取指定日期的所有学生状态
@@ -74,25 +81,26 @@ async function syncViolationRecord(
   studentId: string, date: string, field: string,
   oldValue: string, newValue: string
 ): Promise<void> {
-  const rules = VIOLATION_RULES[field]
-  if (!rules) return
+  const reasons = VIOLATION_REASONS[field]
+  if (!reasons) return
 
-  const oldViolation = rules[oldValue]
-  const newViolation = rules[newValue]
+  const oldReason = reasons[oldValue]
+  const newReason = reasons[newValue]
 
   // 没变化就不处理
   if (oldValue === newValue) return
 
   // 删除旧的违规记录
-  if (oldViolation) {
+  if (oldReason) {
     await executeRun(
       'DELETE FROM deduction_records WHERE student_id = ? AND date = ? AND reason = ?',
-      [studentId, date, oldViolation.reason]
+      [studentId, date, oldReason]
     )
   }
 
   // 插入新的违规记录
-  if (newViolation) {
+  if (newReason) {
+    const points = await getCategoryPoints(field)
     const student = await queryOne<{ name: string }>(
       'SELECT name FROM students WHERE id = ?', [studentId]
     )
@@ -100,7 +108,7 @@ async function syncViolationRecord(
     await executeRun(
       `INSERT INTO deduction_records (id, student_id, student_name, points, reason, date, timestamp)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [uuid(), studentId, studentName, Math.abs(newViolation.points), newViolation.reason, date, Date.now()]
+      [uuid(), studentId, studentName, points, newReason, date, Date.now()]
     )
   }
 }

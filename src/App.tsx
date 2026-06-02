@@ -1,4 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
+import { ConfirmProvider } from './components/ui/ConfirmDialog'
+import { NotificationProvider } from './components/notify/NotificationProvider'
 import MainLayout from './components/layout/MainLayout'
 import GroupsPage from './pages/GroupsPage'
 import StudentsPage from './pages/StudentsPage'
@@ -13,11 +15,14 @@ import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import CoinsPage from './pages/CoinsPage'
 import MathHomeworkPage from './pages/MathHomeworkPage'
-import SeatingPage from './pages/SeatingPage'
+import NotifyPage from './pages/NotifyPage'
+import DashboardWidgetPage from './pages/DashboardWidgetPage'
 
 function App() {
   return (
-    <Routes>
+    <NotificationProvider>
+    <ConfirmProvider>
+      <Routes>
       <Route path="/" element={<MainLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="groups" element={<GroupsPage />} />
@@ -31,10 +36,14 @@ function App() {
         <Route path="daily-practice" element={<DailyPracticePage />} />
         <Route path="coins" element={<CoinsPage />} />
         <Route path="math-homework" element={<MathHomeworkPage />} />
-        <Route path="seating" element={<SeatingPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="notify" element={<NotifyPage />} />
       </Route>
+      {/* 桌面便签看板（无侧边栏） */}
+      <Route path="/dashboard-widget" element={<DashboardWidgetPage />} />
     </Routes>
+    </ConfirmProvider>
+    </NotificationProvider>
   )
 }
 

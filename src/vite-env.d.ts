@@ -1,7 +1,20 @@
 /// <reference types="vite/client" />
 
+interface UpdateInfo {
+  version: string
+  releaseNotes?: string
+  releaseDate?: string
+}
+
+interface ProgressInfo {
+  percent: number
+  transferred: number
+  total: number
+  bytesPerSecond: number
+}
+
 interface Window {
-  electronAPI: {
+  electronAPI?: {
     db: {
       query: (sql: string, params?: unknown[]) => Promise<{ success: boolean; data?: unknown; error?: string }>
       run: (sql: string, params?: unknown[]) => Promise<{ success: boolean; changes: number; error?: string }>
@@ -14,6 +27,34 @@ interface Window {
       showMessageBox: (options: Record<string, unknown>) => Promise<{ response: number }>
     }
     onAppClosing: (callback: () => void) => () => void
+    onNotifyShow: (callback: (notification: { title: string; message: string }) => void) => () => void
     getAppPath: () => Promise<string>
+    lan: {
+      start: (port: number) => Promise<{ success: boolean; ip?: string; port?: number; error?: string }>
+      stop: () => Promise<{ success: boolean }>
+      getStatus: () => Promise<{ running: boolean; ip: string; port: number }>
+    }
+    notify: {
+      send: (title: string, message: string, mode?: 'fullscreen' | 'top', duration?: number, imagesJson?: string, urgency?: '普通' | '重要' | '紧急') => Promise<{ success: boolean; error?: string }>
+    }
+    widget: {
+      close: () => Promise<{ success: boolean }>
+      open: () => Promise<{ success: boolean }>
+      isOpen: () => Promise<{ open: boolean }>
+      openMain: () => Promise<{ success: boolean }>
+    }
+    app: {
+      getVersion: () => Promise<string>
+      openExternal: (url: string) => Promise<void>
+      checkUpdate: () => Promise<{ success: boolean; error?: string }>
+      downloadUpdate: () => Promise<{ success: boolean; error?: string }>
+      quitAndInstall: () => Promise<{ success: boolean }>
+      onUpdateChecking: (callback: () => void) => () => void
+      onUpdateAvailable: (callback: (info: UpdateInfo) => void) => () => void
+      onUpdateNotAvailable: (callback: (info: UpdateInfo) => void) => () => void
+      onDownloadProgress: (callback: (progress: ProgressInfo) => void) => () => void
+      onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => () => void
+      onUpdateError: (callback: (error: string) => void) => () => void
+    }
   }
 }

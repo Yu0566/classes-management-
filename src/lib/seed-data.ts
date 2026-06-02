@@ -1,0 +1,89 @@
+export interface SeedGroup {
+  name: string
+  color: string
+  leader_name: string
+  sort_order?: number
+}
+
+export interface SeedStudent {
+  name: string
+  group_name: string
+  practice_label?: string
+  lunch_label?: string
+  lunch_longterm?: number
+}
+
+export interface SeedData {
+  groups: SeedGroup[]
+  students: SeedStudent[]
+}
+
+const SEED_DATA: SeedData = {
+  groups: [
+    { name: '第一小组', color: 'bg-blue-500', leader_name: '刘子萱', sort_order: 0 },
+    { name: '第七小组', color: 'bg-orange-500', leader_name: '罗显泽', sort_order: 0 },
+    { name: '第三小组', color: 'bg-green-500', leader_name: '陈彦赫', sort_order: 0 },
+    { name: '第二小组', color: 'bg-red-500', leader_name: '肖宇然', sort_order: 0 },
+    { name: '第五小组', color: 'bg-purple-500', leader_name: '钱欣悦', sort_order: 0 },
+    { name: '第八小组', color: 'bg-teal-500', leader_name: '王一凡', sort_order: 0 },
+    { name: '第六小组', color: 'bg-pink-500', leader_name: '杨之雨', sort_order: 0 },
+    { name: '第四小组', color: 'bg-yellow-500', leader_name: '程语妡', sort_order: 0 },
+  ],
+  students: [
+    { name: '刘子萱', group_name: '第一小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '刘梦瑶', group_name: '第一小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '孙哲朋', group_name: '第一小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '李晨乐', group_name: '第一小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '杨铠睿', group_name: '第一小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '白可薇', group_name: '第一小组', practice_label: 'qiangji', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '程悦', group_name: '第一小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '代羽桐', group_name: '第七小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '冯翊轩', group_name: '第七小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '王梓萌', group_name: '第七小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '田皓宇', group_name: '第七小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '罗显泽', group_name: '第七小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '钟子乐', group_name: '第七小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '左楚豪', group_name: '第三小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '张宸豪', group_name: '第三小组', practice_label: 'qiangji', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '朱茈薏', group_name: '第三小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '林铚鸿', group_name: '第三小组', practice_label: 'qiangji', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '许张诺', group_name: '第三小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '陈彦赫', group_name: '第三小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '陈祎菲', group_name: '第三小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '刘浩旭', group_name: '第二小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '李积微', group_name: '第二小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '杨浩楠', group_name: '第二小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '祝文翰', group_name: '第二小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '肖宇然', group_name: '第二小组', practice_label: 'tisheng', lunch_label: '', lunch_longterm: 0 },
+    { name: '陈瑶', group_name: '第二小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '廖瑾萱', group_name: '第五小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '苏雅雯', group_name: '第五小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '蔡明轩', group_name: '第五小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '郑杰铭', group_name: '第五小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '钱欣悦', group_name: '第五小组', practice_label: 'tisheng', lunch_label: '', lunch_longterm: 0 },
+    { name: '陈子轩', group_name: '第五小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '周梓淇', group_name: '第八小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '张嘉良', group_name: '第八小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '梁哲尧', group_name: '第八小组', practice_label: 'tisheng', lunch_label: '', lunch_longterm: 0 },
+    { name: '王一凡', group_name: '第八小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '王翊恺', group_name: '第八小组', practice_label: 'qiangji', lunch_label: '', lunch_longterm: 0 },
+    { name: '罗圳航', group_name: '第八小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '冯美毓', group_name: '第六小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '张至君', group_name: '第六小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '杨之雨', group_name: '第六小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '王禹心', group_name: '第六小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '许益畅', group_name: '第六小组', practice_label: '', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '饶子洋', group_name: '第六小组', practice_label: 'qiangji', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '周思妙', group_name: '第四小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '廖晨萱', group_name: '第四小组', practice_label: 'qiangji', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '戴周翰', group_name: '第四小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '李辰翊', group_name: '第四小组', practice_label: '', lunch_label: '', lunch_longterm: 0 },
+    { name: '洪梓桐', group_name: '第四小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '程语妡', group_name: '第四小组', practice_label: 'qiangji', lunch_label: 'zaixiao', lunch_longterm: 0 },
+    { name: '黎珊妮', group_name: '第四小组', practice_label: 'tisheng', lunch_label: 'zaixiao', lunch_longterm: 0 },
+  ],
+}
+
+export function getSeedData(): SeedData {
+  return SEED_DATA
+}

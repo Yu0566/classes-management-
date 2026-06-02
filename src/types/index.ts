@@ -37,7 +37,7 @@ export interface DailyStatus {
   id: string
   student_id: string
   date: string
-  daily_practice: 'signed' | 'unsigned' | 'not_applicable'
+  daily_practice: 'signed' | 'unsigned' | 'not_applicable' | ''
   attendance: 'signed' | 'unsigned' | 'late' | 'leave'
   homework: 'complete' | 'incomplete' | 'not_submitted'
   lunch_rest: 'unsigned' | 'signed' | 'leave'
@@ -206,6 +206,7 @@ export interface PracticeScoreAward {
 export interface ScoreCategorySetting {
   category: string
   enabled: number
+  points: number
 }
 
 export const PRACTICE_LABEL_MAP: Record<string, string> = {

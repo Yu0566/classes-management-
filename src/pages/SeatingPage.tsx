@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Crown, RotateCcw } from 'lucide-react'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as seatingApi from '@/lib/seating'
 import type { Group } from '@/types'
 import type { StudentSeat } from '@/lib/seating'
@@ -8,6 +9,7 @@ const SEATS_PER_GROUP = 7
 const SEAT_LABELS = ['左前', '左中', '左后', '左后二', '右后二', '右后', '右前']
 
 export default function SeatingPage() {
+  const { confirm } = useConfirm()
   const [groups, setGroups] = useState<Group[]>([])
   const [students, setStudents] = useState<StudentSeat[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,6 +50,21 @@ export default function SeatingPage() {
       sourceSeatOrder: student.seat_order ?? -1,
     }))
     e.dataTransfer.effectAllowed = 'move'
+
+    // 用克隆元素替换浏览器默认灰色拖拽幽灵图
+    const el = e.currentTarget as HTMLElement
+    const ghost = el.cloneNode(true) as HTMLElement
+    ghost.style.position = 'fixed'
+    ghost.style.top = '0px'
+    ghost.style.left = '0px'
+    ghost.style.opacity = '0'
+    ghost.style.pointerEvents = 'none'
+    ghost.style.zIndex = '-9999'
+    document.body.appendChild(ghost)
+    // 强制布局，确保浏览器渲染该元素再快照为拖拽图像
+    ghost.getBoundingClientRect()
+    e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2)
+    requestAnimationFrame(() => ghost.remove())
   }
 
   const handleDropOnSlot = async (
@@ -106,7 +123,7 @@ export default function SeatingPage() {
   }
 
   const handleReset = async () => {
-    if (!window.confirm('确认重置所有座位？\n\n所有学生的座位将被清空，小组组长也将被清除。')) return
+    if (!await confirm({ message: '确认重置所有座位？\n\n所有学生的座位将被清空，小组组长也将被清除。' })) return
     await seatingApi.resetAllSeating()
     await loadData()
   }
@@ -178,7 +195,19 @@ function UnseatedPool({
   onDragStart: (e: React.DragEvent, s: StudentSeat) => void
   onDrop: (e: React.DragEvent) => void
 }) {
-  const [isOver, setIsOver] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    ref.current?.classList.add('border-primary-400', 'bg-primary-50')
+  }
+  const handleDragLeave = () => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50')
+  }
+  const handleDrop = (e: React.DragEvent) => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50')
+    onDrop(e)
+  }
 
   return (
     <div className="mb-6">
@@ -186,15 +215,14 @@ function UnseatedPool({
         待安排学生（{students.length}人）
       </h2>
       <div
-        onDragOver={e => { e.preventDefault(); setIsOver(true) }}
-        onDragLeave={() => setIsOver(false)}
-        onDrop={e => { setIsOver(false); onDrop(e) }}
-        className={`flex flex-wrap gap-2 p-3 border-2 border-dashed rounded-lg min-h-[44px] transition-colors ${
-          isOver ? 'border-primary-400 bg-primary-50' : 'border-gray-200 bg-gray-50'
-        }`}
+        ref={ref}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className="flex flex-wrap gap-2 p-3 border-2 border-dashed rounded-lg min-h-[44px] transition-colors border-gray-200 bg-gray-50"
       >
         {students.length === 0 ? (
-          <p className="text-sm text-gray-400 w-full text-center">所有学生已安排座位 🎉</p>
+          <p className="text-sm text-gray-400 w-full text-center">所有学生已安排座位</p>
         ) : (
           students.map(s => {
             const g = groups.find(grp => grp.id === s.group_id)
@@ -272,23 +300,32 @@ function SeatSlot({
   onDragStart: (e: React.DragEvent, s: StudentSeat) => void
   onDrop: (e: React.DragEvent, gid: string, order: number, oid: string | null, oname: string | null) => void
 }) {
-  const [isOver, setIsOver] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    ref.current?.classList.add('border-primary-400', 'bg-primary-50', 'scale-[1.02]')
+  }
+  const handleDragLeave = () => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50', 'scale-[1.02]')
+  }
+  const handleDrop = (e: React.DragEvent) => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50', 'scale-[1.02]')
+    onDrop(e, groupId, seatOrder, student?.id ?? null, student?.name ?? null)
+  }
+
+  const baseClass = student
+    ? 'border-gray-100 bg-white'
+    : 'border-dashed border-gray-200 bg-gray-50'
 
   return (
     <div
-      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsOver(true) }}
-      onDragLeave={() => setIsOver(false)}
-      onDrop={e => {
-        setIsOver(false)
-        onDrop(e, groupId, seatOrder, student?.id ?? null, student?.name ?? null)
-      }}
-      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all duration-150 ${
-        isOver
-          ? 'border-primary-400 bg-primary-50 scale-[1.02]'
-          : student
-            ? 'border-gray-100 bg-white'
-            : 'border-dashed border-gray-200 bg-gray-50'
-      }`}
+      ref={ref}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all duration-150 ${baseClass}`}
     >
       <span className="text-xs text-gray-300 w-10 flex-shrink-0">{label}</span>
       {student ? (
@@ -313,11 +350,20 @@ function StudentChip({
   isLeader: boolean
   onDragStart: (e: React.DragEvent, s: StudentSeat) => void
 }) {
+  const handleDragStart = (e: React.DragEvent) => {
+    const el = e.currentTarget as HTMLElement
+    el.style.opacity = '0.4'
+    onDragStart(e, student)
+  }
+  const handleDragEnd = (e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).style.opacity = ''
+  }
   return (
     <div
       draggable
-      onDragStart={e => onDragStart(e, student)}
-      className="flex items-center gap-1 px-2.5 py-1 bg-white border rounded-md shadow-sm cursor-grab active:cursor-grabbing active:opacity-50 hover:shadow-md transition-shadow select-none"
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className="flex items-center gap-1 px-2.5 py-1 bg-white border rounded-md shadow-sm cursor-grab hover:shadow-md transition-shadow select-none"
     >
       {leader && <Crown size={12} className="text-amber-500 flex-shrink-0" />}
       <span className="text-sm font-medium truncate max-w-[80px]">{student.name}</span>

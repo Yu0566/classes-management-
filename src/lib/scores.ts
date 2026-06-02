@@ -1,18 +1,19 @@
 import type { StudentWithGroup, DailyStatus } from '@/types'
 import { executeRun } from './db'
 
-// 积分规则
-const SCORE_RULES = {
-  daily_practice: { signed: 0, unsigned: -1, not_applicable: 0 },
-  attendance: { signed: 0, unsigned: -1, late: -1, leave: 0 },
-  homework: { complete: 0, incomplete: -1, not_submitted: -1 },
+// 各分类中哪些状态值算违规（用于积分计算和扣分）
+const VIOLATION_STATUSES: Record<string, string[]> = {
+  daily_practice: ['unsigned'],
+  attendance: ['unsigned', 'late'],
+  homework: ['incomplete', 'not_submitted'],
 }
 
 // 计算单个学生的积分明细
 export function calculateStudentScore(
   student: StudentWithGroup,
   statuses: DailyStatus[],
-  enabledCategories?: Set<string>
+  enabledCategories?: Set<string>,
+  categoryPoints?: Map<string, number>
 ): {
   total: number
   dailyPractice: number
@@ -25,16 +26,18 @@ export function calculateStudentScore(
   let homework = 0
 
   const enabled = enabledCategories ?? new Set(['daily_practice', 'attendance', 'homework'])
+  const getPoints = (cat: string) => categoryPoints?.get(cat) ?? 1
 
   for (const s of statuses) {
-    if (enabled.has('daily_practice')) {
-      dailyPractice += SCORE_RULES.daily_practice[s.daily_practice as keyof typeof SCORE_RULES.daily_practice] || 0
+    // 仅当学生有 practice_label 时才校验每日一练（无标签的学生不参与每日一练）
+    if (enabled.has('daily_practice') && student.practice_label && VIOLATION_STATUSES.daily_practice.includes(s.daily_practice)) {
+      dailyPractice -= getPoints('daily_practice')
     }
-    if (enabled.has('attendance')) {
-      attendance += SCORE_RULES.attendance[s.attendance as keyof typeof SCORE_RULES.attendance] || 0
+    if (enabled.has('attendance') && VIOLATION_STATUSES.attendance.includes(s.attendance)) {
+      attendance -= getPoints('attendance')
     }
-    if (enabled.has('homework')) {
-      homework += SCORE_RULES.homework[s.homework as keyof typeof SCORE_RULES.homework] || 0
+    if (enabled.has('homework') && VIOLATION_STATUSES.homework.includes(s.homework)) {
+      homework -= getPoints('homework')
     }
   }
 
@@ -60,11 +63,12 @@ export interface StudentScore {
 export function calculateAllScores(
   students: StudentWithGroup[],
   statusMap: Map<string, DailyStatus[]>,
-  enabledCategories?: Set<string>
+  enabledCategories?: Set<string>,
+  categoryPoints?: Map<string, number>
 ): StudentScore[] {
   return students.map(student => {
     const statuses = statusMap.get(student.id) || []
-    const detail = calculateStudentScore(student, statuses, enabledCategories)
+    const detail = calculateStudentScore(student, statuses, enabledCategories, categoryPoints)
     return {
       studentId: student.id,
       studentName: student.name,

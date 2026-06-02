@@ -1,65 +1,11 @@
-import { ipcMain } from 'electron'
-import { requireDatabase, saveDatabase } from './database/connection'
+import { ipcMain, app, shell } from 'electron'
+import { queryAll, queryOne, executeRun, executeTransaction } from './database/query-helpers'
+import { startServer, stopServer, getServerStatus } from './lan-server'
+import { checkForUpdates, downloadUpdate, quitAndInstall } from './updater'
+import { mainWindow } from './main'
+import { showNotificationWindow } from './notify-window'
+import { closeWidget, openWidget, isWidgetOpen } from './dashboard-widget'
 
-// sql.js 辅助函数：执行查询并返回所有行
-function queryAll(sql: string, params: unknown[] = []): Record<string, unknown>[] {
-  const db = requireDatabase()
-  const stmt = db.prepare(sql)
-  if (params.length > 0) {
-    stmt.bind(params)
-  }
-  const results: Record<string, unknown>[] = []
-  while (stmt.step()) {
-    results.push({ ...stmt.getAsObject() })
-  }
-  stmt.free()
-  return results
-}
-
-// sql.js 辅助函数：执行查询并返回单行
-function queryOne(sql: string, params: unknown[] = []): Record<string, unknown> | undefined {
-  const db = requireDatabase()
-  const stmt = db.prepare(sql)
-  if (params.length > 0) {
-    stmt.bind(params)
-  }
-  let result: Record<string, unknown> | undefined
-  if (stmt.step()) {
-    result = { ...stmt.getAsObject() }
-  }
-  stmt.free()
-  return result
-}
-
-// sql.js 辅助函数：执行写操作
-function executeRun(sql: string, params: unknown[] = []): { changes: number; lastInsertRowid: number } {
-  const db = requireDatabase()
-  // sql.js run 会执行语句并修改数据库
-  db.run(sql, params)
-  const rowsModified = db.getRowsModified()
-  saveDatabase()
-  return {
-    changes: rowsModified,
-    lastInsertRowid: -1, // sql.js 不直接提供 lastInsertRowid
-  }
-}
-
-// sql.js 辅助函数：执行事务
-function executeTransaction(operations: { sql: string; params?: unknown[] }[]): void {
-  const db = requireDatabase()
-  try {
-    db.run('BEGIN TRANSACTION')
-    for (const op of operations) {
-      db.run(op.sql, op.params || [])
-    }
-    db.run('COMMIT')
-    saveDatabase()
-  } catch (err) {
-    db.run('ROLLBACK')
-    saveDatabase()
-    throw err
-  }
-}
 
 export function registerIpcHandlers(): void {
   // 查询多行
@@ -103,4 +49,101 @@ export function registerIpcHandlers(): void {
       return { success: false, error: msg }
     }
   })
+
+  // LAN 服务器控制
+  ipcMain.handle('lan:start', async (_event, port: number) => {
+    try {
+      const result = await startServer(port, !app.isPackaged)
+      return { success: true, ip: result.ip, port: result.port }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      return { success: false, error: msg }
+    }
+  })
+
+  ipcMain.handle('lan:stop', () => {
+    stopServer()
+    return { success: true }
+  })
+
+  ipcMain.handle('lan:status', () => {
+    return getServerStatus()
+  })
+
+  // 通知
+  ipcMain.handle('notify:send', (_event, title: string, message: string, mode?: string, duration?: number, imagesJson?: string, urgency?: string) => {
+    try {
+      if (!title || !message) {
+        return { success: false, error: '标题和内容不能为空' }
+      }
+      let images: string[] = []
+      if (imagesJson) {
+        try { images = JSON.parse(imagesJson) } catch { /* ignore */ }
+      }
+      showNotificationWindow(title, message, (mode === 'top' ? 'top' : 'fullscreen'), duration, images, (urgency === '重要' || urgency === '紧急' ? urgency : '普通'))
+      return { success: true }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      return { success: false, error: msg }
+    }
+  })
+
+  // 应用信息
+  ipcMain.handle('app:getVersion', () => {
+    return app.getVersion()
+  })
+
+  // 自动更新
+  ipcMain.handle('app:checkUpdate', async () => {
+    try {
+      await checkForUpdates()
+      return { success: true }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      return { success: false, error: msg }
+    }
+  })
+
+  ipcMain.handle('app:downloadUpdate', async () => {
+    try {
+      await downloadUpdate()
+      return { success: true }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      return { success: false, error: msg }
+    }
+  })
+
+  ipcMain.handle('app:quitAndInstall', () => {
+    quitAndInstall()
+    return { success: true }
+  })
+
+  ipcMain.handle('app:openExternal', async (_event, url: string) => {
+    return shell.openExternal(url)
+  })
+
+  // 桌面看板便签
+  ipcMain.handle('widget:close', () => {
+    closeWidget()
+    return { success: true }
+  })
+
+  ipcMain.handle('widget:open', () => {
+    openWidget()
+    return { success: true }
+  })
+
+  ipcMain.handle('widget:isOpen', () => {
+    return { open: isWidgetOpen() }
+  })
+
+  ipcMain.handle('widget:openMain', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+    return { success: true }
+  })
+
 }

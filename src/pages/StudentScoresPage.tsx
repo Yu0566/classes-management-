@@ -4,18 +4,21 @@ import * as studentApi from '@/lib/students'
 import { adjustStudentScore } from '@/lib/students'
 import { queryAll } from '@/lib/db'
 import { calculateAllScores, resetAllScores, type StudentScore } from '@/lib/scores'
-import { getAllScoreSettings, setScoreSetting } from '@/lib/score-settings'
+import { getAllScoreSettings, setScoreSetting, setScorePoints } from '@/lib/score-settings'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { StudentWithGroup, DailyStatus, DeductionRecord, ManualAdjustRecord } from '@/types'
 
 type SortKey = keyof StudentScore
 
 export default function StudentScoresPage() {
+  const { confirm } = useConfirm()
   const [tab, setTab] = useState<'scores' | 'deductions'>('scores')
   const [scores, setScores] = useState<StudentScore[]>([])
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('total')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [enabledCategories, setEnabledCategories] = useState<Set<string>>(new Set())
+  const [categoryPoints, setCategoryPoints] = useState<Map<string, number>>(new Map())
 
   // 扣分记录相关
   const [deductions, setDeductions] = useState<DeductionRecord[]>([])
@@ -39,11 +42,14 @@ export default function StudentScoresPage() {
 
     const settingsMap = await getAllScoreSettings()
     const enabled = new Set<string>()
-    for (const [cat, on] of settingsMap) {
-      if (on) enabled.add(cat)
+    const pts = new Map<string, number>()
+    for (const [cat, setting] of settingsMap) {
+      if (setting.enabled) enabled.add(cat)
+      pts.set(cat, setting.points)
     }
     setEnabledCategories(enabled)
-    setScores(calculateAllScores(students, statusMap, enabled))
+    setCategoryPoints(pts)
+    setScores(calculateAllScores(students, statusMap, enabled, pts))
     setDeductions(d)
     setManualAdjusts(m)
     setLoading(false)
@@ -100,8 +106,23 @@ export default function StudentScoresPage() {
     await loadData()
   }
 
+  const handlePointsChange = async (category: string, value: string) => {
+    const num = parseInt(value, 10)
+    if (isNaN(num) || num < 0 || num > 99) return
+    await setScorePoints(category, num)
+    await loadData()
+  }
+
+  const quickPoints = async (category: string, delta: number) => {
+    const current = categoryPoints.get(category) ?? 1
+    const next = current + delta
+    if (next < 0 || next > 99) return
+    await setScorePoints(category, next)
+    await loadData()
+  }
+
   const handleReset = async () => {
-    if (!window.confirm('确认清零所有个人积分？\n\n这将清空所有学生的积分、每日状态、扣分记录和手动调整记录。此操作不可恢复。')) return
+    if (!await confirm({ message: '确认清零所有个人积分？\n\n这将清空所有学生的积分、每日状态、扣分记录和手动调整记录。此操作不可恢复。' })) return
     await resetAllScores()
     await loadData()
   }
@@ -159,30 +180,58 @@ export default function StudentScoresPage() {
             </div>
 
             {/* 扣分项开关 */}
-            <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-4 mb-3 flex-wrap">
               <span className="text-xs text-gray-400">扣分项：</span>
               {[
                 { key: 'daily_practice', label: '每日一练' },
                 { key: 'attendance', label: '考勤' },
                 { key: 'homework', label: '作业' },
-              ].map(item => (
-                <label key={item.key} className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <button
-                    type="button"
-                    onClick={() => handleToggle(item.key)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      enabledCategories.has(item.key) ? 'bg-primary-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                      enabledCategories.has(item.key) ? 'translate-x-4' : 'translate-x-1'
-                    }`} />
-                  </button>
-                  <span className={`text-xs ${enabledCategories.has(item.key) ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
-                    {item.label}
-                  </span>
-                </label>
-              ))}
+              ].map(item => {
+                const pts = categoryPoints.get(item.key) ?? 1
+                const on = enabledCategories.has(item.key)
+                return (
+                  <div key={item.key} className="flex items-center gap-2">
+                    {/* 开关 */}
+                    <div
+                      onClick={() => handleToggle(item.key)}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                        on ? 'bg-primary-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        on ? 'translate-x-4' : 'translate-x-1'
+                      }`} />
+                    </div>
+                    <span className={`text-xs whitespace-nowrap ${on ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
+                      {item.label}
+                    </span>
+
+                    {/* 分数调整 */}
+                    <div className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => quickPoints(item.key, -1)}
+                        className="w-5 h-6 flex items-center justify-center text-xs border border-gray-200 rounded-l hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                      >−</button>
+                      <input
+                        type="number"
+                        min="0"
+                        max="99"
+                        value={pts}
+                        onChange={e => handlePointsChange(item.key, e.target.value)}
+                        className="w-9 h-6 text-center text-xs border-y border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-400 focus:border-primary-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        title="扣分分值"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => quickPoints(item.key, 1)}
+                        className="w-5 h-6 flex items-center justify-center text-xs border border-gray-200 rounded-r hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                      >+</button>
+                    </div>
+                    <span className="text-xs text-gray-400">分</span>
+                  </div>
+                )
+              })}
             </div>
 
             <p className="text-sm text-gray-500 mb-3">

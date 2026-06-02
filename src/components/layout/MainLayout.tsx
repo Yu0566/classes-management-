@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Star, Users,
   ClipboardCheck, CalendarCheck, Utensils, Pencil, Coins,
-  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, GripVertical, Calculator, Armchair
+  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone
 } from 'lucide-react'
 
 const STORAGE_KEY = 'nav-item-order'
@@ -22,7 +22,7 @@ const defaultNavItems = [
   { path: '/daily-practice', label: '每日一练', icon: Pencil },
   { path: '/coins', label: '宝龙币', icon: Coins },
   { path: '/math-homework', label: '数学作业等级', icon: Calculator },
-  { path: '/seating', label: '座位编排', icon: Armchair },
+  { path: '/notify', label: '班级通知', icon: Megaphone },
 ]
 
 function loadNavOrder() {
@@ -49,6 +49,7 @@ export default function MainLayout() {
   const [navItems, setNavItems] = useState(loadNavOrder)
   const navigate = useNavigate()
   const location = useLocation()
+  const [isElectron] = useState(() => !!(window as any).electronAPI)
 
   const handleReorder = (paths: string[]) => {
     const reordered = paths
@@ -58,7 +59,7 @@ export default function MainLayout() {
     saveNavOrder(reordered)
   }
 
-  const currentPath = location.hash.replace('#', '') || '/'
+  const currentPath = location.pathname || '/'
   const isActive = (item: typeof defaultNavItems[number]) => {
     if (item.exact) return currentPath === item.path
     return currentPath.startsWith(item.path)
@@ -91,6 +92,7 @@ export default function MainLayout() {
             className="space-y-1"
           >
             {navItems.map(item => {
+              if (item.path === '/notify' && isElectron) return null
               const active = isActive(item)
               const Icon = item.icon
               return (
@@ -109,12 +111,6 @@ export default function MainLayout() {
                   className="relative group rounded-lg"
                   style={{ touchAction: 'none' }}
                 >
-                  {/* 拖拽手柄 */}
-                  {!collapsed && (
-                    <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 cursor-grab active:cursor-grabbing z-10 p-0.5">
-                      <GripVertical size={14} />
-                    </div>
-                  )}
                   {/* 导航按钮 */}
                   <button
                     onClick={() => navigate(item.path)}

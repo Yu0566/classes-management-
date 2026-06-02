@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Calculator, History, TrendingUp, Undo, Trash2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as groupApi from '@/lib/groups'
 import type { Group, GroupScoreHistory } from '@/types'
 
 export default function GroupsPage() {
+  const { confirm, notify } = useConfirm()
   const [groups, setGroups] = useState<Group[]>([])
   const [history, setHistory] = useState<(GroupScoreHistory & { group_name: string })[]>([])
   const [showHistory, setShowHistory] = useState(false)
@@ -62,7 +64,7 @@ export default function GroupsPage() {
   // 撤销上一步
   const handleUndo = async () => {
     const ok = await groupApi.undoLastScoreChange()
-    if (!ok) { alert('没有可撤销的操作'); return }
+    if (!ok) { await notify('没有可撤销的操作'); return }
     await loadData()
     await loadHistory()
   }
@@ -71,10 +73,10 @@ export default function GroupsPage() {
   const handleRankingBonus = async () => {
     const allZero = groups.every(g => g.study_score === 0)
     if (allZero) {
-      alert('所有小组学习积分均为0，无需算分。')
+      await notify('所有小组学习积分均为0，无需算分。')
       return
     }
-    if (!window.confirm('将按当前学习积分排名发放总积分奖励：\n第1名+8，第2名+7，第3名+6...\n执行后所有小组的学习积分将清零。\n确认执行？')) return
+    if (!await confirm({ message: '将按当前学习积分排名发放总积分奖励：\n第1名+8，第2名+7，第3名+6...\n执行后所有小组的学习积分将清零。\n确认执行？', variant: 'normal' })) return
     await groupApi.calculateRankingBonus()
     await loadData()
     await loadHistory()
@@ -82,7 +84,7 @@ export default function GroupsPage() {
 
   // 全部积分清零
   const handleResetAll = async () => {
-    if (!window.confirm('确认将所有小组的学习积分和总积分全部清零？\n此操作可在操作历史中逐条撤销。')) return
+    if (!await confirm({ message: '确认将所有小组的学习积分和总积分全部清零？\n此操作可在操作历史中逐条撤销。' })) return
     await groupApi.resetAllScores()
     await loadData()
     await loadHistory()

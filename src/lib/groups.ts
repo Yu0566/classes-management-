@@ -28,6 +28,28 @@ export async function createGroup(data: {
   return (await getGroup(id))!
 }
 
+// 批量创建小组
+export async function batchCreateGroups(count: number): Promise<Group[]> {
+  const existing = await getAllGroups()
+  const startIndex = existing.length + 1
+  const colors = ['bg-blue-500', 'bg-red-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-orange-500', 'bg-teal-500']
+
+  const now = Date.now()
+  const groups: Group[] = []
+  for (let i = 0; i < count; i++) {
+    const id = uuid()
+    const name = `第${startIndex + i}组`
+    const color = colors[(startIndex - 1 + i) % colors.length]
+    await executeRun(
+      `INSERT INTO groups (id, name, color, icon, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, name, color, 'fa-users', now, now]
+    )
+    groups.push((await getGroup(id))!)
+  }
+  return groups
+}
+
 // 更新小组
 export async function updateGroup(id: string, data: {
   name?: string

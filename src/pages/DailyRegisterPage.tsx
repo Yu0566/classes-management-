@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Play, Square, Clock, Plus, Trash2, History, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Play, Square, Clock, Plus, Trash2, History, X, RotateCcw } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
 import * as winApi from '@/lib/attendance-session'
@@ -69,6 +70,7 @@ function TimeInput({ time, onChange, disabled }: {
 }
 
 export default function DailyRegisterPage() {
+  const { confirm } = useConfirm()
   const [date, setDate] = useState(todayStr())
   const [students, setStudents] = useState<StudentWithGroup[]>([])
   const [groupMap, setGroupMap] = useState<Map<string, Group>>(new Map())
@@ -188,6 +190,15 @@ export default function DailyRegisterPage() {
     setWindows(prev => prev.filter(w => w.id !== id))
   }
 
+  const handleResetWindow = async (w: AttendanceWindow) => {
+    if (!await confirm({ message: `确认重置"${w.label || `${w.window_start}-${w.window_end}`}"？\n\n所有签到记录将被清除，迟到扣分将被撤销。` })) return
+    await winApi.resetAttendanceWindow(w.id)
+    const ws = await winApi.getWindows(date)
+    setWindows(ws)
+    const recs = await recApi.getWindowRecords(w.id)
+    setWindowRecords(prev => { const next = new Map(prev); next.set(w.id, recs); return next })
+  }
+
   const handleSaveWindow = async (id: string, start: string, end: string) => {
     await winApi.updateWindow(id, start, end)
     setWindows(prev => prev.map(w => w.id === id ? { ...w, window_start: start, window_end: end } : w))
@@ -217,6 +228,19 @@ export default function DailyRegisterPage() {
       const idx = recs.findIndex(r => r.student_id === studentId)
       if (idx >= 0) recs[idx] = { ...recs[idx], status: 'signed' as const }
       else recs.push({ id: '', window_id: activeWin.id, student_id: studentId, status: 'signed', updated_at: Date.now() })
+      next.set(activeWin.id, recs)
+      return next
+    })
+  }
+
+  const handleCancelSignIn = async (studentId: string) => {
+    if (!activeWin) return
+    await recApi.upsertWindowRecord(activeWin.id, studentId, 'unsigned')
+    setWindowRecords(prev => {
+      const next = new Map(prev)
+      const recs = [...(next.get(activeWin.id) || [])]
+      const idx = recs.findIndex(r => r.student_id === studentId)
+      if (idx >= 0) recs[idx] = { ...recs[idx], status: 'unsigned' as const }
       next.set(activeWin.id, recs)
       return next
     })
@@ -271,6 +295,17 @@ export default function DailyRegisterPage() {
 
   const anyActive = windows.some(w => w.status === 'active')
   const allIdle = windows.every(w => w.status === 'idle' || !w.status)
+
+  // 检查当前时间是否在任意考勤时段的时间范围内
+  const now = new Date()
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const isWithinAnyWindow = windows.some(w => {
+    if (!w.window_start || !w.window_end) return false
+    const [sh, sm] = w.window_start.split(':').map(Number)
+    const [eh, em] = w.window_end.split(':').map(Number)
+    return currentMinutes >= sh * 60 + sm && currentMinutes < eh * 60 + em
+  })
+  const outsideAllWindows = windows.length > 0 && !anyActive && !isWithinAnyWindow
 
   const remainingSeconds = (() => {
     if (!activeWin?.window_end) return 0
@@ -370,6 +405,12 @@ export default function DailyRegisterPage() {
                       >
                         <Play size={14} /> 重新开始
                       </button>
+                      <button
+                        onClick={() => handleResetWindow(w)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50"
+                      >
+                        <RotateCcw size={14} /> 重置
+                      </button>
                     </div>
                   )}
                   {!isActive && !isDefault && (
@@ -416,6 +457,7 @@ export default function DailyRegisterPage() {
                   const status = getAttendStatus(s.id)
                   const cfg = CARD_COLORS[status]
                   const clickableForSignin = anyActive && status === 'unsigned'
+                  const clickableForCancel = anyActive && status === 'signed'
                   const clickableForAdmin = (!anyActive || !activeWin) && (status === 'unsigned' || status === 'late' || status === 'leave')
 
                   return (
@@ -424,14 +466,16 @@ export default function DailyRegisterPage() {
                         onClick={() => {
                           if (clickableForSignin) {
                             handleSignIn(s.id)
+                          } else if (clickableForCancel) {
+                            handleCancelSignIn(s.id)
                           } else if (clickableForAdmin) {
                             setAdminTarget(s.id)
                           }
                         }}
-                        className={`w-full rounded-lg border-2 p-3 text-center transition-all ${cfg.card} ${
-                          clickableForSignin || clickableForAdmin
-                            ? 'shadow-sm hover:shadow-md hover:scale-105 cursor-pointer'
-                            : ''
+                        disabled={!clickableForSignin && !clickableForCancel && !clickableForAdmin}
+                        title={clickableForCancel ? '点击取消签到' : undefined}
+                        className={`w-full rounded-lg border-2 p-3 text-center transition-all ${
+                          `${cfg.card} ${clickableForSignin || clickableForCancel || clickableForAdmin ? 'shadow-sm hover:shadow-md hover:scale-105 cursor-pointer' : ''}`
                         }`}
                       >
                         <div className="text-sm font-bold">{s.name}</div>
@@ -473,8 +517,8 @@ export default function DailyRegisterPage() {
 
         <p className="text-xs text-gray-400 mt-3">
           {anyActive
-            ? '考勤进行中 — 学生点击白色卡片签到，到时间自动结束'
-            : '考勤未开始或已结束 — 点击卡片标记迟到或请假'}
+            ? '考勤进行中 — 点击白色卡片签到，点击绿色卡片可取消签到，到时间自动结束'
+            : '考勤未开始或已结束 — 点击卡片可随时标记迟到或请假'}
           {' · '}共 {students.length} 名学生
         </p>
       </div>

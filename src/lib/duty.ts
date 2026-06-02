@@ -19,6 +19,7 @@ export async function getOrCreateDutyRecord(date: string): Promise<DutyRecord> {
       [id, date, now]
     )
     record = (await queryOne<DutyRecord>('SELECT * FROM duty_records WHERE id = ?', [id]))!
+    // 不再在此处自动扫描，由调用方 (DutyPage) 在每次加载时调用 autoAssignDutyStudents
   }
   return record
 }
@@ -37,13 +38,8 @@ export async function getDutyStudents(dutyRecordId: string): Promise<DutyStudent
 export async function addDutyStudent(
   dutyRecordId: string, studentId: string, studentName: string
 ): Promise<void> {
-  const existing = await queryOne<DutyStudent>(
-    'SELECT * FROM duty_students WHERE duty_record_id = ? AND student_id = ?',
-    [dutyRecordId, studentId]
-  )
-  if (existing) return
   await executeRun(
-    `INSERT INTO duty_students (id, duty_record_id, student_id, student_name)
+    `INSERT OR IGNORE INTO duty_students (id, duty_record_id, student_id, student_name)
      VALUES (?, ?, ?, ?)`,
     [uuid(), dutyRecordId, studentId, studentName]
   )
@@ -121,44 +117,55 @@ export async function studentSignIn(dutyStudentId: string): Promise<void> {
   )
 }
 
-// 执行未签到扣分
+// 执行未签到扣分（防重复：原子抢占 penalty_applied 标记）
 export async function applyPenalty(
-  dutyRecordId: string, date: string
+  dutyRecordId: string, date: string, points: number = 1
 ): Promise<{ name: string; penalty: number }[]> {
   const students = await getDutyStudents(dutyRecordId)
   const penalties: { name: string; penalty: number }[] = []
 
-  const ops: { sql: string; params: unknown[] }[] = []
-  const now = Date.now()
-
   for (const ds of students) {
     if (!ds.sign_in_time && !ds.penalty_applied) {
-      ops.push({
-        sql: 'UPDATE students SET manual_offset = manual_offset - 1, updated_at = ? WHERE id = ?',
-        params: [now, ds.student_id],
-      })
-      ops.push({
-        sql: `INSERT INTO deduction_records (id, student_id, student_name, points, reason, date, timestamp)
-              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        params: [uuid(), ds.student_id, ds.student_name, 1, '值日未签到', date, now],
-      })
-      ops.push({
-        sql: 'UPDATE duty_students SET penalty_applied = 1 WHERE id = ?',
-        params: [ds.id],
-      })
-      penalties.push({ name: ds.student_name, penalty: 1 })
-    }
-  }
+      // 原子抢占：只有第一个调用方能将 penalty_applied 从 0 改为 1
+      const claim = await executeRun(
+        'UPDATE duty_students SET penalty_applied = 1 WHERE id = ? AND penalty_applied = 0',
+        [ds.id]
+      )
+      if (claim.changes === 0) continue // 已被其他调用方抢占
 
-  if (ops.length > 0) {
-    await executeTransaction(ops)
+      const now = Date.now()
+      try {
+        await executeTransaction([
+          {
+            sql: 'UPDATE students SET manual_offset = manual_offset - ?, updated_at = ? WHERE id = ?',
+            params: [points, now, ds.student_id],
+          },
+          {
+            sql: `INSERT INTO deduction_records (id, student_id, student_name, points, reason, date, timestamp)
+                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            params: [uuid(), ds.student_id, ds.student_name, points, '值日未签到', date, now],
+          },
+        ])
+        penalties.push({ name: ds.student_name, penalty: points })
+      } catch (err) {
+        // 扣分写入失败则回滚标记，允许下次重试
+        console.error('[applyPenalty] 写入失败，回滚标记', err)
+        await executeRun(
+          'UPDATE duty_students SET penalty_applied = 0 WHERE id = ?',
+          [ds.id]
+        )
+      }
+    }
   }
 
   return penalties
 }
 
 // 自动根据考勤迟到和作业未交/未交齐生成值日名单
-export async function autoAssignDutyStudents(date: string): Promise<{
+export async function autoAssignDutyStudents(
+  date: string,
+  excludedStudentIds?: Set<string>
+): Promise<{
   added: { name: string; reason: string }[]
 }> {
   const record = await getOrCreateDutyRecord(date)
@@ -181,6 +188,7 @@ export async function autoAssignDutyStudents(date: string): Promise<{
 
   for (const row of rows) {
     if (existingIds.has(row.id)) continue
+    if (excludedStudentIds?.has(row.id)) continue
 
     let reason = ''
     if (row.attendance === 'late') {
@@ -198,10 +206,30 @@ export async function autoAssignDutyStudents(date: string): Promise<{
   return { added }
 }
 
-// 测试用：重置值日状态（删除记录和名单，回到idle状态）
+// 重置值日状态（删除记录、扣分、还原积分，回到idle状态）
 export async function resetDutyRecord(date: string): Promise<void> {
   const record = await getDutyRecord(date)
   if (!record) return
+
+  // 1. 还原被值日扣分的学生积分
+  const deductions = await queryAll<{ student_id: string; points: number }>(
+    `SELECT student_id, points FROM deduction_records WHERE date = ? AND reason = '值日未签到'`,
+    [date]
+  )
+  for (const d of deductions) {
+    await executeRun(
+      'UPDATE students SET manual_offset = manual_offset + ?, updated_at = ? WHERE id = ?',
+      [d.points, Date.now(), d.student_id]
+    )
+  }
+
+  // 2. 删除值日扣分记录
+  await executeRun(
+    `DELETE FROM deduction_records WHERE date = ? AND reason = '值日未签到'`,
+    [date]
+  )
+
+  // 3. 删除值日学生名单和值日记录
   await executeRun('DELETE FROM duty_students WHERE duty_record_id = ?', [record.id])
   await executeRun('DELETE FROM duty_records WHERE id = ?', [record.id])
 }

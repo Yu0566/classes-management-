@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, Pencil, Trash2, Search, MoveRight, Users, Building2, ArrowLeftRight, RefreshCw, Upload, Trash } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Plus, Pencil, Trash2, Search, MoveRight, Users, ArrowLeftRight, RefreshCw, Upload, Crown, RotateCcw } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
+import * as seatingApi from '@/lib/seating'
 import type { StudentWithGroup, Group } from '@/types'
 
 const colorOptions = [
@@ -16,12 +18,16 @@ const colorOptions = [
   { value: 'bg-teal-500', label: '青色', ring: 'ring-teal-400' },
 ]
 
+const SEATS_PER_GROUP = 7
+const SEAT_LABELS = ['左前', '左中', '左后', '左后二', '右后二', '右后', '右前']
+
 export default function StudentsPage() {
+  const { confirm, notify } = useConfirm()
   const [students, setStudents] = useState<StudentWithGroup[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'students' | 'groups'>('students')
+  const [tab, setTab] = useState<'students' | 'groups'>('groups')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // 添加学生弹窗
@@ -57,6 +63,10 @@ export default function StudentsPage() {
   // 换组（交换学生）
   const [swapSource, setSwapSource] = useState<Group | null>(null)
   const [swapTargetId, setSwapTargetId] = useState('')
+
+  // 批量生成小组
+  const [showBatchGroups, setShowBatchGroups] = useState(false)
+  const [batchGroupCount, setBatchGroupCount] = useState(8)
 
   // 批量导入午餐午休名单
   const [showLunchImport, setShowLunchImport] = useState(false)
@@ -116,7 +126,7 @@ export default function StudentsPage() {
   const handleBatchDelete = async () => {
     const selected = selectedStudents
     if (selected.length === 0) return
-    if (!window.confirm(`确认删除选中的 ${selected.length} 名学生？\n这将同时删除这些学生的所有相关数据。`)) return
+    if (!await confirm({ message: `确认删除选中的 ${selected.length} 名学生？\n这将同时删除这些学生的所有相关数据。` })) return
     // 关闭相关弹窗（如果编辑/换组的学生在删除列表中）
     const idSet = new Set(selected.map(s => s.id))
     if (editStudent && idSet.has(editStudent.id)) {
@@ -143,7 +153,7 @@ export default function StudentsPage() {
     const names = batchNames.split(/[\n,，]+/).filter(n => n.trim())
     if (names.length === 0) return
     const count = await studentApi.batchCreateStudents(names, batchGroupId)
-    alert(`成功添加 ${count} 名学生`)
+    await notify(`成功添加 ${count} 名学生`)
     setShowBatchAdd(false)
     setBatchNames('')
     setBatchGroupId('')
@@ -154,7 +164,7 @@ export default function StudentsPage() {
   const handleLunchImport = async () => {
     const names = lunchImportText.split(/[\n,，]+/).filter(n => n.trim())
     if (names.length === 0) {
-      alert('请粘贴学生姓名')
+      await notify('请粘贴学生姓名')
       return
     }
     try {
@@ -165,11 +175,18 @@ export default function StudentsPage() {
       }
     } catch (err) {
       console.error('[handleLunchImport]', err)
-      alert(`导入失败：${err instanceof Error ? err.message : String(err)}`)
+      await notify({ message: `导入失败：${err instanceof Error ? err.message : String(err)}`, variant: 'error' })
     }
   }
 
+  // 快速切换组长
+  const toggleLeader = async (studentName: string, groupId: string, isCurrentlyLeader: boolean) => {
+    await groupApi.updateGroup(groupId, { leader_name: isCurrentlyLeader ? '' : studentName } as any)
+    await loadData()
+  }
+
   // 编辑学生
+  const [editAsLeader, setEditAsLeader] = useState(false)
   const handleEdit = async () => {
     if (!editStudent || !editName.trim()) return
     await studentApi.updateStudent(editStudent.id, {
@@ -178,17 +195,24 @@ export default function StudentsPage() {
       lunch_label: editLunchLabel,
       lunch_longterm: editLunchLongterm ? 1 : 0,
     })
+    // 处理组长变更
+    if (editAsLeader && editStudent.group_id) {
+      await groupApi.updateGroup(editStudent.group_id, { leader_name: editName.trim() } as any)
+    } else if (!editAsLeader && editStudent.group_id && isLeader(editStudent.group_id, editStudent.name)) {
+      await groupApi.updateGroup(editStudent.group_id, { leader_name: '' } as any)
+    }
     setEditStudent(null)
     setEditName('')
     setEditPracticeLabel('')
     setEditLunchLabel('')
     setEditLunchLongterm(false)
+    setEditAsLeader(false)
     await loadData()
   }
 
   // 删除学生
   const handleDelete = async (student: StudentWithGroup) => {
-    if (!window.confirm(`确认删除学生"${student.name}"？\n这将同时删除该学生的所有相关数据。`)) return
+    if (!await confirm({ message: `确认删除学生"${student.name}"？\n这将同时删除该学生的所有相关数据。` })) return
     // 关闭可能打开的相关弹窗
     if (editStudent?.id === student.id) {
       setEditStudent(null)
@@ -223,6 +247,16 @@ export default function StudentsPage() {
     await loadData()
   }
 
+  // 批量生成小组
+  const handleBatchGroups = async () => {
+    const count = Math.max(1, Math.min(50, batchGroupCount))
+    await groupApi.batchCreateGroups(count)
+    await notify(`已生成 ${count} 个小组`)
+    setShowBatchGroups(false)
+    setBatchGroupCount(8)
+    await loadData()
+  }
+
   // 编辑小组
   const handleEditGroup = async () => {
     if (!editGroup || !editGroupName.trim()) return
@@ -235,9 +269,9 @@ export default function StudentsPage() {
   const handleDeleteGroup = async (group: Group) => {
     const studentsInGroup = students.filter(s => s.group_id === group.id)
     if (studentsInGroup.length > 0) {
-      if (!window.confirm(`小组"${group.name}"${group.leader_name ? `（${group.leader_name}）` : ''}中有 ${studentsInGroup.length} 名学生，删除后这些学生将变为未分组。确认删除？`)) return
+      if (!await confirm({ message: `小组"${group.name}"${group.leader_name ? `（${group.leader_name}）` : ''}中有 ${studentsInGroup.length} 名学生，删除后这些学生将变为未分组。确认删除？` })) return
     } else {
-      if (!window.confirm(`确认删除小组"${group.name}"${group.leader_name ? `（${group.leader_name}）` : ''}？`)) return
+      if (!await confirm({ message: `确认删除小组"${group.name}"${group.leader_name ? `（${group.leader_name}）` : ''}？` })) return
     }
     await groupApi.deleteGroup(group.id)
     await loadData()
@@ -248,7 +282,7 @@ export default function StudentsPage() {
     if (!swapSource || !swapTargetId) return
     const target = groups.find(g => g.id === swapTargetId)
     if (!target) return
-    if (!window.confirm(`确认交换"${swapSource.name}${swapSource.leader_name ? `（${swapSource.leader_name}）` : ''}"和"${target.name}${target.leader_name ? `（${target.leader_name}）` : ''}"的全部学生？`)) return
+    if (!await confirm({ message: `确认交换"${swapSource.name}${swapSource.leader_name ? `（${swapSource.leader_name}）` : ''}"和"${target.name}${target.leader_name ? `（${target.leader_name}）` : ''}"的全部学生？` })) return
     await groupApi.swapGroupStudents(swapSource.id, swapTargetId)
     setSwapSource(null)
     setSwapTargetId('')
@@ -261,8 +295,112 @@ export default function StudentsPage() {
     const order = groups.map(g => `${g.name}${g.leader_name ? `（${g.leader_name}）` : ''}`).join(' → ')
     const first = groups[0].name
     const last = groups[groups.length - 1].name
-    if (!window.confirm(`各组学生将按顺序移动到下一组：\n${order}\n其中"${last}"的学生将移动到"${first}"。\n确认执行？`)) return
+    if (!await confirm({ message: `各组学生将按顺序移动到下一组：\n${order}\n其中"${last}"的学生将移动到"${first}"。\n确认执行？`, variant: 'normal' })) return
     await groupApi.rotateGroupStudents()
+    await loadData()
+  }
+
+  const unseatedStudents = students
+    .filter(s => ((s as any).seat_order ?? -1) === -1)
+    .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
+  const seatedCount = students.length - unseatedStudents.length
+
+  const getGroupSeats = (groupId: string) => {
+    const members = students
+      .filter(s => s.group_id === groupId && ((s as any).seat_order ?? -1) >= 0)
+      .sort((a, b) => ((a as any).seat_order ?? 0) - ((b as any).seat_order ?? 0))
+    const seats: (typeof students[number] | null)[] = Array(SEATS_PER_GROUP).fill(null)
+    members.forEach(s => {
+      const idx = (s as any).seat_order ?? -1
+      if (idx >= 0 && idx < SEATS_PER_GROUP) seats[idx] = s
+    })
+    return seats
+  }
+
+  const isLeader = (groupId: string, studentName: string) => {
+    const group = groups.find(g => g.id === groupId)
+    return group?.leader_name === studentName
+  }
+
+  const handleDragStart = (e: React.DragEvent, student: StudentWithGroup) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      studentId: student.id,
+      studentName: student.name,
+      sourceGroupId: student.group_id,
+      sourceSeatOrder: (student as any).seat_order ?? -1,
+    }))
+    e.dataTransfer.effectAllowed = 'move'
+
+    // 用克隆元素替换浏览器默认灰色拖拽幽灵图
+    const el = e.currentTarget as HTMLElement
+    const ghost = el.cloneNode(true) as HTMLElement
+    ghost.style.position = 'fixed'
+    ghost.style.top = '0px'
+    ghost.style.left = '0px'
+    ghost.style.opacity = '0.85'
+    ghost.style.pointerEvents = 'none'
+    ghost.style.zIndex = '-9999'
+    document.body.appendChild(ghost)
+    // 强制布局，确保浏览器渲染该元素再快照为拖拽图像
+    ghost.getBoundingClientRect()
+    e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, ghost.offsetHeight / 2)
+    requestAnimationFrame(() => ghost.remove())
+  }
+
+  const handleDropOnSlot = async (
+    e: React.DragEvent,
+    targetGroupId: string,
+    targetSeatOrder: number,
+    targetOccupantId: string | null,
+    targetOccupantName: string | null,
+  ) => {
+    e.preventDefault()
+    try {
+      const raw = e.dataTransfer.getData('application/json')
+      if (!raw) return
+      const source = JSON.parse(raw)
+      await seatingApi.performDrop({
+        studentId: source.studentId,
+        studentName: source.studentName,
+        sourceGroupId: source.sourceGroupId,
+        sourceSeatOrder: source.sourceSeatOrder,
+        targetGroupId,
+        targetSeatOrder,
+        targetOccupantId,
+        targetOccupantName,
+      })
+      await loadData()
+    } catch (err) {
+      console.error('[handleDropOnSlot]', err)
+    }
+  }
+
+  const handleDropOnPool = async (e: React.DragEvent) => {
+    e.preventDefault()
+    try {
+      const raw = e.dataTransfer.getData('application/json')
+      if (!raw) return
+      const source = JSON.parse(raw)
+      if (source.sourceSeatOrder === -1) return
+      await seatingApi.performDrop({
+        studentId: source.studentId,
+        studentName: source.studentName,
+        sourceGroupId: source.sourceGroupId,
+        sourceSeatOrder: source.sourceSeatOrder,
+        targetGroupId: '',
+        targetSeatOrder: -1,
+        targetOccupantId: null,
+        targetOccupantName: null,
+      })
+      await loadData()
+    } catch (err) {
+      console.error('[handleDropOnPool]', err)
+    }
+  }
+
+  const handleResetSeating = async () => {
+    if (!await confirm({ message: '确认重置所有座位？\n\n所有学生的座位将被清空，小组组长也将被清除。' })) return
+    await seatingApi.resetAllSeating()
     await loadData()
   }
 
@@ -289,20 +427,20 @@ export default function StudentsPage() {
         {/* Tab 切换 */}
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4 w-fit">
           <button
-            onClick={() => setTab('students')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === 'students' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            学生列表
-          </button>
-          <button
             onClick={() => setTab('groups')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               tab === 'groups' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             小组管理
+          </button>
+          <button
+            onClick={() => setTab('students')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              tab === 'students' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            学生列表
           </button>
         </div>
 
@@ -314,7 +452,7 @@ export default function StudentsPage() {
               {someSelected ? (
                 <button
                   onClick={handleBatchDelete}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-500 rounded-lg hover:bg-red-50"
                 >
                   <Trash2 size={18} /> 删除选中（{selectedStudents.length}）
                 </button>
@@ -430,11 +568,23 @@ export default function StudentsPage() {
                             setEditPracticeLabel(s.practice_label || '')
                             setEditLunchLabel(s.lunch_label || '')
                             setEditLunchLongterm((s as any).lunch_longterm === 1)
+                            setEditAsLeader(isLeader(s.group_id, s.name))
                           }}
                           className="p-1.5 text-gray-400 hover:text-primary-500 rounded hover:bg-gray-100"
                         >
                           <Pencil size={15} />
                         </button>
+                        {s.group_id && (
+                          <button
+                            onClick={() => toggleLeader(s.name, s.group_id, isLeader(s.group_id, s.name))}
+                            className={`p-1.5 rounded hover:bg-gray-100 ${
+                              isLeader(s.group_id, s.name) ? 'text-amber-500' : 'text-gray-300 hover:text-amber-500'
+                            }`}
+                            title={isLeader(s.group_id, s.name) ? '取消组长' : '设为组长'}
+                          >
+                            <Crown size={15} />
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setMoveStudent(s)
@@ -473,14 +623,32 @@ export default function StudentsPage() {
         {tab === 'groups' && (
         <>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">共 {groups.length} 个小组</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-500">共 {groups.length} 个小组</p>
+              <span className="text-sm text-gray-400">
+                {seatedCount} 已安排 / {students.length} 名学生
+              </span>
+            </div>
             <div className="flex gap-2">
               <button
+                onClick={() => setShowBatchGroups(true)}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
+              >
+                <Users size={18} /> 批量生成
+              </button>
+              <button
                 onClick={handleRotate}
-                className="flex items-center gap-2 px-4 py-2 border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50"
+                className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
                 title="每组学生移动到下一组"
               >
                 <RefreshCw size={18} /> 一键轮换
+              </button>
+              <button
+                onClick={handleResetSeating}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
+              >
+                <RotateCcw size={14} />
+                重置座位
               </button>
               <button
                 onClick={() => {
@@ -495,72 +663,45 @@ export default function StudentsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {groups.map(group => (
-              <div key={group.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow">
-                <div className={`${group.color} text-white rounded-t-xl p-4`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-bold text-lg">{group.name}</h3>
-                      {group.leader_name && (
-                        <p className="text-xs text-white/70">组长：{group.leader_name}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => {
-                          setSwapSource(group)
-                          setSwapTargetId('')
-                        }}
-                        className="p-1 rounded hover:bg-white/20 transition-colors"
-                        title="交换学生"
-                      >
-                        <ArrowLeftRight size={14} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditGroup(group)
-                          setEditGroupName(group.name)
-                          setEditGroupColor(group.color)
-                          setEditGroupLeader(group.leader_name || '')
-                        }}
-                        className="p-1 rounded hover:bg-white/20 transition-colors"
-                        title="编辑"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteGroup(group)}
-                        className="p-1 rounded hover:bg-white/20 transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="text-center mt-3">
-                    <Building2 size={32} className="mx-auto mb-1 opacity-80" />
-                    <div className="text-sm text-white/80">
-                      {students.filter(s => s.group_id === group.id).length} 名成员
-                    </div>
-                  </div>
-                </div>
-                <div className="p-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">学习积分</span>
-                    <span className="font-bold">{group.study_score}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mt-1">
-                    <span className="text-gray-400">总积分</span>
-                    <span className="font-bold">{group.total_score}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* 待排池 */}
+          <UnseatedPool
+            students={unseatedStudents}
+            groups={groups}
+            onDragStart={handleDragStart}
+            onDrop={handleDropOnPool}
+          />
+
+          {/* 小组座位网格 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {groups.map(group => {
+              const seats = getGroupSeats(group.id)
+              const count = seats.filter(Boolean).length
+              return (
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  seats={seats}
+                  seatedCount={count}
+                  isLeader={isLeader}
+                  onDragStart={handleDragStart}
+                  onDropOnSlot={handleDropOnSlot}
+                  onEdit={() => {
+                    setEditGroup(group)
+                    setEditGroupName(group.name)
+                    setEditGroupColor(group.color)
+                    setEditGroupLeader(group.leader_name || '')
+                  }}
+                  onDelete={() => handleDeleteGroup(group)}
+                  onSwap={() => {
+                    setSwapSource(group)
+                    setSwapTargetId('')
+                  }}
+                />
+              )
+            })}
 
             {groups.length === 0 && (
               <div className="col-span-full text-center py-12 text-gray-400">
-                <Building2 size={48} className="mx-auto mb-2 opacity-30" />
                 <p>还没有小组，点击"添加小组"开始</p>
               </div>
             )}
@@ -699,9 +840,21 @@ export default function StudentsPage() {
             <span className="text-xs text-gray-400">{editLunchLongterm ? '每天自动请假' : '每日手动考勤'}</span>
           </div>
         )}
+        {editStudent?.group_id && (
+          <label className="flex items-center gap-2 mb-3 cursor-pointer select-none text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={editAsLeader}
+              onChange={e => setEditAsLeader(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+            />
+            <Crown size={14} className="text-amber-500" />
+            设为组长
+          </label>
+        )}
         <div className="flex gap-2 justify-end">
           <button
-            onClick={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false) }}
+            onClick={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false); setEditAsLeader(false) }}
             className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
           >
             取消
@@ -775,6 +928,33 @@ export default function StudentsPage() {
         <div className="flex gap-2 justify-end">
           <button onClick={() => setShowAddGroup(false)} className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
           <button onClick={handleAddGroup} disabled={!addGroupName.trim()} className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50">确认</button>
+        </div>
+      </Modal>
+
+      {/* 批量生成小组弹窗 */}
+      <Modal open={showBatchGroups} onClose={() => setShowBatchGroups(false)} title="批量生成小组" width="sm">
+        <p className="text-sm text-gray-500 mb-3">
+          输入需要生成的小组数量，系统将自动创建并命名（如"第1组""第2组"…），颜色自动轮换。
+        </p>
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={batchGroupCount}
+            onChange={e => setBatchGroupCount(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+            className="w-24 border rounded-lg px-3 py-2 text-center text-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+            autoFocus
+            onKeyDown={e => e.key === 'Enter' && handleBatchGroups()}
+          />
+          <span className="text-sm text-gray-500">个小组</span>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          当前已有 {groups.length} 个小组，将自动从第{groups.length + 1}组开始命名
+        </p>
+        <div className="flex gap-2 justify-end">
+          <button onClick={() => setShowBatchGroups(false)} className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+          <button onClick={handleBatchGroups} className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600">确认生成</button>
         </div>
       </Modal>
 
@@ -900,6 +1080,205 @@ export default function StudentsPage() {
           </button>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+// ====== 小组管理子组件 ======
+
+function UnseatedPool({
+  students, groups, onDragStart, onDrop,
+}: {
+  students: StudentWithGroup[]
+  groups: Group[]
+  onDragStart: (e: React.DragEvent, s: StudentWithGroup) => void
+  onDrop: (e: React.DragEvent) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    ref.current?.classList.add('border-primary-400', 'bg-primary-50')
+  }
+  const handleDragLeave = () => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50')
+  }
+  const handleDrop = (e: React.DragEvent) => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50')
+    onDrop(e)
+  }
+
+  return (
+    <div className="mb-6">
+      <h2 className="text-sm font-medium text-gray-500 mb-2">
+        待安排学生（{students.length}人）
+      </h2>
+      <div
+        ref={ref}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className="flex flex-wrap gap-2 p-3 border-2 border-dashed rounded-lg min-h-[44px] transition-colors border-gray-200 bg-gray-50"
+      >
+        {students.length === 0 ? (
+          <p className="text-sm text-gray-400 w-full text-center">所有学生已安排座位</p>
+        ) : (
+          students.map(s => {
+            const g = groups.find(grp => grp.id === s.group_id)
+            return (
+              <StudentChip
+                key={s.id}
+                student={s}
+                groupColor={g?.color || 'bg-gray-400'}
+                isLeader={false}
+                onDragStart={onDragStart}
+              />
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+function GroupCard({
+  group, seats, seatedCount, isLeader, onDragStart, onDropOnSlot,
+  onEdit, onDelete, onSwap,
+}: {
+  group: Group
+  seats: (StudentWithGroup | null)[]
+  seatedCount: number
+  isLeader: (groupId: string, name: string) => boolean
+  onDragStart: (e: React.DragEvent, s: StudentWithGroup) => void
+  onDropOnSlot: (e: React.DragEvent, gid: string, order: number, oid: string | null, oname: string | null) => void
+  onEdit: () => void
+  onDelete: () => void
+  onSwap: () => void
+}) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow">
+      <div className={`${group.color || 'bg-blue-500'} px-3 py-2 text-white`}>
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-sm">{group.name}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs opacity-80">{seatedCount}/{SEATS_PER_GROUP}</span>
+            <button onClick={onSwap} className="p-0.5 rounded hover:bg-white/20" title="交换学生">
+              <ArrowLeftRight size={12} />
+            </button>
+            <button onClick={onEdit} className="p-0.5 rounded hover:bg-white/20" title="编辑">
+              <Pencil size={12} />
+            </button>
+            <button onClick={onDelete} className="p-0.5 rounded hover:bg-white/20" title="删除">
+              <Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+        {group.leader_name && (
+          <div className="flex items-center gap-1 mt-0.5 text-xs opacity-90">
+            <Crown size={10} />
+            {group.leader_name}
+          </div>
+        )}
+      </div>
+
+      <div className="p-2 space-y-1.5">
+        {seats.map((student, idx) => (
+          <SeatSlot
+            key={idx}
+            groupId={group.id}
+            seatOrder={idx}
+            student={student}
+            label={SEAT_LABELS[idx]}
+            isLeader={student ? isLeader(group.id, student.name) : false}
+            groupColor={group.color || 'bg-blue-500'}
+            onDragStart={onDragStart}
+            onDrop={onDropOnSlot}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SeatSlot({
+  groupId, seatOrder, student, label, isLeader: leader, groupColor, onDragStart, onDrop,
+}: {
+  groupId: string
+  seatOrder: number
+  student: StudentWithGroup | null
+  label: string
+  isLeader: boolean
+  groupColor: string
+  onDragStart: (e: React.DragEvent, s: StudentWithGroup) => void
+  onDrop: (e: React.DragEvent, gid: string, order: number, oid: string | null, oname: string | null) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    ref.current?.classList.add('border-primary-400', 'bg-primary-50', 'scale-[1.02]')
+  }
+  const handleDragLeave = () => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50', 'scale-[1.02]')
+  }
+  const handleDrop = (e: React.DragEvent) => {
+    ref.current?.classList.remove('border-primary-400', 'bg-primary-50', 'scale-[1.02]')
+    onDrop(e, groupId, seatOrder, student?.id ?? null, student?.name ?? null)
+  }
+
+  const baseClass = student
+    ? 'border-gray-100 bg-white'
+    : 'border-dashed border-gray-200 bg-gray-50'
+
+  return (
+    <div
+      ref={ref}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all duration-150 ${baseClass}`}
+    >
+      <span className="text-xs text-gray-300 w-10 flex-shrink-0">{label}</span>
+      {student ? (
+        <StudentChip
+          student={student}
+          groupColor={groupColor}
+          isLeader={leader}
+          onDragStart={onDragStart}
+        />
+      ) : (
+        <span className="text-xs text-gray-300 italic">空位</span>
+      )}
+    </div>
+  )
+}
+
+function StudentChip({
+  student, groupColor, isLeader: leader, onDragStart,
+}: {
+  student: StudentWithGroup
+  groupColor: string
+  isLeader: boolean
+  onDragStart: (e: React.DragEvent, s: StudentWithGroup) => void
+}) {
+  const handleDragStart = (e: React.DragEvent) => {
+    const el = e.currentTarget as HTMLElement
+    el.style.opacity = '0.4'
+    onDragStart(e, student)
+  }
+  const handleDragEnd = (e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).style.opacity = ''
+  }
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      className="flex items-center gap-1 px-2.5 py-1 bg-white border rounded-md shadow-sm cursor-grab hover:shadow-md transition-shadow select-none min-w-[70px] justify-center"
+    >
+      {leader && <Crown size={12} className="text-amber-500 flex-shrink-0" />}
+      <span className="text-sm font-medium truncate max-w-[80px]">{student.name}</span>
     </div>
   )
 }

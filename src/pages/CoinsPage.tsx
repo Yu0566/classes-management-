@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { History, Coins, Calculator } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as coinsApi from '@/lib/coins'
 import * as groupApi from '@/lib/groups'
 import type { CoinGroup, CoinHistory } from '@/types'
 
 export default function CoinsPage() {
+  const { confirm } = useConfirm()
   const [groups, setGroups] = useState<CoinGroup[]>([])
   const [leaderMap, setLeaderMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -35,7 +37,7 @@ export default function CoinsPage() {
   }
 
   const handleSettle = async () => {
-    if (!window.confirm(`确认结算？\n将对各组宝龙币按公式（币数 - ${target}）× 3 计算积分（加分上限12），计入总分后全部归零。`)) return
+    if (!await confirm({ message: `确认结算？\n将对各组宝龙币按公式（币数 - ${target}）× 3 计算积分（加分上限12），计入总分后全部归零。`, variant: 'normal' })) return
     await coinsApi.settleCoins(target)
     await loadData()
   }

@@ -176,24 +176,24 @@ export async function recalculateBonuses(
     ...toRemove.map(a => a.group_id),
     ...toAdd.map(a => a.group_id),
   ])
-  const groupScores = new Map<string, number>()
+  const groupTotals = new Map<string, number>()
   for (const gid of allGroupIds) {
-    const rows = await queryAll<{ study_score: number }>(
-      'SELECT study_score FROM groups WHERE id = ?', [gid]
+    const rows = await queryAll<{ total_score: number }>(
+      'SELECT total_score FROM groups WHERE id = ?', [gid]
     )
-    groupScores.set(gid, rows[0]?.study_score ?? 0)
+    groupTotals.set(gid, rows[0]?.total_score ?? 0)
   }
 
   for (const award of toRemove) {
     ops.push({ sql: 'DELETE FROM practice_score_awards WHERE id = ?', params: [award.id] })
-    const cur = groupScores.get(award.group_id) ?? 0
-    const newScore = Math.max(-10000, Math.min(10000, cur - 1))
-    ops.push({ sql: 'UPDATE groups SET study_score = ?, updated_at = ? WHERE id = ?', params: [newScore, now, award.group_id] })
+    const cur = groupTotals.get(award.group_id) ?? 0
+    const newTotal = Math.max(-10000, Math.min(10000, cur - 1))
+    ops.push({ sql: 'UPDATE groups SET total_score = ?, updated_at = ? WHERE id = ?', params: [newTotal, now, award.group_id] })
     ops.push({
       sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at) VALUES (?, ?, ?, ?, ?)`,
       params: [uuid(), award.group_id, -1, `撤销每日一练前5签到奖励（${LABEL_NAMES[label]}）`, now],
     })
-    groupScores.set(award.group_id, newScore)
+    groupTotals.set(award.group_id, newTotal)
   }
   for (const award of toAdd) {
     ops.push({
@@ -201,14 +201,14 @@ export async function recalculateBonuses(
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
       params: [uuid(), award.student_id, award.group_id, date, label, 1, now],
     })
-    const cur = groupScores.get(award.group_id) ?? 0
-    const newScore = Math.max(-10000, Math.min(10000, cur + 1))
-    ops.push({ sql: 'UPDATE groups SET study_score = ?, updated_at = ? WHERE id = ?', params: [newScore, now, award.group_id] })
+    const cur = groupTotals.get(award.group_id) ?? 0
+    const newTotal = Math.max(-10000, Math.min(10000, cur + 1))
+    ops.push({ sql: 'UPDATE groups SET total_score = ?, updated_at = ? WHERE id = ?', params: [newTotal, now, award.group_id] })
     ops.push({
       sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at) VALUES (?, ?, ?, ?, ?)`,
       params: [uuid(), award.group_id, 1, `每日一练前5签到（${LABEL_NAMES[label]}）+1`, now],
     })
-    groupScores.set(award.group_id, newScore)
+    groupTotals.set(award.group_id, newTotal)
   }
 
   await executeTransaction(ops)

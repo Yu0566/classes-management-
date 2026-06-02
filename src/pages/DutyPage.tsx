@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Plus, X, Clock, LogIn, AlertTriangle, Check, Lock, Settings } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as dutyApi from '@/lib/duty'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
@@ -14,6 +15,7 @@ function todayStr(): string {
 type WindowState = 'idle' | 'counting_down' | 'signing_in' | 'finished'
 
 export default function DutyPage() {
+  const { confirm, notify } = useConfirm()
   const [date, setDate] = useState(todayStr())
   const [dutyRecord, setDutyRecord] = useState<DutyRecord | null>(null)
   const [dutyStudents, setDutyStudents] = useState<DutyStudent[]>([])
@@ -41,14 +43,26 @@ export default function DutyPage() {
     const saved = localStorage.getItem('duty_duration')
     return saved ? parseInt(saved, 10) : dutyApi.DUTY_DURATION_MINUTES
   })
+  const [dutyPenaltyPoints, setDutyPenaltyPoints] = useState(() => {
+    const saved = localStorage.getItem('duty_penalty_points')
+    return saved ? parseInt(saved, 10) : 1
+  })
+  const penaltyRef = useRef(dutyPenaltyPoints)
+  penaltyRef.current = dutyPenaltyPoints
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const signInRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const dutyRecordRef = useRef<DutyRecord | null>(null)
+  const dateRef = useRef(date)
   const durationRef = useRef(
     (() => {
       const saved = localStorage.getItem('duty_duration')
       return saved ? parseInt(saved, 10) : dutyApi.DUTY_DURATION_MINUTES
     })()
   )
+
+  // 保持 ref 与 state 同步，避免定时器闭包拿到过期值
+  dutyRecordRef.current = dutyRecord
+  dateRef.current = date
 
   const loadData = useCallback(async () => {
     const [record, students, gs] = await Promise.all([
@@ -62,6 +76,22 @@ export default function DutyPage() {
 
     const ds = await dutyApi.getDutyStudents(record.id)
     setDutyStudents(ds)
+
+    // 每次加载时自动扫描考勤迟到/作业未交学生加入值日
+    // 但跳过被手动移除的学生（记录在 localStorage）
+    let excludedIds: Set<string> | undefined
+    try {
+      const raw = localStorage.getItem(`duty-removed-${date}`)
+      if (raw) {
+        const arr: string[] = JSON.parse(raw)
+        if (arr.length > 0) excludedIds = new Set(arr)
+      }
+    } catch { /* ignore */ }
+    const result = await dutyApi.autoAssignDutyStudents(date, excludedIds)
+    if (result.added.length > 0) {
+      const updated = await dutyApi.getDutyStudents(record.id)
+      setDutyStudents(updated)
+    }
 
     // 根据记录恢复窗口状态
     const countdownMs = durationRef.current * 60 * 1000
@@ -80,9 +110,13 @@ export default function DutyPage() {
       const remaining = Math.max(0, Math.ceil((record.sign_in_window_start + signInMs - Date.now()) / 1000))
       setSignInRemaining(remaining)
     } else if (record.sign_in_window_start) {
-      // 签到窗口已过期但未关闭
-      setWindowState('signing_in')
-      setSignInRemaining(0)
+      // 签到窗口已过期但未关闭 → 自动关闭，执行扣分
+      await dutyApi.closeSignInWindow(date)
+      const penaltyResult = await dutyApi.applyPenalty(record.id, date, penaltyRef.current)
+      setPenalties(penaltyResult)
+      setWindowState('finished')
+      const ds2 = await dutyApi.getDutyStudents(record.id)
+      setDutyStudents(ds2)
     } else if (record.countdown_started_at && record.countdown_started_at + countdownMs > Date.now()) {
       // 倒计时进行中
       setWindowState('counting_down')
@@ -96,17 +130,20 @@ export default function DutyPage() {
       setDutyRecord(updatedRecord)
     }
 
-    // idle 状态时自动填入违规学生
-    if (!record.countdown_started_at && !record.sign_in_window_start) {
-      await dutyApi.autoAssignDutyStudents(date)
-      const updatedDs = await dutyApi.getDutyStudents(record.id)
-      setDutyStudents(updatedDs)
-    }
-
     setLoading(false)
   }, [date])
 
   useEffect(() => { loadData() }, [loadData])
+
+  // 暴露重置接口到控制台：__resetDuty('2026-06-01')
+  useEffect(() => {
+    (window as any).__resetDuty = async (d: string) => {
+      await dutyApi.resetDutyRecord(d)
+      console.log(`值日已重置: ${d}`)
+      if (d === date) await loadData()
+    }
+    return () => { delete (window as any).__resetDuty }
+  }, [date, loadData])
 
   // 清理定时器
   useEffect(() => {
@@ -151,21 +188,27 @@ export default function DutyPage() {
   }, [windowState])
 
   const handleCountdownEnd = async () => {
-    await dutyApi.openSignInWindow(date)
-    const record = await dutyApi.getDutyRecord(date)
+    await dutyApi.openSignInWindow(dateRef.current)
+    const record = await dutyApi.getDutyRecord(dateRef.current)
     setDutyRecord(record || null)
     setWindowState('signing_in')
     setSignInRemaining(dutyApi.SIGN_IN_WINDOW_SECONDS)
   }
 
   const handleSignInWindowEnd = async () => {
-    if (!dutyRecord) return
-    await dutyApi.closeSignInWindow(date)
-    const result = await dutyApi.applyPenalty(dutyRecord.id, date)
-    setPenalties(result)
-    setWindowState('finished')
-    const ds = await dutyApi.getDutyStudents(dutyRecord.id)
-    setDutyStudents(ds)
+    const currentRecord = dutyRecordRef.current
+    if (!currentRecord) return
+    try {
+      await dutyApi.closeSignInWindow(dateRef.current)
+      const result = await dutyApi.applyPenalty(currentRecord.id, dateRef.current, penaltyRef.current)
+      setPenalties(result)
+      setWindowState('finished')
+      const ds = await dutyApi.getDutyStudents(currentRecord.id)
+      setDutyStudents(ds)
+    } catch (err) {
+      console.error('[handleSignInWindowEnd]', err)
+      setWindowState('finished')
+    }
   }
 
   const handleForceEnd = async () => {
@@ -205,14 +248,25 @@ export default function DutyPage() {
     setDutyStudents(ds)
   }
 
-  const handleRemoveStudent = async (dsId: string) => {
+  const handleRemoveStudent = async (dsId: string, studentName: string, studentId: string) => {
+    if (!await confirm({ message: `确认将"${studentName}"从值日名单中移除？` })) return
     await dutyApi.removeDutyStudent(dsId)
     setDutyStudents(prev => prev.filter(d => d.id !== dsId))
+    // 记住被手动移除的学生，防止下次加载时被自动加回
+    try {
+      const key = `duty-removed-${date}`
+      const raw = localStorage.getItem(key)
+      const arr: string[] = raw ? JSON.parse(raw) : []
+      if (!arr.includes(studentId)) {
+        arr.push(studentId)
+        localStorage.setItem(key, JSON.stringify(arr))
+      }
+    } catch { /* ignore */ }
   }
 
   // 开始值日
   const handleStartDuty = async () => {
-    if (dutyStudents.length === 0) return alert('值日名单为空')
+    if (dutyStudents.length === 0) { await notify('值日名单为空'); return }
     const record = await dutyApi.startDuty(date)
     setDutyRecord(record)
     setWindowState('counting_down')
@@ -312,6 +366,42 @@ export default function DutyPage() {
                 <span className="text-xs text-gray-400 ml-2">范围 1-120 分钟</span>
               </div>
               <div>
+                <label className="block text-sm text-gray-500 mb-1">未签到扣分</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const v = Math.max(1, dutyPenaltyPoints - 1)
+                      setDutyPenaltyPoints(v)
+                      localStorage.setItem('duty_penalty_points', String(v))
+                    }}
+                    className="w-8 h-8 flex items-center justify-center border rounded-lg hover:bg-gray-100 text-gray-500"
+                  >−</button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={dutyPenaltyPoints}
+                    onChange={e => {
+                      const v = Math.max(1, Math.min(20, parseInt(e.target.value) || 1))
+                      setDutyPenaltyPoints(v)
+                      localStorage.setItem('duty_penalty_points', String(v))
+                    }}
+                    className="w-16 h-8 text-center border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const v = Math.min(20, dutyPenaltyPoints + 1)
+                      setDutyPenaltyPoints(v)
+                      localStorage.setItem('duty_penalty_points', String(v))
+                    }}
+                    className="w-8 h-8 flex items-center justify-center border rounded-lg hover:bg-gray-100 text-gray-500"
+                  >+</button>
+                  <span className="text-xs text-gray-400">分/人</span>
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm text-gray-500 mb-1">管理员密码</label>
                 {showChangePwd ? (
                   <div className="bg-gray-50 rounded-lg p-3 space-y-2">
@@ -383,7 +473,7 @@ export default function DutyPage() {
                 {dutyStudents.map(ds => (
                   <span key={ds.id} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-sm px-2 py-1 rounded">
                     {ds.student_name}
-                    <button onClick={() => handleRemoveStudent(ds.id)} className="hover:text-red-500"><X size={14} /></button>
+                    <button onClick={() => handleRemoveStudent(ds.id, ds.student_name, ds.student_id)} className="hover:text-red-500"><X size={14} /></button>
                   </span>
                 ))}
               </div>
@@ -445,7 +535,7 @@ export default function DutyPage() {
               ))}
             </div>
             <p className="text-xs text-blue-500 mt-3">
-              已签到：{signedInCount}/{dutyStudents.length} | 超时未签到将被扣1分
+              已签到：{signedInCount}/{dutyStudents.length} | 超时未签到将被扣{dutyPenaltyPoints}分
             </p>
           </div>
         )}

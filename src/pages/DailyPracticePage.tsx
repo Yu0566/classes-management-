@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Check, X, History } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as groupApi from '@/lib/groups'
 import { getRosterStudents, getSignIns, getScoreAwards, signInStudent, unSignStudent, LABEL_NAMES, type PracticeLabel } from '@/lib/practice-roster'
 import type { StudentWithGroup, Group, PracticeSignIn, PracticeScoreAward } from '@/types'
@@ -26,6 +27,7 @@ function formatTime(ts: number): string {
 }
 
 export default function DailyPracticePage() {
+  const { notify } = useConfirm()
   const [date, setDate] = useState(todayStr())
   const [groupMap, setGroupMap] = useState<Map<string, Group>>(new Map())
   const [loading, setLoading] = useState(true)
@@ -85,7 +87,7 @@ export default function DailyPracticePage() {
       await loadData()
     } catch (err) {
       console.error('[handleSignIn] error:', err)
-      alert(`签到失败：${err instanceof Error ? err.message : String(err)}`)
+      await notify({ message: `签到失败：${err instanceof Error ? err.message : String(err)}`, variant: 'error' })
     }
   }
 
