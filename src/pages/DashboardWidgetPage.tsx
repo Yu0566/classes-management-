@@ -1,19 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Users, Medal, AlertTriangle, CheckCircle, Calculator,
-  X, Maximize2, GripVertical, Coins
+  X, Maximize2, GripVertical, Coins, Shield, CalendarDays
 } from 'lucide-react'
 import * as groupApi from '@/lib/groups'
 import * as studentApi from '@/lib/students'
 import * as dutyApi from '@/lib/duty'
 import * as mathHomeworkApi from '@/lib/math-homework'
+import * as rosterApi from '@/lib/duty-roster'
 import { getRecordsByDate } from '@/lib/homework'
 import * as winApi from '@/lib/attendance-session'
 import * as recApi from '@/lib/attendance-window-records'
 import { getDailyStatuses } from '@/lib/daily-status'
 import { getRosterStudents, getSignIns, type PracticeLabel } from '@/lib/practice-roster'
 import { queryAll } from '@/lib/db'
-import type { Group, StudentWithGroup, DailyStatus, CoinGroup, MathHomeworkGradeWithStudent, AttendanceWindow, AttendanceWindowRecord, DutyStudent } from '@/types'
+import type { Group, StudentWithGroup, DailyStatus, CoinGroup, MathHomeworkGradeWithStudent, AttendanceWindow, AttendanceWindowRecord, DutyStudent, DutyRosterEntry } from '@/types'
+import { WEEKDAY_NAMES } from '@/types'
 
 function todayStr(): string {
   const d = new Date()
@@ -30,9 +32,9 @@ const GlowDot = ({ color }: { color: string }) => (
 )
 
 // 卡片类型 ID
-type CardId = 'attendance' | 'homework' | 'daily-practice' | 'math-homework' | 'group-ranking' | 'deductions' | 'duty' | 'coins'
+type CardId = 'attendance' | 'homework' | 'daily-practice' | 'math-homework' | 'group-ranking' | 'deductions' | 'duty' | 'rotation' | 'coins'
 
-const DEFAULT_ORDER: CardId[] = ['attendance', 'homework', 'daily-practice', 'math-homework', 'group-ranking', 'deductions', 'duty', 'coins']
+const DEFAULT_ORDER: CardId[] = ['attendance', 'homework', 'daily-practice', 'math-homework', 'group-ranking', 'deductions', 'duty', 'rotation', 'coins']
 
 function loadCardOrder(): CardId[] {
   try {
@@ -71,6 +73,7 @@ export default function DashboardWidgetPage() {
   const [practiceUnsigned, setPracticeUnsigned] = useState<string[]>([])
   const [attendanceWindows, setAttendanceWindows] = useState<AttendanceWindow[]>([])
   const [windowRecordsMap, setWindowRecordsMap] = useState<Map<string, AttendanceWindowRecord[]>>(new Map())
+  const [dutyRoster, setDutyRoster] = useState<DutyRosterEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [time, setTime] = useState('')
@@ -94,13 +97,13 @@ export default function DashboardWidgetPage() {
     setTodayStatuses(st)
     setCoinGroups(cg)
 
-    const deds = await queryAll<{ student_name: string; total_points: number }>(
-      `SELECT student_name, SUM(points) as total_points FROM (
-        SELECT student_name, points FROM deduction_records
+    const deds = await queryAll<{ student_id: string; student_name: string; total_points: number }>(
+      `SELECT student_id, student_name, SUM(points) as total_points FROM (
+        SELECT student_id, student_name, points FROM deduction_records
         UNION ALL
-        SELECT student_name, -delta as points FROM manual_adjust_records WHERE delta < 0
-      ) GROUP BY student_name
-      ORDER BY total_points DESC LIMIT 3`
+        SELECT student_id, student_name, -delta as points FROM manual_adjust_records WHERE delta < 0
+      ) GROUP BY student_id
+      ORDER BY total_points DESC LIMIT 5`
     )
     setTopDeductions(deds)
 
@@ -147,6 +150,11 @@ export default function DashboardWidgetPage() {
     }
     setWindowRecordsMap(recMap)
 
+    try {
+      const roster = await rosterApi.getAll()
+      setDutyRoster(roster)
+    } catch { /* ignore */ }
+
     setError(null)
     setLoading(false)
     } catch (e) {
@@ -160,7 +168,21 @@ export default function DashboardWidgetPage() {
     loadData()
     setTime(formatDate(todayStr()))
     const timer = setInterval(() => { loadData(); setTime(formatDate(todayStr())) }, 30000)
-    return () => clearInterval(timer)
+    const onVisible = () => { if (!document.hidden) { loadData(); setTime(formatDate(todayStr())) } }
+    const onFocus = () => { loadData(); setTime(formatDate(todayStr())) }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    // 监听主窗口发来的刷新通知
+    const unsubRefresh = window.electronAPI?.widget?.onRefresh(() => {
+      loadData()
+      setTime(formatDate(todayStr()))
+    })
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+      unsubRefresh?.()
+    }
   }, [loadData])
 
   const isElectron = !!window.electronAPI?.widget
@@ -240,9 +262,21 @@ export default function DashboardWidgetPage() {
   const statusStudentIds = new Set(todayStatuses.map(s => s.student_id))
   students.filter(s => !statusStudentIds.has(s.id)).forEach(s => unsignedStudents.push(s.name))
 
-  const hasAttendanceIssues = lateStudentNames.length > 0 || leaveStudentNames.length > 0 || unsignedStudents.length > 0
+  const noWindowUsed = attendanceWindows.length === 0 || attendanceWindows.every(w => (windowRecordsMap.get(w.id) || []).length === 0)
+  const hasAttendanceIssues = !noWindowUsed && (lateStudentNames.length > 0 || leaveStudentNames.length > 0 || unsignedStudents.length > 0)
   const rankedGroups = [...groups].sort((a, b) => b.total_score - a.total_score)
   const maxTotalScore = rankedGroups.length > 0 ? rankedGroups[0].total_score : 1
+  const monitor = dutyRoster.find(e => e.role === 'monitor')
+  const todayDow = new Date().getDay()
+  const todayRotation = (todayDow >= 1 && todayDow <= 5)
+    ? dutyRoster.filter(e => e.role === 'rotation' && e.weekday === todayDow).sort((a, b) => (a.position || 0) - (b.position || 0))
+    : []
+  const todayCaptainOrVice = (todayDow >= 1 && todayDow <= 3)
+    ? dutyRoster.find(e => e.role === 'captain' && e.weekday_group === 'mon_wed')
+    : (todayDow >= 4 && todayDow <= 5)
+      ? dutyRoster.find(e => e.role === 'vice_captain' && e.weekday_group === 'thu_fri')
+      : null
+  const todayCaptainLabel = (todayDow >= 1 && todayDow <= 3) ? '队长' : '副队长'
   const totalCoins = coinGroups.reduce((s, cg) => s + (cg.coins || 0), 0)
   const belowTargetGroups = coinGroups.filter(cg => cg.coins < COIN_TARGET)
   const rankMedals = ['🥇', '🥈', '🥉']
@@ -257,6 +291,7 @@ export default function DashboardWidgetPage() {
       case 'group-ranking': return true
       case 'deductions': return topDeductions.length > 0
       case 'duty': return true
+      case 'rotation': return !!(monitor || todayCaptainOrVice || todayRotation.length > 0)
       case 'coins': return belowTargetGroups.length > 0
     }
   }
@@ -292,17 +327,21 @@ export default function DashboardWidgetPage() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   {dragHandle}
-                  {hasAttendanceIssues ? <AlertTriangle size={13} className="text-red-400" /> : <CheckCircle size={13} className="text-emerald-400" />}
+                  {noWindowUsed ? <AlertTriangle size={13} className="text-slate-400" /> : hasAttendanceIssues ? <AlertTriangle size={13} className="text-red-400" /> : <CheckCircle size={13} className="text-emerald-400" />}
                   <span className="text-xs font-semibold text-slate-500">考勤</span>
                 </div>
+                {!noWindowUsed && (
                 <div className="flex items-center gap-2 text-[10px]">
                   <span className="flex items-center gap-0.5"><GlowDot color="bg-emerald-400" />已签 {todayStatuses.filter(s => s.attendance === 'signed').length}</span>
                   {lateStudentNames.length > 0 && <span className="flex items-center gap-0.5"><GlowDot color="bg-red-400" />迟到 {lateStudentNames.length}</span>}
                   {leaveStudentNames.length > 0 && <span className="flex items-center gap-0.5"><GlowDot color="bg-blue-400" />请假 {leaveStudentNames.length}</span>}
                   {unsignedStudents.length > 0 && <span className="flex items-center gap-0.5"><GlowDot color="bg-slate-400" />未签 {unsignedStudents.length}</span>}
                 </div>
+                )}
               </div>
-              {hasAttendanceIssues && (
+              {noWindowUsed ? (
+                <p className="text-[11px] text-slate-400">未开启考勤</p>
+              ) : hasAttendanceIssues && (
                 <div className="space-y-0.5">
                   {lateStudentNames.map(name => (
                     <div key={`late-${name}`} className="flex items-center gap-1 text-[11px]"><GlowDot color="bg-red-400" /><span className="text-red-600">{name}</span><span className="text-slate-400">迟到</span></div>
@@ -533,6 +572,82 @@ export default function DashboardWidgetPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )
+
+      // ===== 班级轮值 =====
+      case 'rotation':
+        return (
+          <div
+            key={id}
+            className={`bg-white rounded-xl border overflow-hidden transition-opacity ${isDragging ? 'opacity-40' : ''} ${dragOverIdRef.current === id ? 'border-indigo-400 ring-1 ring-indigo-200' : 'border-slate-200'}`}
+            onDragOver={(e) => handleDragOver(e, id)}
+            onDragLeave={handleDragLeave}
+            onDrop={() => handleDrop(id)}
+          >
+            <div className="h-0.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-200" />
+            <div className="p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                {dragHandle}
+                <CalendarDays size={12} className="text-amber-500" />
+                <span className="text-xs font-semibold text-slate-500">班级轮值</span>
+              </div>
+              <div className="flex items-center justify-center gap-5 flex-wrap">
+                {/* 班长 */}
+                {monitor && (
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="relative">
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-300 via-yellow-400 to-orange-500 p-0.5 shadow-md">
+                        <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden">
+                          {monitor.photo ? (
+                            <img src={monitor.photo} alt={monitor.student_name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Shield size={20} className="text-amber-400" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center shadow-sm">
+                        <span className="text-slate-800 text-[8px]">👑</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-amber-500 font-medium">班长</span>
+                    <span className="text-[11px] font-bold text-slate-700">{monitor.student_name}</span>
+                  </div>
+                )}
+                {/* 今日队长/副队长 */}
+                {todayCaptainOrVice && (
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-200 to-amber-400 p-0.5 shadow-md">
+                      <div className="w-full h-full rounded-full bg-gray-50 flex items-center justify-center overflow-hidden">
+                        {todayCaptainOrVice.photo ? (
+                          <img src={todayCaptainOrVice.photo} alt={todayCaptainOrVice.student_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Shield size={17} className="text-amber-400" />
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-amber-500 font-medium">{todayCaptainLabel}</span>
+                    <span className="text-[11px] font-bold text-slate-700">{todayCaptainOrVice.student_name}</span>
+                  </div>
+                )}
+                {/* 今日轮值 */}
+                {todayRotation.map(s => (
+                  <div key={s.id} className="flex flex-col items-center gap-1">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-200 to-amber-200 p-0.5 shadow-md">
+                      <div className="w-full h-full rounded-full bg-gray-50 flex items-center justify-center overflow-hidden">
+                        {s.photo ? (
+                          <img src={s.photo} alt={s.student_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Users size={17} className="text-amber-300" />
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400">轮值</span>
+                    <span className="text-[11px] font-bold text-slate-700">{s.student_name}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

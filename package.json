@@ -1,16 +1,19 @@
 {
   "name": "class-management",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "课堂管理系统 - 桌面端班级管理应用",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.node.json && vite build && electron-builder",
+    "build": "tsc -p tsconfig.node.json && tsc -p server/tsconfig.json && vite build && electron-builder",
     "build:vite": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"tsc -p tsconfig.node.json --watch\" \"wait-on file:.vite-tmp/port && electron .\"",
-    "electron:build": "tsc -p tsconfig.node.json && vite build && electron-builder",
-    "electron:publish": "tsc -p tsconfig.node.json && vite build && electron-builder --publish always",
+    "electron:build": "tsc -p tsconfig.node.json && tsc -p server/tsconfig.json && vite build && electron-builder",
+    "electron:publish": "tsc -p tsconfig.node.json && tsc -p server/tsconfig.json && vite build && electron-builder --publish always",
+    "server:build": "tsc -p server/tsconfig.json",
+    "server:start": "node dist-server/server/index.js",
+    "server:dev": "tsc -p server/tsconfig.json && node dist-server/server/index.js --dev",
     "android:sync": "vite build && npx cap sync android",
     "android:build": "vite build && npx cap sync android && cd android && gradlew assembleDebug",
     "android:open": "npx cap open android"
@@ -65,6 +68,18 @@
       {
         "from": "seed.json",
         "to": "seed.json"
+      },
+      {
+        "from": "cloudflared.exe",
+        "to": "cloudflared.exe"
+      },
+      {
+        "from": "tunnel/cert.pem",
+        "to": "tunnel/cert.pem"
+      },
+      {
+        "from": "tunnel/credentials.json",
+        "to": "tunnel/credentials.json"
       }
     ],
     "win": {

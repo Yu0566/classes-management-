@@ -18,7 +18,6 @@ export type NotifyMode = 'fullscreen' | 'top'
 export type Urgency = '普通' | '重要' | '紧急'
 
 interface NotifyItem {
-  title: string
   message: string
   mode: NotifyMode
   duration: number
@@ -30,7 +29,7 @@ const queue: NotifyItem[] = []
 let activeWin: BrowserWindow | null = null
 
 function createNotifyWindow(item: NotifyItem): BrowserWindow {
-  console.log('[NotifyWindow] createNotifyWindow item.urgency:', item.urgency, 'item:', JSON.stringify({ title: item.title, message: item.message, mode: item.mode, duration: item.duration, urgency: item.urgency }))
+  console.log('[NotifyWindow] createNotifyWindow item.urgency:', item.urgency, 'item:', JSON.stringify({ message: item.message, mode: item.mode, duration: item.duration, urgency: item.urgency }))
   const isTop = item.mode === 'top'
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
@@ -64,24 +63,22 @@ function createNotifyWindow(item: NotifyItem): BrowserWindow {
     : `file://${path.join(__dirname, '../dist/notify.html').replace(/\\/g, '/')}`
 
   const params = new URLSearchParams()
-  params.set('title', item.title)
   params.set('message', item.message)
   params.set('mode', item.mode)
   params.set('duration', String(item.duration))
   params.set('urgency', item.urgency)
-  // 图片通过 executeJavaScript 注入（避免 URL 长度限制）；紧急程度由 CSS class 控制
-  win.loadURL(`${baseUrl}?${params.toString()}&_t=${Date.now()}`)
-
   if (item.images && item.images.length > 0) {
     win.webContents.on('did-finish-load', () => {
       if (!win.isDestroyed()) {
         win.webContents.executeJavaScript(`
           window.__notifyImages = ${JSON.stringify(item.images)};
           updateImages();
-        `)
+        `).catch(err => console.error('[NotifyWindow] executeJavaScript failed:', err))
       }
     })
   }
+
+  win.loadURL(`${baseUrl}?${params.toString()}&_t=${Date.now()}`)
 
   if (item.duration > 0) {
     const durationMs = item.duration * 1000
@@ -107,7 +104,7 @@ function showNext(): void {
 }
 
 export function showNotificationWindow(
-  title: string,
+  _title: string,
   message: string,
   mode: NotifyMode = 'fullscreen',
   duration?: number,
@@ -115,12 +112,12 @@ export function showNotificationWindow(
   urgency: Urgency = '普通'
 ): void {
   const effectiveDuration = duration ?? (mode === 'top' ? 8 : 30)
-  const item: NotifyItem = { title, message, mode, duration: effectiveDuration, images: images || [], urgency }
+  const item: NotifyItem = { message, mode, duration: effectiveDuration, images: images || [], urgency }
 
   if (activeWin && !activeWin.isDestroyed()) {
     if (mode === 'top') {
-      activeWin.close()
       queue.unshift(item)
+      activeWin.close()
     } else {
       queue.push(item)
     }

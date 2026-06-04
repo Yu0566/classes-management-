@@ -279,6 +279,22 @@ export function runMigrations(db: SqlJsDatabase): void {
       FOREIGN KEY (group_id) REFERENCES groups(id),
       UNIQUE(group_id, date, label)
     );
+
+    -- 班级轮值安排
+    CREATE TABLE IF NOT EXISTS duty_roster (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('monitor', 'captain', 'vice_captain', 'duty_monitor', 'rotation')),
+      weekday INTEGER,
+      position INTEGER,
+      weekday_group TEXT,
+      photo TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      updated_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    );
   `)
 
   // 创建索引
@@ -299,6 +315,8 @@ export function runMigrations(db: SqlJsDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_practice_signins_date_label ON practice_signins(date, label);
     CREATE INDEX IF NOT EXISTS idx_math_hw_grades_date ON math_homework_grades(date);
     CREATE INDEX IF NOT EXISTS idx_practice_score_awards_date_label ON practice_score_awards(date, label);
+    CREATE INDEX IF NOT EXISTS idx_duty_roster_role ON duty_roster(role);
+    CREATE INDEX IF NOT EXISTS idx_duty_roster_weekday ON duty_roster(weekday);
   `)
 
   // 兼容已有数据库：尝试添加 leader_name 列

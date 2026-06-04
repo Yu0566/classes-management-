@@ -343,12 +343,55 @@ export async function getGroupStudents(groupId: string): Promise<Student[]> {
   )
 }
 
-// 学生换组
+// 学生换组（自动分配新组空座位，清除原组组长身份，归整原组座位）
 export async function moveStudent(studentId: string, newGroupId: string): Promise<void> {
-  await executeRun(
-    'UPDATE students SET group_id = ?, updated_at = ? WHERE id = ?',
-    [newGroupId, Date.now(), studentId]
+  const student = await queryOne<Student>('SELECT * FROM students WHERE id = ?', [studentId])
+  if (!student) return
+
+  const oldGroupId = student.group_id
+  const now = Date.now()
+
+  // 查找新组第一个空座位
+  const seated = await queryAll<{ seat_order: number }>(
+    'SELECT seat_order FROM students WHERE group_id = ? AND seat_order >= 0 ORDER BY seat_order',
+    [newGroupId],
   )
+  const taken = new Set(seated.map(s => s.seat_order))
+  let newSeatOrder = -1
+  for (let i = 0; i < 7; i++) {
+    if (!taken.has(i)) { newSeatOrder = i; break }
+  }
+
+  const ops: { sql: string; params?: unknown[] }[] = [
+    {
+      sql: 'UPDATE students SET group_id = ?, seat_order = ?, updated_at = ? WHERE id = ?',
+      params: [newGroupId, newSeatOrder, now, studentId],
+    },
+  ]
+
+  // 如果学生是原组组长，清除原组组长
+  if (oldGroupId) {
+    const oldGroup = await queryOne<Group>('SELECT * FROM groups WHERE id = ?', [oldGroupId])
+    if (oldGroup?.leader_name === student.name) {
+      ops.push({
+        sql: "UPDATE groups SET leader_name = '', updated_at = ? WHERE id = ?",
+        params: [now, oldGroupId],
+      })
+    }
+    // 原组座位归整
+    const remainingSeated = await queryAll<{ id: string; seat_order: number }>(
+      'SELECT id, seat_order FROM students WHERE group_id = ? AND seat_order >= 0 ORDER BY seat_order',
+      [oldGroupId],
+    )
+    remainingSeated.forEach((s, i) => {
+      ops.push({
+        sql: 'UPDATE students SET seat_order = ?, updated_at = ? WHERE id = ?',
+        params: [i, now, s.id],
+      })
+    })
+  }
+
+  await executeTransaction(ops)
 }
 
 // 交换两个小组的全部学生（含组长）

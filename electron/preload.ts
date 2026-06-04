@@ -42,6 +42,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     open: () => ipcRenderer.invoke('widget:open'),
     isOpen: () => ipcRenderer.invoke('widget:isOpen'),
     openMain: () => ipcRenderer.invoke('widget:openMain'),
+    refresh: () => ipcRenderer.invoke('data:changed'),
+    onRefresh: (callback: () => void) => {
+      const handler = () => callback()
+      ipcRenderer.on('widget:refresh', handler)
+      return () => ipcRenderer.removeListener('widget:refresh', handler)
+    },
   },
 
   // 应用信息
@@ -52,6 +58,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     start: (port: number) => ipcRenderer.invoke('lan:start', port),
     stop: () => ipcRenderer.invoke('lan:stop'),
     getStatus: () => ipcRenderer.invoke('lan:status'),
+  },
+
+  // Cloudflare Tunnel 控制
+  tunnel: {
+    start: (port: number) => ipcRenderer.invoke('tunnel:start', port),
+    stop: () => ipcRenderer.invoke('tunnel:stop'),
+    getStatus: () => ipcRenderer.invoke('tunnel:status'),
+    onStatusChange: (callback: (state: { status: string; url: string; error?: string }) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, state: { status: string; url: string; error?: string }) => callback(state)
+      ipcRenderer.on('tunnel:statusChange', handler)
+      return () => ipcRenderer.removeListener('tunnel:statusChange', handler)
+    },
   },
 
   // 通知发送

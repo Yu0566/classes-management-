@@ -17,44 +17,48 @@ export async function getStudent(id: string): Promise<Student | undefined> {
   return queryOne<Student>('SELECT * FROM students WHERE id = ?', [id])
 }
 
-// 创建学生
+// 创建学生（指定小组时自动分配第一个空座位）
 export async function createStudent(data: {
   name: string
   groupId: string
 }): Promise<Student> {
   const id = uuid()
   const now = Date.now()
+  const seatOrder = data.groupId ? await findFirstAvailableSeat(data.groupId) : -1
   await executeRun(
-    `INSERT INTO students (id, name, group_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, data.name, data.groupId, now, now]
+    `INSERT INTO students (id, name, group_id, seat_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, data.name, data.groupId, seatOrder, now, now]
   )
   return (await getStudent(id))!
 }
 
-// 批量创建学生
+// 批量创建学生（逐条创建以正确分配空座位）
 export async function batchCreateStudents(
   names: string[],
   groupId: string
 ): Promise<number> {
-  const now = Date.now()
   const validNames = names.map(n => n.trim()).filter(n => n.length > 0)
   if (validNames.length === 0) return 0
 
-  const sqls: { sql: string; params: unknown[] }[] = []
   for (const name of validNames) {
-    sqls.push({
-      sql: `INSERT INTO students (id, name, group_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      params: [uuid(), name, groupId, now, now],
-    })
-  }
-
-  // 逐条执行
-  for (const { sql, params } of sqls) {
-    await executeRun(sql, params)
+    await createStudent({ name, groupId })
   }
 
   return validNames.length
+}
+
+// 查找小组中第一个空闲座位索引，-1 表示已满
+async function findFirstAvailableSeat(groupId: string): Promise<number> {
+  const seated = await queryAll<{ seat_order: number }>(
+    'SELECT seat_order FROM students WHERE group_id = ? AND seat_order >= 0 ORDER BY seat_order',
+    [groupId],
+  )
+  const taken = new Set(seated.map(s => s.seat_order))
+  for (let i = 0; i < 7; i++) {
+    if (!taken.has(i)) return i
+  }
+  return -1
 }
 
 // 更新学生

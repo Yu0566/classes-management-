@@ -4,10 +4,16 @@ import fs from 'fs'
 import { initDatabase, getDatabase, closeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc-handlers'
 import { stopServer, setNotifier } from './lan-server'
+import { stopTunnel } from './tunnel'
 import { initUpdater } from './updater'
 import { showNotificationWindow } from './notify-window'
 import { createDashboardWidget, closeWidget } from './dashboard-widget'
 
+
+// 防止未捕获异常导致进程崩溃
+process.on('uncaughtException', (err) => {
+  console.error('[Main] 未捕获异常:', err.message, err.stack)
+})
 
 // 禁用 GPU 加速以解决 Windows 上的兼容性问题
 app.disableHardwareAcceleration()
@@ -69,8 +75,9 @@ function createWindow() {
 export { showNotificationWindow }
 
 app.whenReady().then(async () => {
-  // 初始化数据库
-  const dbPath = path.join(app.getPath('userData'), 'class-management.db')
+  // 初始化数据库（开发模式使用独立数据库，避免测试数据污染正式版）
+  const dbFileName = app.isPackaged ? 'class-management.db' : 'class-management-dev.db'
+  const dbPath = path.join(app.getPath('userData'), dbFileName)
   await initDatabase(dbPath)
 
   // 注册 IPC 处理器
@@ -81,6 +88,12 @@ app.whenReady().then(async () => {
 
   // 创建桌面看板便签（右侧停靠）
   createDashboardWidget(isDev)
+
+  // 确保主窗口获取焦点，widget 不抢在最前
+  if (mainWindow) {
+    mainWindow.focus()
+    mainWindow.setAlwaysOnTop(false)
+  }
 
   // 移除菜单栏（Windows下需窗口创建后再移除）
   Menu.setApplicationMenu(null)
@@ -109,6 +122,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   closeWidget()
+  stopTunnel()
   stopServer()
   closeDatabase()
 })

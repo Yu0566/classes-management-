@@ -3,7 +3,6 @@ import { Megaphone, Send, Loader2, Image as ImageIcon, X, Trash2, Clock } from '
 import { saveNotification, getRecentNotifications, deleteNotification, type NotificationRecord, type Urgency } from '../lib/notification-history'
 
 export default function NotifyPage() {
-  const [notifyTitle, setNotifyTitle] = useState('')
   const [notifyMessage, setNotifyMessage] = useState('')
   const [notifyMode, setNotifyMode] = useState<'fullscreen' | 'top'>('fullscreen')
   const [notifyUrgency, setNotifyUrgency] = useState<Urgency>('普通')
@@ -26,13 +25,12 @@ export default function NotifyPage() {
   useEffect(() => { loadNotifyHistory() }, [loadNotifyHistory])
 
   const handleSend = useCallback(async () => {
-    if (!notifyTitle.trim() || !notifyMessage.trim()) return
+    if (!notifyMessage.trim()) return
     setNotifySending(true)
     setNotifyResult(null)
     const effectiveDuration = notifyPermanent ? 0 : notifyDuration
     try {
       const body: Record<string, unknown> = {
-        title: notifyTitle.trim(),
         message: notifyMessage.trim(),
         mode: notifyMode,
         duration: effectiveDuration,
@@ -48,9 +46,8 @@ export default function NotifyPage() {
       const data = await res.json()
       if (data.success) {
         setNotifyResult({ success: true, message: '通知已发送到教室电脑' })
-        await saveNotification(notifyTitle.trim(), notifyMessage.trim(), notifyMode, effectiveDuration, notifyImages, notifyUrgency)
+        await saveNotification(notifyMessage.trim(), notifyMode, effectiveDuration, notifyImages, notifyUrgency)
         loadNotifyHistory()
-        setNotifyTitle('')
         setNotifyMessage('')
         setNotifyImages([])
         setNotifyUrgency('普通')
@@ -64,10 +61,9 @@ export default function NotifyPage() {
       setNotifySending(false)
       setTimeout(() => setNotifyResult(null), 4000)
     }
-  }, [notifyTitle, notifyMessage, notifyMode, notifyDuration, notifyImages, notifyUrgency, notifyPermanent, loadNotifyHistory])
+  }, [notifyMessage, notifyMode, notifyDuration, notifyImages, notifyUrgency, notifyPermanent, loadNotifyHistory])
 
   const handleApplyHistory = (record: NotificationRecord) => {
-    setNotifyTitle(record.title)
     setNotifyMessage(record.message)
     setNotifyMode(record.mode)
     setNotifyDuration(record.duration || 30)
@@ -89,7 +85,6 @@ export default function NotifyPage() {
         if (notifyImages.length >= 4) break
         const file = items[i].getAsFile()
         if (!file) continue
-        if (file.size > 5 * 1024 * 1024) { alert('图片不超过5MB'); continue }
         const reader = new FileReader()
         reader.onload = () => setNotifyImages(prev => [...prev, reader.result as string])
         reader.readAsDataURL(file)
@@ -101,7 +96,6 @@ export default function NotifyPage() {
     const files = Array.from(e.target.files || [])
     const remaining = 4 - notifyImages.length
     files.slice(0, remaining).forEach(file => {
-      if (file.size > 5 * 1024 * 1024) { alert('图片不超过5MB'); return }
       const reader = new FileReader()
       reader.onload = () => setNotifyImages(prev => [...prev, reader.result as string])
       reader.readAsDataURL(file)
@@ -121,19 +115,6 @@ export default function NotifyPage() {
 
         <div className="bg-white rounded-xl shadow-sm border p-6" onPaste={handlePaste}>
           <div className="space-y-4">
-            {/* 标题 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">通知标题</label>
-              <input
-                type="text"
-                value={notifyTitle}
-                onChange={e => setNotifyTitle(e.target.value)}
-                placeholder="例如：课间休息提醒"
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-                maxLength={50}
-              />
-            </div>
-
             {/* 内容 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">通知内容</label>
@@ -271,7 +252,7 @@ export default function NotifyPage() {
             <div className="flex items-center gap-4">
               <button
                 onClick={handleSend}
-                disabled={notifySending || !notifyTitle.trim() || !notifyMessage.trim()}
+                disabled={notifySending || !notifyMessage.trim()}
                 className="flex items-center gap-2 px-6 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 text-sm font-medium transition-colors"
               >
                 {notifySending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -311,8 +292,7 @@ export default function NotifyPage() {
                   >
                     <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${record.mode === 'fullscreen' ? 'bg-purple-400' : 'bg-amber-400'}`} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-700 truncate">{record.title}</div>
-                      <div className="text-xs text-gray-400 truncate">{record.message}</div>
+                      <div className="text-sm text-gray-700 truncate">{record.message}</div>
                     </div>
                     {record.images && record.images.length > 0 && (
                       <div className="flex gap-0.5 flex-shrink-0">

@@ -41,6 +41,7 @@ export default function StudentsPage() {
   const [editPracticeLabel, setEditPracticeLabel] = useState('')
   const [editLunchLabel, setEditLunchLabel] = useState('')
   const [editLunchLongterm, setEditLunchLongterm] = useState(false)
+  const [editGroupId, setEditGroupId] = useState('')
 
   // 批量添加
   const [showBatchAdd, setShowBatchAdd] = useState(false)
@@ -130,7 +131,7 @@ export default function StudentsPage() {
     // 关闭相关弹窗（如果编辑/换组的学生在删除列表中）
     const idSet = new Set(selected.map(s => s.id))
     if (editStudent && idSet.has(editStudent.id)) {
-      setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false)
+      setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false); setEditGroupId(''); setEditAsLeader(false)
     }
     if (moveStudent && idSet.has(moveStudent.id)) setMoveStudent(null)
     setSelectedIds(new Set())
@@ -195,9 +196,13 @@ export default function StudentsPage() {
       lunch_label: editLunchLabel,
       lunch_longterm: editLunchLongterm ? 1 : 0,
     })
+    // 处理小组变更
+    if (editGroupId !== (editStudent.group_id || '')) {
+      await groupApi.moveStudent(editStudent.id, editGroupId)
+    }
     // 处理组长变更
-    if (editAsLeader && editStudent.group_id) {
-      await groupApi.updateGroup(editStudent.group_id, { leader_name: editName.trim() } as any)
+    if (editAsLeader && editGroupId) {
+      await groupApi.updateGroup(editGroupId, { leader_name: editName.trim() } as any)
     } else if (!editAsLeader && editStudent.group_id && isLeader(editStudent.group_id, editStudent.name)) {
       await groupApi.updateGroup(editStudent.group_id, { leader_name: '' } as any)
     }
@@ -206,6 +211,7 @@ export default function StudentsPage() {
     setEditPracticeLabel('')
     setEditLunchLabel('')
     setEditLunchLongterm(false)
+    setEditGroupId('')
     setEditAsLeader(false)
     await loadData()
   }
@@ -220,6 +226,8 @@ export default function StudentsPage() {
       setEditPracticeLabel('')
       setEditLunchLabel('')
       setEditLunchLongterm(false)
+      setEditGroupId('')
+      setEditAsLeader(false)
     }
     if (moveStudent?.id === student.id) {
       setMoveStudent(null)
@@ -301,7 +309,7 @@ export default function StudentsPage() {
   }
 
   const unseatedStudents = students
-    .filter(s => ((s as any).seat_order ?? -1) === -1)
+    .filter(s => !s.group_id || ((s as any).seat_order ?? -1) === -1)
     .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'))
   const seatedCount = students.length - unseatedStudents.length
 
@@ -568,6 +576,7 @@ export default function StudentsPage() {
                             setEditPracticeLabel(s.practice_label || '')
                             setEditLunchLabel(s.lunch_label || '')
                             setEditLunchLongterm((s as any).lunch_longterm === 1)
+                            setEditGroupId(s.group_id || '')
                             setEditAsLeader(isLeader(s.group_id, s.name))
                           }}
                           className="p-1.5 text-gray-400 hover:text-primary-500 rounded hover:bg-gray-100"
@@ -790,7 +799,7 @@ export default function StudentsPage() {
       </Modal>
 
       {/* 编辑学生弹窗 */}
-      <Modal open={editStudent !== null} onClose={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false) }} title="编辑学生" width="sm">
+      <Modal open={editStudent !== null} onClose={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false); setEditGroupId(''); setEditAsLeader(false) }} title="编辑学生" width="sm">
         <input
           type="text"
           placeholder="学生姓名"
@@ -840,7 +849,20 @@ export default function StudentsPage() {
             <span className="text-xs text-gray-400">{editLunchLongterm ? '每天自动请假' : '每日手动考勤'}</span>
           </div>
         )}
-        {editStudent?.group_id && (
+        <div className="mb-3">
+          <label className="text-sm text-gray-500 block mb-1">小组</label>
+          <select
+            value={editGroupId}
+            onChange={e => setEditGroupId(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400"
+          >
+            <option value="">未分组</option>
+            {groups.map(g => (
+              <option key={g.id} value={g.id}>{g.name}{g.leader_name ? `（${g.leader_name}）` : ''}</option>
+            ))}
+          </select>
+        </div>
+        {editGroupId && (
           <label className="flex items-center gap-2 mb-3 cursor-pointer select-none text-sm text-gray-600">
             <input
               type="checkbox"
@@ -854,7 +876,7 @@ export default function StudentsPage() {
         )}
         <div className="flex gap-2 justify-end">
           <button
-            onClick={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false); setEditAsLeader(false) }}
+            onClick={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false); setEditGroupId(''); setEditAsLeader(false) }}
             className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
           >
             取消
@@ -1254,6 +1276,13 @@ function SeatSlot({
   )
 }
 
+const TAILWIND_COLORS: Record<string, string> = {
+  'red-500': '#ef4444', 'orange-500': '#f97316', 'amber-500': '#f59e0b',
+  'yellow-500': '#eab308', 'green-500': '#22c55e', 'teal-500': '#14b8a6',
+  'blue-500': '#3b82f6', 'indigo-500': '#6366f1', 'purple-500': '#a855f7',
+  'pink-500': '#ec4899', 'gray-400': '#9ca3af', 'gray-500': '#6b7280',
+}
+
 function StudentChip({
   student, groupColor, isLeader: leader, onDragStart,
 }: {
@@ -1270,12 +1299,15 @@ function StudentChip({
   const handleDragEnd = (e: React.DragEvent) => {
     (e.currentTarget as HTMLElement).style.opacity = ''
   }
+  const colorName = groupColor?.replace('bg-', '')
+  const hexColor = TAILWIND_COLORS[colorName] || '#d1d5db'
   return (
     <div
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className="flex items-center gap-1 px-2.5 py-1 bg-white border rounded-md shadow-sm cursor-grab hover:shadow-md transition-shadow select-none min-w-[70px] justify-center"
+      style={{ borderLeftWidth: '3px', borderLeftColor: hexColor }}
     >
       {leader && <Crown size={12} className="text-amber-500 flex-shrink-0" />}
       <span className="text-sm font-medium truncate max-w-[80px]">{student.name}</span>

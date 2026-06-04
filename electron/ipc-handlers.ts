@@ -4,7 +4,8 @@ import { startServer, stopServer, getServerStatus } from './lan-server'
 import { checkForUpdates, downloadUpdate, quitAndInstall } from './updater'
 import { mainWindow } from './main'
 import { showNotificationWindow } from './notify-window'
-import { closeWidget, openWidget, isWidgetOpen } from './dashboard-widget'
+import { closeWidget, openWidget, isWidgetOpen, refreshWidget } from './dashboard-widget'
+import { startTunnel, stopTunnel, getTunnelStatus, onTunnelStatusChange } from './tunnel'
 
 
 export function registerIpcHandlers(): void {
@@ -53,7 +54,7 @@ export function registerIpcHandlers(): void {
   // LAN 服务器控制
   ipcMain.handle('lan:start', async (_event, port: number) => {
     try {
-      const result = await startServer(port, !app.isPackaged)
+      const result = await startServer(port)
       return { success: true, ip: result.ip, port: result.port }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -70,11 +71,36 @@ export function registerIpcHandlers(): void {
     return getServerStatus()
   })
 
+  // Cloudflare Tunnel 控制
+  ipcMain.handle('tunnel:start', async (_event, port: number) => {
+    try {
+      await startTunnel(port)
+      return { success: true }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      return { success: false, error: msg }
+    }
+  })
+
+  ipcMain.handle('tunnel:stop', () => {
+    stopTunnel()
+    return { success: true }
+  })
+
+  ipcMain.handle('tunnel:status', () => {
+    return getTunnelStatus()
+  })
+
+  // 隧道状态推送
+  onTunnelStatusChange((state) => {
+    mainWindow?.webContents.send('tunnel:statusChange', state)
+  })
+
   // 通知
   ipcMain.handle('notify:send', (_event, title: string, message: string, mode?: string, duration?: number, imagesJson?: string, urgency?: string) => {
     try {
-      if (!title || !message) {
-        return { success: false, error: '标题和内容不能为空' }
+      if (!message) {
+        return { success: false, error: '内容不能为空' }
       }
       let images: string[] = []
       if (imagesJson) {
@@ -143,6 +169,12 @@ export function registerIpcHandlers(): void {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
     }
+    return { success: true }
+  })
+
+  // 数据变更时通知便签刷新
+  ipcMain.handle('data:changed', () => {
+    refreshWidget()
     return { success: true }
   })
 

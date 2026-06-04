@@ -2,6 +2,7 @@ import http from 'http'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { exec } from 'child_process'
 import { queryAll, queryOne, executeRun, executeTransaction } from './database/query-helpers'
 
 type Notifier = (notification: { title: string; message: string; mode?: 'fullscreen' | 'top'; duration?: number; images?: string[]; urgency?: '普通' | '重要' | '紧急' }) => void
@@ -16,13 +17,36 @@ export function setNotifier(fn: Notifier): void {
 
 export function getLanIP(): string {
   const interfaces = os.networkInterfaces()
+  const candidates: { addr: string; name: string; priority: number }[] = []
+
   for (const name of Object.keys(interfaces)) {
+    // 跳过虚拟/容器网桥
+    const lname = name.toLowerCase()
+    if (lname.startsWith('docker') || lname.startsWith('br-') || lname.startsWith('veth') ||
+        lname.startsWith('vmnet') || lname.startsWith('vbox') || lname.includes('virtual') ||
+        lname.startsWith('hyper-v') || lname.startsWith('wsl')) {
+      continue
+    }
     for (const info of interfaces[name] || []) {
-      if (info.family === 'IPv4' && !info.internal) {
-        return info.address
+      if (info.family !== 'IPv4' || info.internal) continue
+      const addr = info.address
+      // 跳过 APIPA 自动私有地址（无法跨机通信）
+      if (addr.startsWith('169.254.')) continue
+      // 局域网地址优先
+      const priority = addr.startsWith('192.168.') ? 3 :
+                       addr.startsWith('10.') ? 2 :
+                       addr.startsWith('172.') && parseInt(addr.split('.')[1]) >= 16 && parseInt(addr.split('.')[1]) <= 31 ? 1 :
+                       0
+      if (priority > 0 || addr !== '127.0.0.1') {
+        candidates.push({ addr, name, priority })
       }
     }
   }
+
+  // 按优先级降序：192.168.x.x > 10.x.x.x > 其他
+  candidates.sort((a, b) => b.priority - a.priority)
+  if (candidates.length > 0) return candidates[0].addr
+
   return '127.0.0.1'
 }
 
@@ -58,10 +82,14 @@ function getDistPath(): string {
 }
 
 function distExists(): boolean {
+  const distPath = getDistPath()
+  const indexPath = path.join(distPath, 'index.html')
   try {
-    fs.accessSync(path.join(getDistPath(), 'index.html'))
+    fs.accessSync(indexPath)
+    console.log('[LAN] 检测到生产构建:', indexPath)
     return true
   } catch {
+    console.log('[LAN] 未找到生产构建:', indexPath, '，使用 dev 代理模式')
     return false
   }
 }
@@ -81,6 +109,7 @@ function proxyToVite(req: http.IncomingMessage, res: http.ServerResponse): void 
       }
     }
     res.writeHead(proxyRes.statusCode || 200, headers)
+    proxyRes.on('error', (err) => { console.error('[LAN] proxy response error:', err.message); res.destroy() })
     proxyRes.pipe(res)
   })
 
@@ -179,7 +208,6 @@ async function handleAPI(req: http.IncomingMessage, res: http.ServerResponse, en
 async function handleNotify(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   try {
     const body = await parseBody(req)
-    const title = String(body.title || '').trim()
     const message = String(body.message || '').trim()
     const mode = (body.mode === 'top' ? 'top' : 'fullscreen') as 'fullscreen' | 'top'
     const duration = typeof body.duration === 'number' && (body.duration === 0 || (body.duration >= 3 && body.duration <= 300))
@@ -192,13 +220,12 @@ async function handleNotify(req: http.IncomingMessage, res: http.ServerResponse)
       images = [body.image]
     }
     const urgency = (body.urgency === '重要' || body.urgency === '紧急') ? body.urgency : '普通'
-    console.log('[LAN] handleNotify received body.urgency:', body.urgency, '→ parsed urgency:', urgency)
-    if (!title || !message) {
-      sendJSON(res, { success: false, error: '标题和内容不能为空' }, 400)
+    if (!message) {
+      sendJSON(res, { success: false, error: '内容不能为空' }, 400)
       return
     }
     if (notifyRenderer) {
-      notifyRenderer({ title, message, mode, duration, images, urgency })
+      notifyRenderer({ title: '', message, mode, duration, images, urgency })
       sendJSON(res, { success: true, delivered: true })
     } else {
       sendJSON(res, { success: true, delivered: false, note: '通知接收端未就绪' })
@@ -207,6 +234,19 @@ async function handleNotify(req: http.IncomingMessage, res: http.ServerResponse)
     const msg = err instanceof Error ? err.message : String(err)
     sendJSON(res, { success: false, error: msg }, 500)
   }
+}
+
+function addFirewallRule(port: number): void {
+  if (process.platform !== 'win32') return
+  const ruleName = '课堂管理系统 LAN'
+  const cmd = `netsh advfirewall firewall add rule name="${ruleName}" dir=in action=allow protocol=TCP localport=${port}`
+  exec(cmd, (err, stdout) => {
+    if (err) {
+      console.log('[LAN] 防火墙规则添加失败（可能已存在或权限不足）:', err.message)
+    } else {
+      console.log('[LAN] 防火墙规则已确保存在')
+    }
+  })
 }
 
 export function startServer(port: number, devMode?: boolean): Promise<{ ip: string; port: number }> {
@@ -220,7 +260,45 @@ export function startServer(port: number, devMode?: boolean): Promise<{ ip: stri
     isDevMode = devMode ?? !distExists()
     if (isDevMode) updateDevUrl()
 
+    // 注册 Windows 防火墙入站规则
+    addFirewallRule(port)
+
+    // WebSocket 代理（转发到 Vite HMR）
+    function handleUpgrade(req: http.IncomingMessage, socket: import('stream').Duplex, head: Buffer) {
+      if (!isDevMode) {
+        socket.destroy()
+        return
+      }
+      const targetUrl = new URL(VITE_DEV_URL)
+      const proxyReq = http.request({
+        hostname: targetUrl.hostname,
+        port: targetUrl.port,
+        path: req.url,
+        method: req.method || 'GET',
+        headers: { ...req.headers, host: targetUrl.host },
+      })
+      proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+        const resHeaders = Object.entries(proxyRes.headers)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join('\r\n')
+        socket.write(`HTTP/1.1 101 Switching Protocols\r\n${resHeaders}\r\n\r\n`)
+        if (proxyHead.length > 0) socket.write(proxyHead)
+        proxySocket.pipe(socket)
+        socket.pipe(proxySocket)
+      })
+      proxyReq.on('error', (err) => {
+        console.error('[LAN] WS proxy error:', err.message)
+        socket.destroy()
+      })
+      socket.on('error', () => proxyReq.destroy())
+      proxyReq.end()
+    }
+
     server = http.createServer((req, res) => {
+      // 防止客户端断开连接导致进程崩溃
+      res.on('error', (err) => { console.error('[LAN] response error:', err.message) })
+      req.on('error', (err) => { console.error('[LAN] request error:', err.message) })
+
       const url = req.url || '/'
       const method = (req.method || 'GET').toUpperCase()
 
@@ -259,6 +337,8 @@ export function startServer(port: number, devMode?: boolean): Promise<{ ip: stri
       }
     })
 
+    server.on('upgrade', (req, socket, head) => handleUpgrade(req, socket, head))
+
     server.on('error', (err: NodeJS.ErrnoException) => {
       server = null
       if (err.code === 'EADDRINUSE') {
@@ -266,6 +346,12 @@ export function startServer(port: number, devMode?: boolean): Promise<{ ip: stri
       } else {
         reject(err)
       }
+    })
+
+    // 处理客户端连接错误，防止进程崩溃
+    server.on('clientError', (err, socket) => {
+      console.error('[LAN] client error:', err.message)
+      socket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
     })
 
     server.listen(port, '0.0.0.0', () => {
@@ -283,10 +369,11 @@ export function stopServer(): void {
   }
 }
 
-export function getServerStatus(): { running: boolean; ip: string; port: number } {
+export function getServerStatus(): { running: boolean; ip: string; port: number; mode: string } {
   return {
     running: server !== null,
     ip: getLanIP(),
     port: serverPort,
+    mode: isDevMode ? 'dev代理模式' : '生产模式',
   }
 }

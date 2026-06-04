@@ -32,7 +32,13 @@ interface Window {
     lan: {
       start: (port: number) => Promise<{ success: boolean; ip?: string; port?: number; error?: string }>
       stop: () => Promise<{ success: boolean }>
-      getStatus: () => Promise<{ running: boolean; ip: string; port: number }>
+      getStatus: () => Promise<{ running: boolean; ip: string; port: number; mode: string }>
+    }
+    tunnel: {
+      start: (port: number) => Promise<{ success: boolean; error?: string }>
+      stop: () => Promise<{ success: boolean }>
+      getStatus: () => Promise<{ status: string; url: string; error?: string }>
+      onStatusChange: (callback: (state: { status: string; url: string; error?: string }) => void) => () => void
     }
     notify: {
       send: (title: string, message: string, mode?: 'fullscreen' | 'top', duration?: number, imagesJson?: string, urgency?: '普通' | '重要' | '紧急') => Promise<{ success: boolean; error?: string }>
@@ -42,6 +48,8 @@ interface Window {
       open: () => Promise<{ success: boolean }>
       isOpen: () => Promise<{ open: boolean }>
       openMain: () => Promise<{ success: boolean }>
+      refresh: () => Promise<{ success: boolean }>
+      onRefresh: (callback: () => void) => () => void
     }
     app: {
       getVersion: () => Promise<string>

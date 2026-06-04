@@ -180,55 +180,58 @@ export default function StudentScoresPage() {
             </div>
 
             {/* 扣分项开关 */}
-            <div className="flex items-center gap-4 mb-3 flex-wrap">
-              <span className="text-xs text-gray-400">扣分项：</span>
+            <div className="flex items-center gap-6 mb-3 flex-wrap">
               {[
-                { key: 'daily_practice', label: '每日一练' },
-                { key: 'attendance', label: '考勤' },
-                { key: 'homework', label: '作业' },
+                { key: 'daily_practice', label: '每日一练', color: 'blue' },
+                { key: 'attendance', label: '考勤', color: 'yellow' },
+                { key: 'homework', label: '作业', color: 'purple' },
               ].map(item => {
                 const pts = categoryPoints.get(item.key) ?? 1
                 const on = enabledCategories.has(item.key)
+                const colorMap: Record<string, string> = {
+                  blue: 'bg-blue-500',
+                  yellow: 'bg-yellow-500',
+                  purple: 'bg-purple-500',
+                }
+                const onColor = colorMap[item.color]
                 return (
-                  <div key={item.key} className="flex items-center gap-2">
-                    {/* 开关 */}
-                    <div
-                      onClick={() => handleToggle(item.key)}
-                      className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                        on ? 'bg-primary-500' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                        on ? 'translate-x-4' : 'translate-x-1'
-                      }`} />
-                    </div>
-                    <span className={`text-xs whitespace-nowrap ${on ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>
+                  <div key={item.key} className="flex items-center gap-3 bg-white rounded-xl border px-4 py-2.5 shadow-sm">
+                    {/* 标签 */}
+                    <span className={`text-sm font-medium whitespace-nowrap ${on ? 'text-gray-800' : 'text-gray-400'}`}>
                       {item.label}
                     </span>
+                    {/* 开关 */}
+                    <button
+                      type="button"
+                      onClick={() => handleToggle(item.key)}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer focus:outline-none ${
+                        on ? onColor : 'bg-gray-300'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        on ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
+                    </button>
 
                     {/* 分数调整 */}
                     <div className="flex items-center">
                       <button
                         type="button"
                         onClick={() => quickPoints(item.key, -1)}
-                        className="w-5 h-6 flex items-center justify-center text-xs border border-gray-200 rounded-l hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                        disabled={pts <= 0}
+                        className="w-7 h-7 flex items-center justify-center text-sm border border-gray-300 rounded-l-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-30"
                       >−</button>
-                      <input
-                        type="number"
-                        min="0"
-                        max="99"
-                        value={pts}
-                        onChange={e => handlePointsChange(item.key, e.target.value)}
-                        className="w-9 h-6 text-center text-xs border-y border-gray-200 focus:outline-none focus:ring-1 focus:ring-primary-400 focus:border-primary-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        title="扣分分值"
-                      />
+                      <span className="w-9 h-7 text-center text-sm font-semibold border-y border-gray-300 flex items-center justify-center bg-gray-50 text-gray-700">
+                        {pts}
+                      </span>
                       <button
                         type="button"
                         onClick={() => quickPoints(item.key, 1)}
-                        className="w-5 h-6 flex items-center justify-center text-xs border border-gray-200 rounded-r hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                        disabled={pts >= 99}
+                        className="w-7 h-7 flex items-center justify-center text-sm border border-gray-300 rounded-r-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-30"
                       >+</button>
                     </div>
-                    <span className="text-xs text-gray-400">分</span>
+                    <span className="text-xs text-gray-400">分/次</span>
                   </div>
                 )
               })}
@@ -273,17 +276,17 @@ export default function StudentScoresPage() {
                       <td className="px-3 py-2 text-center text-sm">{s.attendance}</td>
                       <td className="px-3 py-2 text-center text-sm">{s.homework}</td>
                       <td className="px-3 py-2 text-center">
-                        <div className="inline-flex items-center gap-1">
+                        <div className="inline-flex items-center gap-1.5">
                           <button
                             onClick={() => quickAdjust(s.studentId, s.studentName, -1)}
-                            className="w-5 h-5 rounded border border-gray-200 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 text-xs leading-none flex items-center justify-center transition-colors"
+                            className="w-6 h-6 rounded-lg border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 text-sm flex items-center justify-center transition-all"
                           >−</button>
-                          <span className={`text-sm font-medium w-5 ${s.manualOffset > 0 ? 'text-green-600' : s.manualOffset < 0 ? 'text-red-500' : 'text-gray-300'}`}>
+                          <span className={`text-sm font-semibold w-6 text-center ${s.manualOffset > 0 ? 'text-green-600' : s.manualOffset < 0 ? 'text-red-500' : 'text-gray-300'}`}>
                             {s.manualOffset}
                           </span>
                           <button
                             onClick={() => quickAdjust(s.studentId, s.studentName, 1)}
-                            className="w-5 h-5 rounded border border-gray-200 text-gray-400 hover:bg-green-50 hover:text-green-500 hover:border-green-300 text-xs leading-none flex items-center justify-center transition-colors"
+                            className="w-6 h-6 rounded-lg border border-green-200 text-green-400 hover:bg-green-50 hover:text-green-500 hover:border-green-300 text-sm flex items-center justify-center transition-all"
                           >+</button>
                         </div>
                       </td>

@@ -32,7 +32,7 @@ export async function seatStudent(
 
 export async function unseatStudent(studentId: string): Promise<void> {
   await executeRun(
-    'UPDATE students SET seat_order = -1, updated_at = ? WHERE id = ?',
+    "UPDATE students SET group_id = '', seat_order = -1, updated_at = ? WHERE id = ?",
     [Date.now(), studentId]
   )
 }
@@ -92,7 +92,7 @@ export async function performDrop(p: DropParams): Promise<void> {
   // 场景：拖回待排池
   if (p.targetGroupId === '') {
     ops.push({
-      sql: 'UPDATE students SET seat_order = -1, updated_at = ? WHERE id = ?',
+      sql: "UPDATE students SET group_id = '', seat_order = -1, updated_at = ? WHERE id = ?",
       params: [now, p.studentId],
     })
     // 如果被拖走的是组长
@@ -175,7 +175,7 @@ export async function resetAllSeating(): Promise<void> {
   const now = Date.now()
   const groups = await queryAll<Group>('SELECT id FROM groups')
   const ops: { sql: string; params?: unknown[] }[] = [
-    { sql: 'UPDATE students SET seat_order = -1, updated_at = ?', params: [now] },
+    { sql: "UPDATE students SET group_id = '', seat_order = -1, updated_at = ?", params: [now] },
   ]
   for (const g of groups) {
     ops.push({

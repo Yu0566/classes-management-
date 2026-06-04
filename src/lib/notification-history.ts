@@ -28,7 +28,6 @@ function ensureTable(): string {
 }
 
 export async function saveNotification(
-  title: string,
   message: string,
   mode: 'fullscreen' | 'top',
   duration: number,
@@ -40,7 +39,7 @@ export async function saveNotification(
   await executeRun(
     `INSERT INTO notification_history (id, title, message, mode, duration, image, urgency)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [uuid(), title, message, mode, duration, imageJson, urgency]
+    [uuid(), '', message, mode, duration, imageJson, urgency]
   )
   // 仅保留最近100条
   await executeRun(

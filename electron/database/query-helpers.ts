@@ -1,10 +1,12 @@
 import { requireDatabase, saveDatabase } from './connection'
 
+type SqlValue = string | number | Uint8Array | null
+
 export function queryAll(sql: string, params: unknown[] = []): Record<string, unknown>[] {
   const db = requireDatabase()
   const stmt = db.prepare(sql)
   if (params.length > 0) {
-    stmt.bind(params)
+    stmt.bind(params as SqlValue[])
   }
   const results: Record<string, unknown>[] = []
   while (stmt.step()) {
@@ -18,7 +20,7 @@ export function queryOne(sql: string, params: unknown[] = []): Record<string, un
   const db = requireDatabase()
   const stmt = db.prepare(sql)
   if (params.length > 0) {
-    stmt.bind(params)
+    stmt.bind(params as SqlValue[])
   }
   let result: Record<string, unknown> | undefined
   if (stmt.step()) {
@@ -30,7 +32,7 @@ export function queryOne(sql: string, params: unknown[] = []): Record<string, un
 
 export function executeRun(sql: string, params: unknown[] = []): { changes: number; lastInsertRowid: number } {
   const db = requireDatabase()
-  db.run(sql, params)
+  db.run(sql, params as SqlValue[])
   const rowsModified = db.getRowsModified()
   saveDatabase()
   return {
@@ -44,7 +46,7 @@ export function executeTransaction(operations: { sql: string; params?: unknown[]
   try {
     db.run('BEGIN TRANSACTION')
     for (const op of operations) {
-      db.run(op.sql, op.params || [])
+      db.run(op.sql, (op.params || []) as SqlValue[])
     }
     db.run('COMMIT')
     saveDatabase()

@@ -26,7 +26,7 @@ function createWidgetWindow(): void {
     x: screenWidth - widgetWidth,
     y: Math.round((screenHeight - widgetHeight) / 2),
     frame: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     skipTaskbar: true,
     resizable: true,
     minHeight: 360,
@@ -42,17 +42,25 @@ function createWidgetWindow(): void {
     },
   })
 
+  // 确保不置顶、不抢焦点
+  widgetWindow.setAlwaysOnTop(false)
+  widgetWindow.blur()
+
   if (_isDev) {
     const port = getDevPort()
     console.log('[Widget] Loading dev URL on port:', port)
     widgetWindow.loadURL(`http://localhost:${port}/#/dashboard-widget`)
-    widgetWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     widgetWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: '/dashboard-widget' })
   }
 
   widgetWindow.on('closed', () => {
     widgetWindow = null
+  })
+
+  // 防止窗口被意外置顶
+  widgetWindow.on('focus', () => {
+    widgetWindow?.setAlwaysOnTop(false)
   })
 }
 
@@ -76,6 +84,12 @@ export function getWidgetWindow(): BrowserWindow | null {
 
 export function isWidgetOpen(): boolean {
   return widgetWindow !== null && !widgetWindow.isDestroyed()
+}
+
+export function refreshWidget(): void {
+  if (widgetWindow && !widgetWindow.isDestroyed()) {
+    widgetWindow.webContents.send('widget:refresh')
+  }
 }
 
 export function closeWidget(): void {

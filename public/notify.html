@@ -8,73 +8,25 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; cursor: pointer; }
 
-  /* ====== 顶部色条 ====== */
-  .urgency-strip {
-    position: absolute; top: 0; left: 0; right: 0; height: 5px; z-index: 10;
-    background: #3b82f6;
-  }
-  body.urgency-important .urgency-strip { background: #f59e0b; }
-  body.urgency-urgent .urgency-strip { background: #ef4444; animation: stripBlink 1s ease-in-out infinite; }
-  @keyframes stripBlink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
   /* ====== 全屏模式 ====== */
   body.fullscreen {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #312e81 100%);
+    background: #000;
     display: flex; align-items: center; justify-content: center;
     user-select: none;
   }
-  body.fullscreen .bg-decor { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-  body.fullscreen .bg-decor .c1 {
-    position: absolute; top: -10%; right: -10%;
-    width: 30vw; height: 30vw; border-radius: 50%;
-    background: rgba(59,130,246,0.08); filter: blur(80px);
-  }
-  body.fullscreen .bg-decor .c2 {
-    position: absolute; bottom: -10%; left: -10%;
-    width: 35vw; height: 35vw; border-radius: 50%;
-    background: rgba(99,102,241,0.08); filter: blur(80px);
-  }
   body.fullscreen .container {
-    position: relative; z-index: 1; text-align: center; padding: 40px;
+    text-align: center; padding: 60px 80px;
     animation: fadeIn 0.6s ease-out;
-    width: 100%; max-width: 900px;
+    width: 100%;
   }
   @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.95) translateY(20px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
-  }
-  body.fullscreen .bell {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 100px; height: 100px; border-radius: 50%;
-    background: rgba(59,130,246,0.15); margin-bottom: 16px;
-    animation: bellPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
-  }
-  @keyframes bellPop {
-    from { transform: scale(0) rotate(-30deg); }
-    to { transform: scale(1) rotate(0deg); }
-  }
-  body.fullscreen .bell svg { width: 50px; height: 50px; color: #60a5fa; }
-  body.fullscreen h1 {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    font-weight: 700; color: #fff; letter-spacing: 0.05em; margin-bottom: 16px;
-  }
-  body.fullscreen .divider {
-    width: 80px; height: 3px; border-radius: 2px;
-    background: rgba(59,130,246,0.5); margin: 0 auto 20px;
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
   }
   body.fullscreen p.message {
-    font-size: clamp(1.2rem, 2.5vw, 1.75rem);
-    color: #cbd5e1; line-height: 1.7; white-space: pre-wrap;
-    max-width: 700px; margin: 0 auto 24px;
-  }
-  body.fullscreen .notify-image {
-    max-width: 85%; max-height: 55vh;
-    border-radius: 16px; object-fit: contain;
-    margin: 0 auto 24px; display: block;
-    box-shadow: 0 4px 30px rgba(0,0,0,0.3);
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 700; color: #fff; line-height: 1.4; white-space: pre-wrap;
+    margin: 0 auto 48px; text-align: center;
   }
   body.fullscreen .close-btn {
     display: inline-flex; align-items: center; gap: 8px;
@@ -84,122 +36,53 @@
     transition: background 0.2s, border-color 0.2s;
   }
   body.fullscreen .close-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25); }
-  body.fullscreen .close-btn svg { width: 20px; height: 20px; }
   body.fullscreen .hint {
     color: rgba(148,163,184,0.6); font-size: 0.85rem; margin-top: 20px;
   }
-
-  /* 紧急程度标签 */
-  .urgency-badge {
-    display: inline-block; padding: 4px 16px; border-radius: 20px;
-    font-size: 0.85rem; font-weight: 600; letter-spacing: 0.1em; margin-bottom: 12px;
+  /* 全屏模式图片 */
+  body.fullscreen .images-row {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+    margin: 0 auto 32px;
   }
-  .urgency-badge.normal { background: rgba(59,130,246,0.15); color: #93c5fd; }
-  .urgency-badge.important { background: rgba(245,158,11,0.2); color: #fbbf24; }
-  .urgency-badge.urgent {
-    background: rgba(239,68,68,0.25); color: #fca5a5;
-    animation: urgentBlink 0.8s ease-in-out infinite;
-  }
-  @keyframes urgentBlink {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.6; transform: scale(1.05); }
+  body.fullscreen .images-row img {
+    max-height: 400px; max-width: 100%; border-radius: 12px; object-fit: contain;
   }
 
-  /* ====== 重要通知样式 ====== */
-  body.urgency-important.fullscreen {
-    background: linear-gradient(135deg, #1c1000 0%, #341e00 40%, #5c3800 100%);
+  /* 紧急程度背景 */
+  body.urgency-important.fullscreen { background: #1a0f00; }
+  body.urgency-important p.message { color: #fbbf24; }
+  body.urgency-urgent.fullscreen { background: #1a0000; animation: bgPulse 1.2s ease-in-out infinite; }
+  @keyframes bgPulse {
+    0%, 100% { background: #1a0000; }
+    50% { background: #2a0505; }
   }
-  body.urgency-important .bg-decor .c1 { background: rgba(245,158,11,0.15); }
-  body.urgency-important .bg-decor .c2 { background: rgba(251,191,36,0.1); }
-  body.urgency-important .bell {
-    background: rgba(245,158,11,0.25);
-    box-shadow: 0 0 30px rgba(245,158,11,0.2);
+  body.urgency-urgent p.message {
+    color: #fca5a5; font-weight: 800;
+    text-shadow: 0 0 30px rgba(239,68,68,0.4);
   }
-  body.urgency-important .bell svg { color: #f59e0b; }
-  body.urgency-important h1, body.urgency-important .top-title { color: #fbbf24 !important; }
-  body.urgency-important .divider { background: rgba(245,158,11,0.6); width: 100px; }
-  body.urgency-important .progress-bar { background: linear-gradient(90deg, #f59e0b, #d97706); }
-  body.urgency-important .top-icon { background: rgba(245,158,11,0.25); box-shadow: 0 0 30px rgba(245,158,11,0.2); }
-  body.urgency-important .top-icon svg { color: #f59e0b; }
-  body.urgency-important .close-btn { border-color: rgba(245,158,11,0.3); }
-  body.urgency-important .close-btn:hover { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.1); }
-  body.urgency-important p.message, body.urgency-important .top-msg { color: #e5d5b0; }
-
-  /* ====== 紧急通知样式 ====== */
-  body.urgency-urgent.fullscreen {
-    background: linear-gradient(135deg, #1a0000 0%, #300808 40%, #5c0808 100%);
-  }
-  body.urgency-urgent .bg-decor .c1 { background: rgba(239,68,68,0.15); }
-  body.urgency-urgent .bg-decor .c2 { background: rgba(220,38,38,0.1); }
-  body.urgency-urgent .bell {
-    background: rgba(239,68,68,0.3);
-    box-shadow: 0 0 40px rgba(239,68,68,0.3);
-    animation: bellPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.2s both, urgentPulse 1.2s ease-in-out 0.8s infinite;
-  }
-  @keyframes urgentPulse {
-    0%, 100% { box-shadow: 0 0 20px rgba(239,68,68,0.4); }
-    50% { box-shadow: 0 0 50px rgba(239,68,68,0.7), 0 0 80px rgba(239,68,68,0.3); }
-  }
-  body.urgency-urgent .bell svg { color: #ef4444; }
-  body.urgency-urgent h1, body.urgency-urgent .top-title {
-    color: #fca5a5 !important; font-weight: 800;
-    text-shadow: 0 0 20px rgba(239,68,68,0.3);
-  }
-  body.urgency-urgent p.message, body.urgency-urgent .top-msg {
-    color: #fecaca !important; font-weight: 500;
-  }
-  body.urgency-urgent .divider { background: rgba(239,68,68,0.7); width: 100px; }
-  body.urgency-urgent .progress-bar { background: linear-gradient(90deg, #ef4444, #dc2626); }
-  body.urgency-urgent .top-icon { background: rgba(239,68,68,0.3); box-shadow: 0 0 40px rgba(239,68,68,0.3); }
-  body.urgency-urgent .top-icon svg { color: #ef4444; }
-  body.urgency-urgent .close-btn { border-color: rgba(239,68,68,0.3); }
-  body.urgency-urgent .close-btn:hover { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.1); }
 
   /* ====== 顶部通知模式 ====== */
   body.top {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #312e81 100%);
+    background: #000;
     animation: slideDown 0.4s cubic-bezier(0.16,1,0.3,1);
-    display: flex; align-items: center; justify-content: center;
     user-select: none;
   }
-  body.urgency-important.top { background: linear-gradient(135deg, #1c1000 0%, #341e00 40%, #5c3800 100%); }
-  body.urgency-urgent.top { background: linear-gradient(135deg, #1a0000 0%, #300808 40%, #5c0808 100%); }
-
+  body.urgency-important.top { background: #1a0f00; }
+  body.urgency-urgent.top { background: #1a0000; }
   @keyframes slideDown {
     from { transform: translateY(-100%); }
     to { transform: translateY(0); }
   }
   body.top .top-container {
-    display: flex; align-items: center; gap: 20px;
+    display: flex; align-items: center; gap: 24px;
     width: 100%; height: 100%; padding: 16px 32px;
-    max-width: 1100px; margin: 0 auto;
   }
-  body.top .top-icon {
-    flex-shrink: 0; width: 64px; height: 64px; border-radius: 20px;
-    background: rgba(59,130,246,0.15);
-    display: flex; align-items: center; justify-content: center;
-    animation: bellPop 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.15s both;
-  }
-  body.top .top-icon svg { width: 34px; height: 34px; color: #60a5fa; }
   body.top .top-content { flex: 1; min-width: 0; }
-  body.top .top-title {
-    font-size: clamp(1.2rem, 2vw, 1.75rem);
-    font-weight: 700; color: #fff;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
   body.top .top-msg {
-    font-size: clamp(0.95rem, 1.5vw, 1.15rem);
-    color: #cbd5e1; margin-top: 4px;
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-    overflow: hidden;
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    font-weight: 700; color: #fff; line-height: 1.35;
+    white-space: pre-wrap;
   }
-  body.top .top-thumb {
-    flex-shrink: 0;
-    max-width: 45%; height: calc(100% - 32px);
-    border-radius: 12px; object-fit: contain;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-  }
-  body.top .top-thumb.has-image { margin-left: auto; }
   body.top .top-close {
     flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
     background: rgba(255,255,255,0.08); border: none; cursor: pointer;
@@ -208,43 +91,47 @@
     align-self: flex-start; margin-top: 4px;
   }
   body.top .top-close:hover { background: rgba(255,255,255,0.15); color: #e2e8f0; }
-
-  /* 进度条 */
-  .progress {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
-    background: rgba(255,255,255,0.06);
+  /* 顶部模式图片 */
+  body.top .images-row {
+    display: flex; gap: 10px; flex-shrink: 0; margin-left: auto; margin-right: 8px;
   }
-  .progress-bar {
-    height: 100%; border-radius: 0 3px 3px 0;
-    background: linear-gradient(90deg, #60a5fa, #3b82f6);
+  body.top .images-row img {
+    height: 80px; border-radius: 8px; object-fit: contain;
+  }
+
+  /* ====== 倒计时进度条 ====== */
+  .countdown-bar-wrap {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 8px;
+    background: rgba(255,255,255,0.08);
+  }
+  .countdown-bar {
+    height: 100%; border-radius: 0 4px 4px 0;
+    background: rgba(255,255,255,0.5);
     animation: shrink var(--duration-ms) linear forwards;
   }
+  body.urgency-important .countdown-bar { background: rgba(245,158,11,0.7); }
+  body.urgency-urgent .countdown-bar { background: rgba(239,68,68,0.8); }
   @keyframes shrink { from { width: 100%; } to { width: 0%; } }
+
+  /* 倒计时数字 */
+  .countdown-timer {
+    position: absolute; bottom: 16px; right: 24px;
+    font-size: 0.85rem; font-weight: 600; color: rgba(255,255,255,0.4);
+    font-variant-numeric: tabular-nums; font-family: monospace;
+  }
 
   .hide { display: none !important; }
 </style>
 </head>
 <body class="fullscreen">
 
-  <!-- 顶部色条 -->
-  <div class="urgency-strip"></div>
-
   <!-- 全屏模式 -->
   <div id="fullscreen-view">
-    <div class="bg-decor"><div class="c1"></div><div class="c2"></div></div>
     <div class="container">
-      <div class="bell">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" id="bell-icon">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-        </svg>
-      </div>
-      <span class="urgency-badge normal" id="fs-urgency-badge">普通通知</span>
-      <h1 id="fs-title"></h1>
-      <div class="divider"></div>
       <p class="message" id="fs-message"></p>
-      <div id="fs-images" class="hide" style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin:0 auto 24px;max-width:85%"></div>
+      <div class="images-row" id="fs-images"></div>
       <button class="close-btn" onclick="event.stopPropagation(); closeWindow()">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="20" height="20">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
         点击关闭
@@ -256,94 +143,79 @@
   <!-- 顶部通知模式 -->
   <div id="top-view" class="hide">
     <div class="top-container">
-      <div class="top-icon">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" id="top-bell-icon">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-        </svg>
-      </div>
       <div class="top-content">
-        <span class="urgency-badge normal" id="top-urgency-badge" style="margin-bottom:2px;font-size:0.7rem;padding:2px 10px">普通通知</span>
-        <div class="top-title" id="top-title"></div>
         <div class="top-msg" id="top-message"></div>
       </div>
-      <div id="top-images" class="hide" style="display:flex;gap:8px;flex-shrink:0;max-width:45%"></div>
+      <div class="images-row" id="top-images"></div>
       <button class="top-close" onclick="event.stopPropagation(); closeWindow()" title="关闭">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="20" height="20">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
   </div>
 
-  <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+  <!-- 倒计时进度条 + 数字 -->
+  <div class="countdown-bar-wrap" id="progress-wrap"><div class="countdown-bar" id="progress-bar"></div></div>
+  <div class="countdown-timer" id="countdown-timer"></div>
 
   <script>
-    // === 从 URL 读取基本信息 ===
     var params = new URLSearchParams(location.search)
     var mode = params.get('mode') || 'fullscreen'
-    var title = params.get('title') || '通知'
     var message = params.get('message') || ''
     var duration = parseInt(params.get('duration'))
     var isPermanent = duration === 0
     if (!duration || duration <= 0) duration = (mode === 'top' ? 8 : 30)
     var realDuration = isPermanent ? 0 : duration
     var isTop = mode === 'top'
+    var remaining = realDuration
 
-    // 根据紧急程度添加 CSS class（所有视觉差异由 CSS 规则控制）
     var urgency = params.get('urgency') || '普通'
-    if (urgency === '重要') {
-      document.body.classList.add('urgency-important')
-      document.getElementById('fs-urgency-badge').textContent = '重要通知'
-      document.getElementById('fs-urgency-badge').className = 'urgency-badge important'
-      document.getElementById('top-urgency-badge').textContent = '重要通知'
-      document.getElementById('top-urgency-badge').className = 'urgency-badge important'
-    } else if (urgency === '紧急') {
-      document.body.classList.add('urgency-urgent')
-      var alertIcon = '<circle cx="12" cy="12" r="10" stroke-width="1.5"/><line x1="12" y1="8" x2="12" y2="13" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="0.5" fill="currentColor" stroke="none"/>'
-      document.getElementById('bell-icon').innerHTML = alertIcon
-      document.getElementById('top-bell-icon').innerHTML = alertIcon
-      document.getElementById('fs-urgency-badge').textContent = '紧急通知'
-      document.getElementById('fs-urgency-badge').className = 'urgency-badge urgent'
-      document.getElementById('top-urgency-badge').textContent = '紧急通知'
-      document.getElementById('top-urgency-badge').className = 'urgency-badge urgent'
-    }
-    // 普通：保持默认 CSS（无额外 class 即为蓝色主题）
+    if (urgency === '重要') document.body.classList.add('urgency-important')
+    else if (urgency === '紧急') document.body.classList.add('urgency-urgent')
 
-    // === 初始化内容 ===
-    if (isPermanent) document.getElementById('progress-bar').style.display = 'none'
+    // 切换 body class
+    if (isTop) {
+      document.body.classList.remove('fullscreen')
+      document.body.classList.add('top')
+    }
+
+    // 初始化内容
+    if (isPermanent) {
+      document.getElementById('progress-wrap').style.display = 'none'
+      document.getElementById('countdown-timer').style.display = 'none'
+    }
 
     if (isTop) {
       document.getElementById('fullscreen-view').classList.add('hide')
       document.getElementById('top-view').classList.remove('hide')
-      document.getElementById('top-title').textContent = title
       document.getElementById('top-message').textContent = message
     } else {
-      document.getElementById('fs-title').textContent = title
       document.getElementById('fs-message').textContent = message
-      document.getElementById('fs-hint').textContent = isPermanent ? '点击任意位置关闭 · 按 Esc 关闭' : ('点击任意位置关闭 · 按 Esc 关闭 · ' + realDuration + '秒后自动关闭')
+      document.getElementById('fs-hint').textContent = '点击任意位置关闭 · 按 Esc 关闭'
     }
 
+    // 显示图片（由 Electron 主进程注入 window.__notifyImages 后调用）
     function updateImages() {
-      var images = window.__notifyImages
+      var images = window.__notifyImages || []
       if (!images || !images.length) return
-      if (isTop) {
-        var tc = document.getElementById('top-images'); tc.innerHTML = ''
-        for (var i = 0; i < images.length; i++) {
-          var img = document.createElement('img'); img.src = images[i]
-          img.className = 'top-thumb has-image'
-          img.style.cssText = 'height:calc(100% - 32px);border-radius:12px;object-fit:contain;box-shadow:0 4px 24px rgba(0,0,0,0.3);flex-shrink:1;min-width:0'
-          tc.appendChild(img)
-        }
-        tc.classList.remove('hide')
-      } else {
-        var fc = document.getElementById('fs-images'); fc.innerHTML = ''
-        for (var j = 0; j < images.length; j++) {
-          var fsImg = document.createElement('img'); fsImg.src = images[j]
-          fsImg.style.cssText = 'max-width:' + (90 / images.length) + '%;max-height:55vh;border-radius:16px;object-fit:contain;box-shadow:0 4px 30px rgba(0,0,0,0.3);flex-shrink:1;min-width:0;display:block'
-          fc.appendChild(fsImg)
-        }
-        fc.classList.remove('hide')
-      }
+      var container = document.getElementById(isTop ? 'top-images' : 'fs-images')
+      if (!container) return
+      container.innerHTML = images.map(function(src) {
+        return '<img src="' + src + '" alt="通知图片" />'
+      }).join('')
+      container.classList.remove('hide')
+    }
+
+    // 倒计时数字更新
+    if (!isPermanent) {
+      document.getElementById('progress-bar').style.setProperty('--duration-ms', realDuration * 1000 + 'ms')
+      document.getElementById('countdown-timer').textContent = realDuration + 's'
+      var countdownInterval = setInterval(function() {
+        remaining--
+        if (remaining <= 0) { clearInterval(countdownInterval); return }
+        document.getElementById('countdown-timer').textContent = remaining + 's'
+      }, 1000)
     }
 
     function closeWindow() { try { window.close() } catch(e) {} }

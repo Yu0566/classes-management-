@@ -1,15 +1,14 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 interface NotificationItem {
   id: number
-  title: string
   message: string
 }
 
 interface NotificationContextValue {
-  enqueue: (title: string, message: string) => void
+  enqueue: (message: string) => void
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null)
@@ -42,14 +41,6 @@ const contentVariants = {
   },
 }
 
-const iconVariants = {
-  hidden: { scale: 0, rotate: -30 },
-  visible: {
-    scale: 1, rotate: 0,
-    transition: { type: 'spring', stiffness: 260, damping: 20, delay: 0.3 },
-  },
-}
-
 function NotificationOverlay({
   item,
   hovered,
@@ -74,25 +65,15 @@ function NotificationOverlay({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[60] flex items-center justify-center"
-      style={{
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #312e81 100%)',
-      }}
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black"
       variants={overlayVariants}
       initial="hidden"
       animate="visible"
       exit="exit"
       onClick={onClose}
     >
-      {/* 装饰背景 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-amber-400/10 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-indigo-400/10 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-amber-300/5 blur-3xl" />
-      </div>
-
       <motion.div
-        className="relative z-10 w-full max-w-4xl mx-8 text-center"
+        className="relative z-10 w-full max-w-5xl mx-8 text-center"
         variants={contentVariants}
         initial="hidden"
         animate="visible"
@@ -100,23 +81,8 @@ function NotificationOverlay({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        {/* 图标 */}
-        <motion.div
-          className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-400/15 mb-6"
-          variants={iconVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          <Bell size={32} className="text-amber-400" />
-        </motion.div>
-
-        {/* 标题 */}
-        <h2 className="text-base text-slate-400 font-medium tracking-wide mb-8">
-          {item.title}
-        </h2>
-
-        {/* 内容 */}
-        <p className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-snug whitespace-pre-wrap break-words max-w-2xl mx-auto mb-14">
+        {/* 纯文字内容 */}
+        <p className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-snug whitespace-pre-wrap break-words max-w-3xl mx-auto mb-16">
           {item.message}
         </p>
 
@@ -138,7 +104,7 @@ function NotificationOverlay({
       {/* 底部进度条 */}
       <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10">
         <motion.div
-          className="h-full bg-gradient-to-r from-amber-400 to-amber-300 rounded-r-full"
+          className="h-full bg-white/50 rounded-r-full"
           initial={{ width: '100%' }}
           animate={{ width: '0%' }}
           transition={{ duration: AUTO_DISMISS_MS / 1000, ease: 'linear' }}
@@ -159,8 +125,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setQueue(prev => prev.slice(1))
   }, [])
 
-  const enqueue = useCallback((title: string, message: string) => {
-    setQueue(prev => [...prev, { id: nextId++, title, message }])
+  const enqueue = useCallback((message: string) => {
+    setQueue(prev => [...prev, { id: nextId++, message }])
   }, [])
 
   // Auto-dismiss with pause on hover
@@ -174,13 +140,41 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timerRef.current)
   }, [current, hovered, dismiss])
 
-  // IPC listener
+  // IPC listener (Electron)
   useEffect(() => {
     if (!window.electronAPI?.onNotifyShow) return
-    const unsub = window.electronAPI.onNotifyShow(({ title, message }) => {
-      enqueue(title, message)
+    const unsub = window.electronAPI.onNotifyShow(({ message }) => {
+      enqueue(message)
     })
     return unsub
+  }, [enqueue])
+
+  // HTTP 轮询模式（浏览器访问远程服务端时）
+  useEffect(() => {
+    const isHttp =
+      window.location.protocol === 'http:' && !(window as any).electronAPI?.db
+    if (!isHttp) return
+
+    let lastTs = Date.now()
+    let timer: ReturnType<typeof setTimeout>
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/notifications?since=${lastTs}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.success && Array.isArray(data.data)) {
+          for (const n of data.data) {
+            if (n.created_at > lastTs) lastTs = n.created_at
+            enqueue(n.message)
+          }
+        }
+      } catch { /* ignore */ }
+      timer = setTimeout(poll, 3000)
+    }
+
+    poll()
+    return () => clearTimeout(timer)
   }, [enqueue])
 
   return (

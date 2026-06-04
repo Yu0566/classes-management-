@@ -16,6 +16,8 @@ import DashboardPage from './pages/DashboardPage'
 import CoinsPage from './pages/CoinsPage'
 import MathHomeworkPage from './pages/MathHomeworkPage'
 import NotifyPage from './pages/NotifyPage'
+import GrowthRecordsPage from './pages/GrowthRecordsPage'
+import DutyRotationPage from './pages/DutyRotationPage'
 import DashboardWidgetPage from './pages/DashboardWidgetPage'
 
 function App() {
@@ -29,6 +31,7 @@ function App() {
         <Route path="students" element={<StudentsPage />} />
         <Route path="daily-register" element={<DailyRegisterPage />} />
         <Route path="student-scores" element={<StudentScoresPage />} />
+        <Route path="growth-records" element={<GrowthRecordsPage />} />
         <Route path="duty" element={<DutyPage />} />
         <Route path="homework" element={<HomeworkPage />} />
         <Route path="attendance" element={<AttendancePage />} />
@@ -36,6 +39,7 @@ function App() {
         <Route path="daily-practice" element={<DailyPracticePage />} />
         <Route path="coins" element={<CoinsPage />} />
         <Route path="math-homework" element={<MathHomeworkPage />} />
+        <Route path="duty-rotation" element={<DutyRotationPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="notify" element={<NotifyPage />} />
       </Route>

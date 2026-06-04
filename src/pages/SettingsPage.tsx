@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Database, Download, HardDrive, RefreshCw, Wifi, Copy, Check, ExternalLink, Loader2, DownloadCloud, FileDown } from 'lucide-react'
+import { Database, Download, HardDrive, RefreshCw, Wifi, Copy, Check, ExternalLink, Loader2, DownloadCloud, FileDown, Globe } from 'lucide-react'
 import DataImportPage from './DataImportPage'
 import { queryAll } from '../lib/db'
 
@@ -25,18 +25,26 @@ export default function SettingsPage() {
   // LAN 访问状态
   const [lanRunning, setLanRunning] = useState(false)
   const [lanIP, setLanIP] = useState('')
-  const [lanPort, setLanPort] = useState(() => {
-    const saved = localStorage.getItem('lan_port')
-    return saved ? parseInt(saved, 10) : 3456
-  })
+  const [lanMode, setLanMode] = useState('')
+  const LAN_PORT = 3456
   const [lanCopied, setLanCopied] = useState(false)
   const [lanError, setLanError] = useState('')
   const [lanLoading, setLanLoading] = useState(false)
   const [autoStart, setAutoStart] = useState(() => {
     return localStorage.getItem('lan_auto_start') === 'true'
   })
+  // Tunnel 状态
+  const [tunnelStatus, setTunnelStatus] = useState<string>('stopped')
+  const [tunnelError, setTunnelError] = useState('')
+  const [tunnelLoading, setTunnelLoading] = useState(false)
+  const [tunnelUrlCopied, setTunnelUrlCopied] = useState(false)
+  const [tunnelAutoStart, setTunnelAutoStart] = useState(() => {
+    return localStorage.getItem('tunnel_auto_start') !== 'false'
+  })
+
   const isElectron = !!window.electronAPI
   const hasLanAPI = !!(window.electronAPI?.lan)
+  const hasTunnelAPI = !!(window.electronAPI?.tunnel)
 
   // 更新状态
   const [appVersion, setAppVersion] = useState('')
@@ -53,11 +61,10 @@ export default function SettingsPage() {
       window.electronAPI!.lan.getStatus().then(s => {
         setLanRunning(s.running)
         setLanIP(s.ip)
-        if (s.port) setLanPort(s.port)
+        setLanMode(s.mode || '')
         // 自动启动：如果未运行且开启了自启
         if (!s.running && localStorage.getItem('lan_auto_start') === 'true') {
-          const savedPort = parseInt(localStorage.getItem('lan_port') || '3456', 10)
-          window.electronAPI!.lan.start(savedPort).then(r => {
+          window.electronAPI!.lan.start(LAN_PORT).then(r => {
             if (r.success) {
               setLanRunning(true)
               setLanIP(r.ip || '')
@@ -100,12 +107,37 @@ export default function SettingsPage() {
   }, [isElectron, hasLanAPI])
 
   useEffect(() => {
-    localStorage.setItem('lan_port', String(lanPort))
-  }, [lanPort])
-
-  useEffect(() => {
     localStorage.setItem('lan_auto_start', String(autoStart))
   }, [autoStart])
+
+  useEffect(() => {
+    localStorage.setItem('tunnel_auto_start', String(tunnelAutoStart))
+  }, [tunnelAutoStart])
+
+  // Tunnel 状态订阅 + 自动启动
+  useEffect(() => {
+    if (!isElectron || !hasTunnelAPI) return
+    window.electronAPI!.tunnel.getStatus().then(s => {
+      setTunnelStatus(s.status)
+      if (s.error) setTunnelError(s.error)
+    })
+    const unsubscribe = window.electronAPI!.tunnel.onStatusChange((state) => {
+      setTunnelStatus(state.status)
+      if (state.error) setTunnelError(state.error)
+      else setTunnelError('')
+    })
+    return unsubscribe
+  }, [isElectron, hasTunnelAPI])
+
+  // Tunnel 自动启动：检测到 LAN 启动且 tunnel 未运行且开启自启
+  useEffect(() => {
+    if (!isElectron || !hasTunnelAPI || !lanRunning) return
+    if (tunnelStatus === 'stopped' && tunnelAutoStart) {
+      window.electronAPI!.tunnel.start(LAN_PORT).then(r => {
+        if (!r.success) setTunnelError(r.error || '启动失败')
+      }).catch(() => {}).finally(() => setTunnelLoading(false))
+    }
+  }, [lanRunning, tunnelAutoStart])
 
   const handleLanToggle = useCallback(async () => {
     if (!window.electronAPI?.lan) {
@@ -119,10 +151,12 @@ export default function SettingsPage() {
         await window.electronAPI.lan.stop()
         setLanRunning(false)
       } else {
-        const result = await window.electronAPI.lan.start(lanPort)
+        const result = await window.electronAPI.lan.start(LAN_PORT)
         if (result.success) {
           setLanRunning(true)
           setLanIP(result.ip || '')
+          // 获取模式
+          window.electronAPI!.lan.getStatus().then(s => setLanMode(s.mode || '')).catch(() => {})
         } else {
           setLanError(result.error || '启动失败')
         }
@@ -134,13 +168,37 @@ export default function SettingsPage() {
     } finally {
       setLanLoading(false)
     }
-  }, [lanRunning, lanPort])
+  }, [lanRunning])
 
   const handleCopyUrl = useCallback(() => {
-    navigator.clipboard.writeText(`http://${lanIP}:${lanPort}`)
+    navigator.clipboard.writeText(`http://${lanIP}:${LAN_PORT}`)
     setLanCopied(true)
     setTimeout(() => setLanCopied(false), 2000)
-  }, [lanIP, lanPort])
+  }, [lanIP])
+
+  const handleTunnelToggle = useCallback(async () => {
+    if (!window.electronAPI?.tunnel) return
+    setTunnelError('')
+    setTunnelLoading(true)
+    try {
+      if (tunnelStatus === 'connected' || tunnelStatus === 'connecting') {
+        await window.electronAPI.tunnel.stop()
+      } else {
+        const result = await window.electronAPI.tunnel.start(LAN_PORT)
+        if (!result.success) setTunnelError(result.error || '启动失败')
+      }
+    } catch (err) {
+      setTunnelError(err instanceof Error ? err.message : '操作失败')
+    } finally {
+      setTunnelLoading(false)
+    }
+  }, [tunnelStatus])
+
+  const handleCopyTunnelUrl = useCallback(() => {
+    navigator.clipboard.writeText('https://classmanagement.top')
+    setTunnelUrlCopied(true)
+    setTimeout(() => setTunnelUrlCopied(false), 2000)
+  }, [])
 
   const handleCheckUpdate = useCallback(async () => {
     if (!window.electronAPI?.app) return
@@ -339,6 +397,7 @@ export default function SettingsPage() {
         )}
 
         {tab === 'lan' && (
+          <>
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="flex items-center gap-3 mb-6">
               <Wifi size={24} className={lanRunning ? 'text-green-500' : 'text-gray-300'} />
@@ -360,23 +419,6 @@ export default function SettingsPage() {
               </div>
             ) : (
               <>
-                {/* 端口设置 */}
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-sm text-gray-600">端口号：</span>
-                  <input
-                    type="number"
-                    min={1024}
-                    max={65535}
-                    value={lanPort}
-                    onChange={e => setLanPort(parseInt(e.target.value, 10) || 3456)}
-                    disabled={lanRunning}
-                    className="w-24 px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-400 disabled:bg-gray-100 disabled:text-gray-400"
-                  />
-                  <span className="text-xs text-gray-400">
-                    {lanRunning ? '停止后可修改' : '范围 1024-65535'}
-                  </span>
-                </div>
-
                 {/* 开机自启 */}
                 <label className="flex items-center gap-2 mb-4 cursor-pointer">
                   <input
@@ -405,6 +447,13 @@ export default function SettingsPage() {
                     <span className={`inline-block w-2 h-2 rounded-full ${lanRunning ? 'bg-green-500' : 'bg-gray-300'}`} />
                     {lanRunning ? '运行中' : '已停止'}
                   </span>
+                  {lanRunning && lanMode && (
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      lanMode === '生产模式' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
+                    }`}>
+                      {lanMode}
+                    </span>
+                  )}
                 </div>
 
                 {/* 错误提示 */}
@@ -420,7 +469,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-600 mb-2">局域网访问地址：</p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 bg-white px-3 py-2 rounded border text-sm text-primary-600 font-mono select-all">
-                        http://{lanIP}:{lanPort}
+                        http://{lanIP}:{LAN_PORT}
                       </code>
                       <button
                         onClick={handleCopyUrl}
@@ -437,7 +486,7 @@ export default function SettingsPage() {
                 {lanRunning && (
                   <div className="space-y-2">
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700">
-                      请确保防火墙允许端口 {lanPort} 的入站连接。建议仅在安全的局域网环境中使用此功能。
+                      请确保防火墙允许端口 {LAN_PORT} 的入站连接。建议仅在安全的局域网环境中使用此功能。
                     </div>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-600">
                       如果 IP 地址经常变化，建议在路由器中将本机设为固定 IP，或在 Windows 网络设置中配置静态 IP。
@@ -447,6 +496,97 @@ export default function SettingsPage() {
               </>
             )}
           </div>
+
+          {/* Cloudflare Tunnel 远程访问 */}
+          {hasTunnelAPI && (
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <Globe size={24} className={tunnelStatus === 'connected' ? 'text-green-500' : 'text-gray-300'} />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-700">远程访问（Cloudflare Tunnel）</h3>
+                  <p className="text-sm text-gray-500">
+                    通过公网域名从任何设备访问本系统，地址永不改变
+                  </p>
+                </div>
+              </div>
+
+              {/* 开机自启 */}
+              <label className="flex items-center gap-2 mb-4 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={tunnelAutoStart}
+                  onChange={e => setTunnelAutoStart(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
+                />
+                <span className="text-sm text-gray-600">LAN 服务器启动时自动连接隧道</span>
+              </label>
+
+              {/* 开关 */}
+              <div className="flex items-center gap-4 mb-4">
+                <button
+                  onClick={handleTunnelToggle}
+                  disabled={tunnelLoading || !lanRunning}
+                  className={`px-6 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                    (tunnelStatus === 'connected' || tunnelStatus === 'connecting')
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
+                  title={!lanRunning ? '请先启动 LAN 服务器' : undefined}
+                >
+                  {tunnelLoading ? '处理中...' : (tunnelStatus === 'connected' || tunnelStatus === 'connecting') ? '断开隧道' : '连接隧道'}
+                </button>
+                <span className={`inline-flex items-center gap-1.5 text-sm ${
+                  tunnelStatus === 'connected' ? 'text-green-600' :
+                  tunnelStatus === 'connecting' ? 'text-blue-500' :
+                  tunnelStatus === 'error' ? 'text-red-500' : 'text-gray-400'
+                }`}>
+                  <span className={`inline-block w-2 h-2 rounded-full ${
+                    tunnelStatus === 'connected' ? 'bg-green-500' :
+                    tunnelStatus === 'connecting' ? 'bg-blue-400 animate-pulse' :
+                    tunnelStatus === 'error' ? 'bg-red-500' : 'bg-gray-300'
+                  }`} />
+                  {tunnelStatus === 'connected' ? '已连接' :
+                   tunnelStatus === 'connecting' ? '连接中...' :
+                   tunnelStatus === 'error' ? '连接失败' : '已断开'}
+                </span>
+              </div>
+
+              {/* 错误提示 */}
+              {tunnelError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600 mb-4">
+                  {tunnelError}
+                </div>
+              )}
+
+              {/* 公网地址（始终显示） */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-600 mb-2">公网访问地址（永久不变）：</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-white px-3 py-2 rounded border text-sm text-primary-600 font-mono select-all">
+                    https://classmanagement.top
+                  </code>
+                  <button
+                    onClick={handleCopyTunnelUrl}
+                    className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+                  >
+                    {tunnelUrlCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                    {tunnelUrlCopied ? '已复制' : '复制'}
+                  </button>
+                </div>
+                {tunnelStatus === 'connected' && (
+                  <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+                    隧道已连接，可通过上方地址从任何设备访问
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-600">
+                此功能通过 Cloudflare Tunnel 实现，无需公网 IP。地址绑定到域名 classmanagement.top，永久不会改变。
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {tab === 'about' && (

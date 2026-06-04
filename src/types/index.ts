@@ -250,3 +250,36 @@ export interface MathHomeworkGradeWithStudent extends MathHomeworkGrade {
   group_color: string
   group_leader_name: string
 }
+
+// 班级轮值安排
+export type DutyRole = 'monitor' | 'captain' | 'vice_captain' | 'duty_monitor' | 'rotation'
+
+export interface DutyRosterEntry {
+  id: string
+  student_id: string
+  student_name: string
+  role: DutyRole
+  weekday: number | null
+  position: number | null
+  weekday_group: string | null
+  photo: string | null
+  sort_order: number
+  created_at: number
+  updated_at: number
+}
+
+export const WEEKDAY_NAMES: Record<number, string> = {
+  1: '周一',
+  2: '周二',
+  3: '周三',
+  4: '周四',
+  5: '周五',
+}
+
+export const DUTY_ROLE_LABELS: Record<DutyRole, string> = {
+  monitor: '班长',
+  captain: '队长',
+  vice_captain: '副队长',
+  duty_monitor: '值日班长',
+  rotation: '轮值',
+}

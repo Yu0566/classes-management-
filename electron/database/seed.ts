@@ -2,7 +2,6 @@ import { Database as SqlJsDatabase } from 'sql.js'
 import { randomUUID } from 'crypto'
 import fs from 'fs'
 import path from 'path'
-import { app } from 'electron'
 
 interface SeedGroup {
   name: string
@@ -25,12 +24,24 @@ interface SeedData {
 }
 
 function getSeedPath(): string | null {
+  // 开发/构建后的相对路径
   const devPath = path.join(__dirname, '../../seed.json')
   if (fs.existsSync(devPath)) return devPath
 
-  if (app.isPackaged) {
-    const prodPath = path.join(process.resourcesPath, 'seed.json')
-    if (fs.existsSync(prodPath)) return prodPath
+  // 工作目录（独立服务端部署）
+  const cwdPath = path.join(process.cwd(), 'seed.json')
+  if (fs.existsSync(cwdPath)) return cwdPath
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { app } = require('electron') as typeof import('electron')
+    // Electron 打包后 seed.json 位于 resourcesPath
+    if (app.isPackaged) {
+      const prodPath = path.join(process.resourcesPath, 'seed.json')
+      if (fs.existsSync(prodPath)) return prodPath
+    }
+  } catch {
+    // 非 Electron 环境（独立服务端），忽略
   }
 
   return null
@@ -51,9 +62,16 @@ export function runSeed(db: SqlJsDatabase): boolean {
     return false
   }
 
-  // 检查数据库小组数是否与 seed 一致
+  // 检查数据库小组数
   const groupResult = db.exec('SELECT COUNT(*) as cnt FROM groups')
   const dbGroupCount = (groupResult.length > 0 ? groupResult[0].values[0][0] : 0) as number
+
+  // 空数据库不自动导入，保持空白供用户手动导入
+  if (dbGroupCount === 0) {
+    console.log('空数据库，跳过种子导入')
+    return false
+  }
+
   if (dbGroupCount >= seed.groups.length) {
     console.log('数据库已有完整数据，跳过种子导入')
     return false
@@ -73,6 +91,8 @@ export function runSeed(db: SqlJsDatabase): boolean {
     'attendance_records',
     'attendance_window_records',
     'duty_students',
+    'duty_records',
+    'duty_roster',
     'daily_statuses',
     'deduction_records',
     'manual_adjust_records',

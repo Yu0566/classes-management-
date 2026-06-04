@@ -5,7 +5,9 @@ import App from './App'
 import './index.css'
 
 function isLanHttpMode(): boolean {
-  return window.location.protocol === 'http:' && window.location.hostname !== 'localhost'
+  return (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+    && window.location.hostname !== 'localhost'
+    && !window.location.hostname.includes('127.0.0.1')
 }
 
 async function init() {
