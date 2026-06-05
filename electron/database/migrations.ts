@@ -1,7 +1,15 @@
 import { Database as SqlJsDatabase } from 'sql.js'
 
+export const SCHEMA_VERSION = 1
+
 export function runMigrations(db: SqlJsDatabase): void {
   db.exec(`
+    -- 元数据表（schema version 等）
+    CREATE TABLE IF NOT EXISTS _meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     -- 小组
     CREATE TABLE IF NOT EXISTS groups (
       id TEXT PRIMARY KEY,
@@ -367,6 +375,12 @@ export function runMigrations(db: SqlJsDatabase): void {
   try {
     db.exec("UPDATE daily_statuses SET daily_practice = '' WHERE daily_practice = 'unsigned' AND student_id IN (SELECT id FROM students WHERE COALESCE(practice_label, '') = '')")
   } catch (_) { /* ignore */ }
+
+  // 更新 schema version
+  db.run(
+    `INSERT OR REPLACE INTO _meta (key, value) VALUES ('schema_version', ?)`,
+    [String(SCHEMA_VERSION)]
+  )
 
   console.log('数据库迁移完成')
 }

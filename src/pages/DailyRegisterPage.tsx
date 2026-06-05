@@ -22,7 +22,7 @@ type AttendStatus = 'signed' | 'unsigned' | 'late' | 'leave'
 
 const CARD_COLORS: Record<AttendStatus, { card: string; label: string }> = {
   signed:   { card: 'bg-green-500 text-white border-green-600',       label: '已签到' },
-  unsigned: { card: 'bg-white text-gray-700 border-gray-300',         label: '未签到' },
+  unsigned: { card: 'bg-white text-stone-700 border-stone-300',         label: '未签到' },
   late:     { card: 'bg-red-500 text-white border-red-600',           label: '迟到' },
   leave:    { card: 'bg-orange-500 text-white border-orange-600',     label: '请假' },
 }
@@ -54,7 +54,7 @@ function TimeInput({ time, onChange, disabled }: {
         disabled={disabled}
         className="w-12 text-center focus:outline-none bg-transparent border-0 p-0"
       />
-      <span className="text-gray-400">:</span>
+      <span className="text-stone-400">:</span>
       <input
         type="number"
         min={0}
@@ -318,7 +318,7 @@ export default function DailyRegisterPage() {
   const remainingDisplay = `${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')}`
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   // 默认时段 ID（第一个创建的）
@@ -328,13 +328,13 @@ export default function DailyRegisterPage() {
     <div className="h-full overflow-auto">
       <div className="p-6 max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">每日考勤</h1>
+          <h1 className="text-2xl font-bold text-stone-800">每日考勤</h1>
           <div className="flex items-center gap-3">
-            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-stone-100 rounded-lg">
               <ChevronLeft size={20} />
             </button>
             <span className="text-lg font-medium min-w-[160px] text-center">{formatDate(date)}</span>
-            <button onClick={() => changeDate(1)} className="p-2 hover:bg-gray-100 rounded-lg">
+            <button onClick={() => changeDate(1)} className="p-2 hover:bg-stone-100 rounded-lg">
               <ChevronRight size={20} />
             </button>
             <button
@@ -345,7 +345,7 @@ export default function DailyRegisterPage() {
             </button>
             <button
               onClick={openHistory}
-              className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 border rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-1 px-3 py-1 text-sm text-stone-600 border rounded-lg hover:bg-stone-50"
             >
               <History size={14} /> 历史
             </button>
@@ -360,10 +360,10 @@ export default function DailyRegisterPage() {
             const isDefault = w.id === defaultWinId
             return (
               <div key={w.id} className={`rounded-xl border-2 p-4 ${
-                isActive ? 'bg-green-50 border-green-300' : isClosed ? 'bg-gray-50 border-gray-300' : 'bg-blue-50 border-blue-200'
+                isActive ? 'bg-green-50 border-green-300' : isClosed ? 'bg-stone-50 border-stone-300' : 'bg-blue-50 border-blue-200'
               }`}>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className="text-sm font-medium text-gray-600">
+                  <span className="text-sm font-medium text-stone-600">
                     {isDefault ? '默认时段' : '时段'}：
                   </span>
                   <TimeInput
@@ -371,7 +371,7 @@ export default function DailyRegisterPage() {
                     onChange={val => handleSaveWindow(w.id, val, w.window_end || DEFAULT_END)}
                     disabled={isActive || isDefault}
                   />
-                  <span className="text-gray-400">—</span>
+                  <span className="text-stone-400">—</span>
                   <TimeInput
                     time={w.window_end || DEFAULT_END}
                     onChange={val => handleSaveWindow(w.id, w.window_start || DEFAULT_START, val)}
@@ -398,7 +398,7 @@ export default function DailyRegisterPage() {
                     </>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">已结束</span>
+                      <span className="text-sm text-stone-400">已结束</span>
                       <button
                         onClick={() => handleStart(w)}
                         className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -414,7 +414,7 @@ export default function DailyRegisterPage() {
                     </div>
                   )}
                   {!isActive && !isDefault && (
-                    <button onClick={() => handleDeleteWindow(w.id)} className="p-1 text-gray-300 hover:text-red-500">
+                    <button onClick={() => handleDeleteWindow(w.id)} className="p-1 text-stone-300 hover:text-red-500">
                       <Trash2 size={14} />
                     </button>
                   )}
@@ -444,13 +444,13 @@ export default function DailyRegisterPage() {
           const groupStudents = students.filter(s => s.group_id === group.id)
           if (groupStudents.length === 0) return null
           return (
-            <div key={group.id} className="mb-4 bg-white rounded-xl border-2 border-gray-200 overflow-hidden">
-              <div className="bg-gray-100 px-4 py-2 border-b border-gray-200 flex items-center gap-2">
+            <div key={group.id} className="mb-4 bg-white rounded-xl border-2 border-stone-200 overflow-hidden">
+              <div className="bg-stone-100 px-4 py-2 border-b border-stone-200 flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${group.color}`} />
-                <span className="text-sm font-semibold text-gray-700">
+                <span className="text-sm font-semibold text-stone-700">
                   {group.name}{group.leader_name ? `（${group.leader_name}）` : ''}
                 </span>
-                <span className="text-xs text-gray-400">{groupStudents.length}人</span>
+                <span className="text-xs text-stone-400">{groupStudents.length}人</span>
               </div>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 p-3">
                 {groupStudents.map(s => {
@@ -482,7 +482,7 @@ export default function DailyRegisterPage() {
                       </button>
 
                       {adminTarget === s.id && (
-                        <div className="absolute top-0 left-0 right-0 bottom-0 bg-white rounded-lg border-2 border-gray-400 shadow-xl flex flex-col items-center justify-center gap-1 p-1 z-10">
+                        <div className="absolute top-0 left-0 right-0 bottom-0 bg-white rounded-lg border-2 border-stone-400 shadow-xl flex flex-col items-center justify-center gap-1 p-1 z-10">
                           <button
                             onClick={() => handleAdminSet(s.id, 'late')}
                             className="w-full text-xs py-1.5 bg-red-100 text-red-700 rounded font-medium hover:bg-red-200"
@@ -497,7 +497,7 @@ export default function DailyRegisterPage() {
                           </button>
                           <button
                             onClick={() => setAdminTarget(null)}
-                            className="w-full text-xs py-1 text-gray-400 hover:text-gray-600"
+                            className="w-full text-xs py-1 text-stone-400 hover:text-stone-600"
                           >
                             取消
                           </button>
@@ -512,10 +512,10 @@ export default function DailyRegisterPage() {
         })}
 
         {students.length === 0 && (
-          <div className="text-center py-12 text-gray-400">暂无学生数据</div>
+          <div className="text-center py-12 text-stone-400">暂无学生数据</div>
         )}
 
-        <p className="text-xs text-gray-400 mt-3">
+        <p className="text-xs text-stone-400 mt-3">
           {anyActive
             ? '考勤进行中 — 点击白色卡片签到，点击绿色卡片可取消签到，到时间自动结束'
             : '考勤未开始或已结束 — 点击卡片可随时标记迟到或请假'}
@@ -526,29 +526,29 @@ export default function DailyRegisterPage() {
       {/* 历史查询弹窗 */}
       <Modal open={showHistory} onClose={() => setShowHistory(false)} title="考勤历史">
         {historyData.length === 0 ? (
-          <p className="text-center text-gray-400 py-8">暂无迟到或请假记录</p>
+          <p className="text-center text-stone-400 py-8">暂无迟到或请假记录</p>
         ) : (
           <div className="space-y-3">
             {historyData.map(d => (
               <div key={d.date} className="border rounded-lg p-3">
-                <div className="text-sm font-semibold text-gray-700 mb-2">{d.date}</div>
+                <div className="text-sm font-semibold text-stone-700 mb-2">{d.date}</div>
                 {d.late.length > 0 && (
                   <div className="flex items-start gap-2 text-xs mb-1">
                     <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded font-medium shrink-0">迟到</span>
-                    <span className="text-gray-600">{d.late.join('、')}</span>
+                    <span className="text-stone-600">{d.late.join('、')}</span>
                   </div>
                 )}
                 {d.leave.length > 0 && (
                   <div className="flex items-start gap-2 text-xs">
                     <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-medium shrink-0">请假</span>
-                    <span className="text-gray-600">{d.leave.join('、')}</span>
+                    <span className="text-stone-600">{d.leave.join('、')}</span>
                   </div>
                 )}
               </div>
             ))}
           </div>
         )}
-        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-stone-600 border rounded-lg hover:bg-stone-50">关闭</button>
       </Modal>
     </div>
   )

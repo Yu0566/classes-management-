@@ -16,7 +16,7 @@ const defaultNavItems = [
   { path: '/students', label: '学生管理', icon: Contact },
   { path: '/student-scores', label: '个人积分', icon: Users },
   { path: '/growth-records', label: '成长记录', icon: TrendingUp },
-  { path: '/duty', label: '值日管理', icon: CalendarCheck },
+  { path: '/duty', label: '值日管理', icon: CalendarCheck, exact: true },
   { path: '/duty-rotation', label: '班级轮值', icon: CalendarDays },
   { path: '/homework', label: '作业管理', icon: ClipboardList },
   { path: '/daily-register', label: '每日考勤', icon: ClipboardCheck },
@@ -64,19 +64,19 @@ export default function MainLayout() {
   const currentPath = location.pathname || '/'
   const isActive = (item: typeof defaultNavItems[number]) => {
     if (item.exact) return currentPath === item.path
-    return currentPath.startsWith(item.path)
+    return currentPath === item.path || currentPath.startsWith(item.path + '/')
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-[#fdfaf3]">
       {/* 左侧边栏 */}
       <aside
-        className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-200 ${
+        className={`bg-[#fffdf7] border-r border-stone-200 flex flex-col transition-all duration-200 ${
           collapsed ? 'w-16' : 'w-56'
         }`}
       >
         {/* Logo */}
-        <div className="h-14 flex items-center justify-center border-b border-gray-200 px-3">
+        <div className="h-14 flex items-center justify-center border-b border-stone-200 px-3">
           {!collapsed && (
             <span className="text-lg font-bold text-primary-700 whitespace-nowrap">
               课堂管理
@@ -119,7 +119,7 @@ export default function MainLayout() {
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left ${
                       active
                         ? 'bg-primary-100 text-primary-700 font-medium'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
                     }`}
                   >
                     <Icon size={20} />
@@ -132,13 +132,13 @@ export default function MainLayout() {
         </nav>
 
         {/* 底部设置 */}
-        <div className="border-t border-gray-200 p-2">
+        <div className="border-t border-stone-200 p-2">
           <button
             onClick={() => navigate('/settings')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left ${
               currentPath === '/settings'
                 ? 'bg-primary-100 text-primary-700 font-medium'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
             }`}
           >
             <Settings size={20} />
@@ -149,7 +149,7 @@ export default function MainLayout() {
         {/* 折叠按钮 */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="h-10 flex items-center justify-center border-t border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+          className="h-10 flex items-center justify-center border-t border-stone-200 text-stone-400 hover:text-stone-600 hover:bg-stone-50 transition-colors"
         >
           {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>

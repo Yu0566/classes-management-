@@ -70,12 +70,12 @@ export default function StudentScoresPage() {
 
   const SortableHead = ({ label, skey }: { label: string; skey: SortKey }) => (
     <th
-      className="text-center px-3 py-3 text-sm font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none"
+      className="text-center px-3 py-3 text-sm font-medium text-stone-500 cursor-pointer hover:text-stone-700 select-none"
       onClick={() => handleSort(skey)}
     >
       <div className="flex items-center justify-center gap-1">
         {label}
-        <ArrowUpDown size={12} className={sortKey === skey ? 'text-primary-500' : 'text-gray-300'} />
+        <ArrowUpDown size={12} className={sortKey === skey ? 'text-primary-500' : 'text-stone-300'} />
       </div>
     </th>
   )
@@ -127,7 +127,7 @@ export default function StudentScoresPage() {
     await loadData()
   }
 
-  if (loading) return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+  if (loading) return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
 
   const totalScore = sorted.reduce((sum, s) => sum + s.total, 0)
 
@@ -135,12 +135,12 @@ export default function StudentScoresPage() {
     <div className="h-full overflow-auto">
       <div className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">个人积分</h1>
+          <h1 className="text-2xl font-bold text-stone-800">个人积分</h1>
           <div className="flex gap-2">
             <button
               onClick={() => setTab('scores')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === 'scores' ? 'bg-primary-500 text-white' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+                tab === 'scores' ? 'bg-primary-500 text-white' : 'border border-stone-200 text-stone-500 hover:bg-stone-50'
               }`}
             >
               积分一览
@@ -148,7 +148,7 @@ export default function StudentScoresPage() {
             <button
               onClick={() => setTab('deductions')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === 'deductions' ? 'bg-primary-500 text-white' : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+                tab === 'deductions' ? 'bg-primary-500 text-white' : 'border border-stone-200 text-stone-500 hover:bg-stone-50'
               }`}
             >
               扣分记录
@@ -173,7 +173,7 @@ export default function StudentScoresPage() {
                 { label: '手动调整', value: sorted.reduce((s, x) => s + x.manualOffset, 0), color: 'text-red-600' },
               ].map(item => (
                 <div key={item.label} className="bg-white rounded-lg border p-3 text-center">
-                  <div className="text-xs text-gray-500">{item.label}</div>
+                  <div className="text-xs text-stone-500">{item.label}</div>
                   <div className={`text-lg font-bold ${item.color}`}>{item.value}</div>
                 </div>
               ))}
@@ -197,7 +197,7 @@ export default function StudentScoresPage() {
                 return (
                   <div key={item.key} className="flex items-center gap-3 bg-white rounded-xl border px-4 py-2.5 shadow-sm">
                     {/* 标签 */}
-                    <span className={`text-sm font-medium whitespace-nowrap ${on ? 'text-gray-800' : 'text-gray-400'}`}>
+                    <span className={`text-sm font-medium whitespace-nowrap ${on ? 'text-stone-800' : 'text-stone-400'}`}>
                       {item.label}
                     </span>
                     {/* 开关 */}
@@ -205,7 +205,7 @@ export default function StudentScoresPage() {
                       type="button"
                       onClick={() => handleToggle(item.key)}
                       className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer focus:outline-none ${
-                        on ? onColor : 'bg-gray-300'
+                        on ? onColor : 'bg-stone-300'
                       }`}
                     >
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
@@ -219,25 +219,25 @@ export default function StudentScoresPage() {
                         type="button"
                         onClick={() => quickPoints(item.key, -1)}
                         disabled={pts <= 0}
-                        className="w-7 h-7 flex items-center justify-center text-sm border border-gray-300 rounded-l-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-30"
+                        className="w-7 h-7 flex items-center justify-center text-sm border border-stone-300 rounded-l-lg hover:bg-stone-100 text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-30"
                       >−</button>
-                      <span className="w-9 h-7 text-center text-sm font-semibold border-y border-gray-300 flex items-center justify-center bg-gray-50 text-gray-700">
+                      <span className="w-9 h-7 text-center text-sm font-semibold border-y border-stone-300 flex items-center justify-center bg-stone-50 text-stone-700">
                         {pts}
                       </span>
                       <button
                         type="button"
                         onClick={() => quickPoints(item.key, 1)}
                         disabled={pts >= 99}
-                        className="w-7 h-7 flex items-center justify-center text-sm border border-gray-300 rounded-r-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-30"
+                        className="w-7 h-7 flex items-center justify-center text-sm border border-stone-300 rounded-r-lg hover:bg-stone-100 text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-30"
                       >+</button>
                     </div>
-                    <span className="text-xs text-gray-400">分/次</span>
+                    <span className="text-xs text-stone-400">分/次</span>
                   </div>
                 )
               })}
             </div>
 
-            <p className="text-sm text-gray-500 mb-3">
+            <p className="text-sm text-stone-500 mb-3">
               汇总 {sorted.length} 名学生 · 总积分 {totalScore}
             </p>
 
@@ -245,30 +245,30 @@ export default function StudentScoresPage() {
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">排名</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">姓名</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">小组</th>
+                  <tr className="bg-stone-50 border-b">
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">排名</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">姓名</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">小组</th>
                     <SortableHead label="总积分" skey="total" />
                     <SortableHead label="每日一练" skey="dailyPractice" />
                     <SortableHead label="考勤" skey="attendance" />
                     <SortableHead label="作业" skey="homework" />
                     <SortableHead label="手动调整" skey="manualOffset" />
-                    <th className="text-center px-3 py-3 text-sm font-medium text-gray-500">统计天数</th>
+                    <th className="text-center px-3 py-3 text-sm font-medium text-stone-500">统计天数</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {sorted.map((s, i) => (
-                    <tr key={s.studentId} className={`hover:bg-gray-50 ${i < 3 ? 'bg-yellow-50/50' : ''}`}>
+                    <tr key={s.studentId} className={`hover:bg-stone-50 ${i < 3 ? 'bg-yellow-50/50' : ''}`}>
                       <td className="px-4 py-2">
                         <span className={`text-sm font-bold ${
-                          i === 0 ? 'text-yellow-500' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-orange-400' : 'text-gray-500'
+                          i === 0 ? 'text-yellow-500' : i === 1 ? 'text-stone-400' : i === 2 ? 'text-orange-400' : 'text-stone-500'
                         }`}>
                           {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
                         </span>
                       </td>
                       <td className="px-4 py-2 font-medium">{s.studentName}</td>
-                      <td className="px-4 py-2 text-xs text-gray-500">{s.groupName}</td>
+                      <td className="px-4 py-2 text-xs text-stone-500">{s.groupName}</td>
                       <td className={`px-3 py-2 text-center font-bold ${s.total >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                         {s.total}
                       </td>
@@ -281,7 +281,7 @@ export default function StudentScoresPage() {
                             onClick={() => quickAdjust(s.studentId, s.studentName, -1)}
                             className="w-6 h-6 rounded-lg border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 text-sm flex items-center justify-center transition-all"
                           >−</button>
-                          <span className={`text-sm font-semibold w-6 text-center ${s.manualOffset > 0 ? 'text-green-600' : s.manualOffset < 0 ? 'text-red-500' : 'text-gray-300'}`}>
+                          <span className={`text-sm font-semibold w-6 text-center ${s.manualOffset > 0 ? 'text-green-600' : s.manualOffset < 0 ? 'text-red-500' : 'text-stone-300'}`}>
                             {s.manualOffset}
                           </span>
                           <button
@@ -290,11 +290,11 @@ export default function StudentScoresPage() {
                           >+</button>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-center text-xs text-gray-400">{s.statusCount}天</td>
+                      <td className="px-3 py-2 text-center text-xs text-stone-400">{s.statusCount}天</td>
                     </tr>
                   ))}
                   {sorted.length === 0 && (
-                    <tr><td colSpan={9} className="text-center py-12 text-gray-400">暂无数据</td></tr>
+                    <tr><td colSpan={9} className="text-center py-12 text-stone-400">暂无数据</td></tr>
                   )}
                 </tbody>
               </table>
@@ -311,7 +311,7 @@ export default function StudentScoresPage() {
                 { label: '手动调整净额', value: manualAdjusts.reduce((s, m) => s + m.delta, 0), color: 'text-blue-600' },
               ].map(item => (
                 <div key={item.label} className="bg-white rounded-lg border p-3 text-center">
-                  <div className="text-xs text-gray-500">{item.label}</div>
+                  <div className="text-xs text-stone-500">{item.label}</div>
                   <div className={`text-lg font-bold ${item.color}`}>{item.value}</div>
                 </div>
               ))}
@@ -320,7 +320,7 @@ export default function StudentScoresPage() {
             {/* 筛选 */}
             <div className="flex items-center gap-2 mb-4">
               <div className="relative">
-                <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400" />
                 <input
                   type="text" placeholder="搜索姓名..."
                   value={searchName} onChange={e => setSearchName(e.target.value)}
@@ -335,29 +335,29 @@ export default function StudentScoresPage() {
 
             {/* 系统扣分列表 */}
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden mb-4">
-              <h3 className="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-50 border-b">系统自动扣分</h3>
+              <h3 className="px-4 py-2 text-sm font-medium text-stone-500 bg-stone-50 border-b">系统自动扣分</h3>
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">姓名</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">扣分</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">原因</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">日期</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">时间</th>
+                  <tr className="bg-stone-50 border-b">
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">姓名</th>
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">扣分</th>
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">原因</th>
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">日期</th>
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">时间</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredDeductions.map(d => (
-                    <tr key={d.id} className="hover:bg-gray-50">
+                    <tr key={d.id} className="hover:bg-stone-50">
                       <td className="px-4 py-2 text-sm font-medium">{d.student_name}</td>
                       <td className="px-4 py-2 text-sm text-red-600 font-bold">-{d.points}</td>
-                      <td className="px-4 py-2 text-sm text-gray-600">{d.reason}</td>
-                      <td className="px-4 py-2 text-sm text-gray-400">{d.date}</td>
-                      <td className="px-4 py-2 text-xs text-gray-400">{new Date(d.timestamp).toLocaleString('zh-CN')}</td>
+                      <td className="px-4 py-2 text-sm text-stone-600">{d.reason}</td>
+                      <td className="px-4 py-2 text-sm text-stone-400">{d.date}</td>
+                      <td className="px-4 py-2 text-xs text-stone-400">{new Date(d.timestamp).toLocaleString('zh-CN')}</td>
                     </tr>
                   ))}
                   {filteredDeductions.length === 0 && (
-                    <tr><td colSpan={5} className="text-center py-8 text-gray-400 text-sm">暂无系统扣分记录</td></tr>
+                    <tr><td colSpan={5} className="text-center py-8 text-stone-400 text-sm">暂无系统扣分记录</td></tr>
                   )}
                 </tbody>
               </table>
@@ -365,29 +365,29 @@ export default function StudentScoresPage() {
 
             {/* 手动调整列表 */}
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-              <h3 className="px-4 py-2 text-sm font-medium text-gray-500 bg-gray-50 border-b">手动调整记录</h3>
+              <h3 className="px-4 py-2 text-sm font-medium text-stone-500 bg-stone-50 border-b">手动调整记录</h3>
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">姓名</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">调整</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">原因</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">时间</th>
+                  <tr className="bg-stone-50 border-b">
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">姓名</th>
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">调整</th>
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">原因</th>
+                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">时间</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredManual.map(m => (
-                    <tr key={m.id} className="hover:bg-gray-50">
+                    <tr key={m.id} className="hover:bg-stone-50">
                       <td className="px-4 py-2 text-sm font-medium">{m.student_name}</td>
                       <td className={`px-4 py-2 text-sm font-bold ${m.delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {m.delta >= 0 ? '+' : ''}{m.delta}
                       </td>
-                      <td className="px-4 py-2 text-sm text-gray-600">{m.reason}</td>
-                      <td className="px-4 py-2 text-xs text-gray-400">{new Date(m.timestamp).toLocaleString('zh-CN')}</td>
+                      <td className="px-4 py-2 text-sm text-stone-600">{m.reason}</td>
+                      <td className="px-4 py-2 text-xs text-stone-400">{new Date(m.timestamp).toLocaleString('zh-CN')}</td>
                     </tr>
                   ))}
                   {filteredManual.length === 0 && (
-                    <tr><td colSpan={4} className="text-center py-8 text-gray-400 text-sm">暂无手动调整记录</td></tr>
+                    <tr><td colSpan={4} className="text-center py-8 text-stone-400 text-sm">暂无手动调整记录</td></tr>
                   )}
                 </tbody>
               </table>

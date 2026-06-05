@@ -146,7 +146,7 @@ export default function DailyPracticePage() {
       if (award) {
         // 查找该组颜色
         const groupAward = [...groupMap.values()].find(g => g.id === award.group_id)
-        const bg = groupAward?.color || 'bg-gray-500'
+        const bg = groupAward?.color || 'bg-stone-500'
         slots.push(
           <span key={i} className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full text-white ${bg}`}>
             {award.group_name}
@@ -154,7 +154,7 @@ export default function DailyPracticePage() {
         )
       } else {
         slots.push(
-          <span key={i} className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 border-dashed border-gray-300 text-gray-300 text-xs">
+          <span key={i} className="inline-flex items-center justify-center w-6 h-6 rounded-full border-2 border-dashed border-stone-300 text-stone-300 text-xs">
             {i + 1}
           </span>
         )
@@ -177,18 +177,18 @@ export default function DailyPracticePage() {
             <span className={`text-sm font-bold ${label === 'qiangji' ? 'text-blue-700' : 'text-orange-700'}`}>
               {LABEL_NAMES[label]}
             </span>
-            <span className="text-xs text-gray-500">{signedCount}/{students.length} 已签</span>
+            <span className="text-xs text-stone-500">{signedCount}/{students.length} 已签</span>
           </div>
         </div>
 
         {/* 加分位 */}
-        <div className="px-4 py-3 border-b border-gray-100">
+        <div className="px-4 py-3 border-b border-stone-100">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 shrink-0">加分位：</span>
+            <span className="text-xs text-stone-400 shrink-0">加分位：</span>
             {renderBonusSlots(awards, label)}
           </div>
           {awards.length >= 5 && (
-            <p className="text-xs text-gray-400 mt-1">5个加分位已满</p>
+            <p className="text-xs text-stone-400 mt-1">5个加分位已满</p>
           )}
         </div>
 
@@ -198,9 +198,9 @@ export default function DailyPracticePage() {
             const signed = s.sign_in_order !== null
             const group = groupMap.get(s.group_id)
             return (
-              <div key={s.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+              <div key={s.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-stone-50">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm font-medium text-gray-800 truncate">{s.name}</span>
+                  <span className="text-sm font-medium text-stone-800 truncate">{s.name}</span>
                   {group && (
                     <span className={`text-xs px-1.5 py-0.5 rounded-full text-white shrink-0 ${group.color}`}>
                       {group.name}{group.leader_name ? `（${group.leader_name}）` : ''}
@@ -215,7 +215,7 @@ export default function DailyPracticePage() {
                       </span>
                       <button
                         onClick={() => handleUnsign(s.id, label)}
-                        className="p-0.5 text-gray-300 hover:text-red-500 rounded hover:bg-red-50"
+                        className="p-0.5 text-stone-300 hover:text-red-500 rounded hover:bg-red-50"
                         title="取消签到"
                       >
                         <X size={14} />
@@ -234,7 +234,7 @@ export default function DailyPracticePage() {
             )
           })}
           {students.length === 0 && (
-            <div className="text-center py-8 text-gray-400 text-sm">
+            <div className="text-center py-8 text-stone-400 text-sm">
               暂无{LABEL_NAMES[label]}学生<br />
               <span className="text-xs">请在学生管理中设置每日一练标签</span>
             </div>
@@ -245,7 +245,7 @@ export default function DailyPracticePage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   return (
@@ -253,13 +253,13 @@ export default function DailyPracticePage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* 标题 + 日期导航 */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">每日一练</h1>
+          <h1 className="text-2xl font-bold text-stone-800">每日一练</h1>
           <div className="flex items-center gap-3">
-            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-stone-100 rounded-lg">
               <ChevronLeft size={20} />
             </button>
             <span className="text-lg font-medium min-w-[160px] text-center">{formatDate(date)}</span>
-            <button onClick={() => changeDate(1)} className="p-2 hover:bg-gray-100 rounded-lg">
+            <button onClick={() => changeDate(1)} className="p-2 hover:bg-stone-100 rounded-lg">
               <ChevronRight size={20} />
             </button>
             <button
@@ -270,7 +270,7 @@ export default function DailyPracticePage() {
             </button>
             <button
               onClick={openHistory}
-              className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 border rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-1 px-3 py-1 text-sm text-stone-600 border rounded-lg hover:bg-stone-50"
             >
               <History size={14} /> 历史
             </button>
@@ -286,7 +286,7 @@ export default function DailyPracticePage() {
             { label: '提升加分', signed: tishengAwards.length, total: 5, bg: 'bg-orange-50', text: 'text-orange-700' },
           ] as const).map(item => (
             <div key={item.label} className={`rounded-lg border p-3 text-center ${item.bg}`}>
-              <div className="text-xs text-gray-500">{item.label}</div>
+              <div className="text-xs text-stone-500">{item.label}</div>
               <div className={`text-lg font-bold ${item.text}`}>{item.signed}/{item.total}</div>
             </div>
           ))}
@@ -298,7 +298,7 @@ export default function DailyPracticePage() {
           {renderStudentList(tishengStudents, 'tisheng')}
         </div>
 
-        <p className="text-xs text-gray-400 mt-3">
+        <p className="text-xs text-stone-400 mt-3">
           点击"签到"完成每日一练 · 前5个不同小组各加1学习积分 · 点击 ✕ 取消签到
           · 强基 {qiangjiStudents.length} 人 · 提升 {tishengStudents.length} 人
         </p>
@@ -308,7 +308,7 @@ export default function DailyPracticePage() {
       <Modal open={showHistory} onClose={() => setShowHistory(false)} title="每日一练历史" width="lg">
         {/* 日期选择 */}
         <div className="flex items-center gap-3 mb-4 pb-4 border-b">
-          <button onClick={() => changeHistoryDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={18} /></button>
+          <button onClick={() => changeHistoryDate(-1)} className="p-2 hover:bg-stone-100 rounded-lg"><ChevronLeft size={18} /></button>
           <input
             type="date"
             value={historyDate}
@@ -317,7 +317,7 @@ export default function DailyPracticePage() {
             max={todayStr()}
             className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 flex-1"
           />
-          <button onClick={() => changeHistoryDate(1)} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={18} /></button>
+          <button onClick={() => changeHistoryDate(1)} className="p-2 hover:bg-stone-100 rounded-lg"><ChevronRight size={18} /></button>
           <button
             onClick={() => loadHistoryDate(todayStr())}
             className="px-3 py-1 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50"
@@ -327,23 +327,23 @@ export default function DailyPracticePage() {
         </div>
 
         {historyQiangji.filter(s => s.sign_in_order !== null).length === 0 && historyTisheng.filter(s => s.sign_in_order !== null).length === 0 ? (
-          <p className="text-center text-gray-400 py-8">{historyDate} 无签到记录</p>
+          <p className="text-center text-stone-400 py-8">{historyDate} 无签到记录</p>
         ) : (
           <div className="space-y-3">
             {historyQiangji.filter(s => s.sign_in_order !== null).length > 0 && (
               <div className="border rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">强基</span>
-                  <span className="text-xs text-gray-400">{historyQiangji.filter(s => s.sign_in_order !== null).length}人签到</span>
+                  <span className="text-xs text-stone-400">{historyQiangji.filter(s => s.sign_in_order !== null).length}人签到</span>
                   {historyQAwards.length > 0 && (
                     <span className="text-xs text-green-600">（{historyQAwards.map(a => a.group_name).join('、')} 各+1分）</span>
                   )}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-stone-500">
                   {historyQiangji.filter(s => s.sign_in_order !== null).sort((a, b) => (a.sign_in_order ?? 0) - (b.sign_in_order ?? 0)).map(s => (
                     <span key={s.id} className="inline-block mr-2 mb-1">
-                      <span className="font-mono text-gray-400">#{s.sign_in_order}</span> {s.name}
-                      <span className="text-gray-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
+                      <span className="font-mono text-stone-400">#{s.sign_in_order}</span> {s.name}
+                      <span className="text-stone-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
                     </span>
                   ))}
                 </div>
@@ -353,16 +353,16 @@ export default function DailyPracticePage() {
               <div className="border rounded-lg p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded font-medium">提升</span>
-                  <span className="text-xs text-gray-400">{historyTisheng.filter(s => s.sign_in_order !== null).length}人签到</span>
+                  <span className="text-xs text-stone-400">{historyTisheng.filter(s => s.sign_in_order !== null).length}人签到</span>
                   {historyTAwards.length > 0 && (
                     <span className="text-xs text-green-600">（{historyTAwards.map(a => a.group_name).join('、')} 各+1分）</span>
                   )}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-stone-500">
                   {historyTisheng.filter(s => s.sign_in_order !== null).sort((a, b) => (a.sign_in_order ?? 0) - (b.sign_in_order ?? 0)).map(s => (
                     <span key={s.id} className="inline-block mr-2 mb-1">
-                      <span className="font-mono text-gray-400">#{s.sign_in_order}</span> {s.name}
-                      <span className="text-gray-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
+                      <span className="font-mono text-stone-400">#{s.sign_in_order}</span> {s.name}
+                      <span className="text-stone-300 ml-0.5">({groupMap.get(s.group_id)?.name || '-'})</span>
                     </span>
                   ))}
                 </div>
@@ -370,7 +370,7 @@ export default function DailyPracticePage() {
             )}
           </div>
         )}
-        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-stone-600 border rounded-lg hover:bg-stone-50">关闭</button>
       </Modal>
     </div>
   )

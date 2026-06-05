@@ -138,11 +138,11 @@ export default function DutyRotationPage() {
         className={`relative rounded-2xl overflow-hidden bg-gradient-to-br ${bgGradient} p-0.5 shadow-lg`}
         style={{ width: size, height: size * 1.25 }}
       >
-        <div className="w-full h-full rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden">
+        <div className="w-full h-full rounded-2xl bg-stone-50 flex items-center justify-center overflow-hidden">
           {entry?.photo ? (
             <img src={entry.photo} alt={entry.student_name} className="w-full h-full object-cover" />
           ) : (
-            <div className="flex flex-col items-center gap-1 text-gray-300">
+            <div className="flex flex-col items-center gap-1 text-stone-300">
               {icon}
             </div>
           )}
@@ -164,7 +164,7 @@ export default function DutyRotationPage() {
       {entry ? (
         <>
           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ringColor}`}>{roleLabel}</span>
-          <span className="text-sm font-bold text-gray-800">{entry.student_name}</span>
+          <span className="text-sm font-bold text-stone-800">{entry.student_name}</span>
         </>
       ) : (
         onAdd && (
@@ -181,7 +181,7 @@ export default function DutyRotationPage() {
       <div className="p-6 max-w-6xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <CalendarDays size={28} className="text-amber-600" />
-          <h1 className="text-2xl font-bold text-gray-800">班级轮值管理</h1>
+          <h1 className="text-2xl font-bold text-stone-800">班级轮值管理</h1>
         </div>
 
         {/* ========== 第一层：班长 ========== */}
@@ -189,21 +189,39 @@ export default function DutyRotationPage() {
           {monitor ? (
             <div className="flex flex-col items-center gap-2">
               <div className="relative">
-                <div className="w-36 h-44 rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-400 to-orange-500 p-[3px] shadow-xl shadow-amber-200/50">
-                  <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center overflow-hidden">
-                    {monitor.photo ? (
-                      <img src={monitor.photo} alt={monitor.student_name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Shield size={48} className="text-amber-500/60" />
-                    )}
+                {/* 外层光晕 */}
+                <div className="absolute -inset-3 rounded-[20px] bg-gradient-to-br from-amber-300/40 via-yellow-400/20 to-orange-400/30 blur-md animate-pulse" />
+                {/* 主卡片 */}
+                <div className="relative w-40 h-48 rounded-2xl p-[4px] shadow-2xl shadow-amber-300/40"
+                  style={{
+                    background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, #fcd34d, #f97316, #eab308, #fbbf24)',
+                  }}
+                >
+                  {/* 内层金属边框 */}
+                  <div className="w-full h-full rounded-[14px] p-[2px] bg-gradient-to-br from-amber-200 via-yellow-100 to-amber-300">
+                    <div className="w-full h-full rounded-[12px] bg-stone-900 flex items-center justify-center overflow-hidden relative">
+                      {monitor.photo ? (
+                        <img src={monitor.photo} alt={monitor.student_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Shield size={52} className="text-amber-500/60" />
+                      )}
+                      {/* 内角装饰 */}
+                      <div className="absolute top-1 left-1 w-3 h-3 border-t-2 border-l-2 border-amber-400/60 rounded-tl-md" />
+                      <div className="absolute top-1 right-1 w-3 h-3 border-t-2 border-r-2 border-amber-400/60 rounded-tr-md" />
+                      <div className="absolute bottom-1 left-1 w-3 h-3 border-b-2 border-l-2 border-amber-400/60 rounded-bl-md" />
+                      <div className="absolute bottom-1 right-1 w-3 h-3 border-b-2 border-r-2 border-amber-400/60 rounded-br-md" />
+                    </div>
                   </div>
                 </div>
-                <div className="absolute -top-2 -right-2 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center shadow-lg">
-                  <Crown size={16} className="text-slate-800" />
+                {/* 皇冠 */}
+                <div className="absolute -top-3 -right-3 w-10 h-10 bg-gradient-to-br from-amber-300 to-yellow-500 rounded-full flex items-center justify-center shadow-xl ring-4 ring-amber-100"
+                  style={{ filter: 'drop-shadow(0 2px 8px rgba(251,191,36,0.6))' }}
+                >
+                  <Crown size={18} className="text-stone-800" />
                 </div>
               </div>
-              <span className="text-sm font-medium text-amber-600 bg-amber-50 px-3 py-1 rounded-full">班长</span>
-              <span className="text-xl font-bold text-gray-800">{monitor.student_name}</span>
+              <span className="text-sm font-semibold text-amber-700 bg-gradient-to-r from-amber-100 to-yellow-100 px-4 py-1 rounded-full border border-amber-300/60 tracking-wide">班长</span>
+              <span className="text-xl font-bold text-stone-800">{monitor.student_name}</span>
               <div className="flex gap-2">
                 <button onClick={() => openEdit(monitor)} className="px-3 py-1.5 text-xs text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-amber-200"><Edit3 size={14} className="inline mr-1" />修改</button>
                 <button onClick={() => handleDelete(monitor.id)} className="px-3 py-1.5 text-xs text-red-400 hover:bg-red-50 rounded-lg transition-colors border border-red-200"><Trash2 size={14} className="inline mr-1" />删除</button>
@@ -225,7 +243,7 @@ export default function DutyRotationPage() {
         {/* ========== 第二层：队长 & 副队长 ========== */}
         <div className="grid grid-cols-2 gap-8 mb-6">
           <div className="flex flex-col items-center bg-white rounded-2xl border shadow-sm p-6">
-            <h3 className="font-semibold text-gray-500 text-sm mb-5 bg-amber-50 rounded-lg py-1.5 px-6">周一至周三</h3>
+            <h3 className="font-semibold text-stone-500 text-sm mb-5 bg-amber-50 rounded-lg py-1.5 px-6">周一至周三</h3>
             <PhotoCard
               entry={captains[0]}
               roleLabel="队长"
@@ -240,13 +258,13 @@ export default function DutyRotationPage() {
             />
           </div>
           <div className="flex flex-col items-center bg-white rounded-2xl border shadow-sm p-6">
-            <h3 className="font-semibold text-gray-500 text-sm mb-5 bg-gray-50 rounded-lg py-1.5 px-6">周四至周五</h3>
+            <h3 className="font-semibold text-stone-500 text-sm mb-5 bg-stone-50 rounded-lg py-1.5 px-6">周四至周五</h3>
             <PhotoCard
               entry={viceCaptains[0]}
               roleLabel="副队长"
               size={120}
-              icon={<Users size={40} className="text-gray-300" />}
-              ringColor="bg-gray-50 text-gray-600"
+              icon={<Users size={40} className="text-stone-300" />}
+              ringColor="bg-stone-50 text-stone-600"
               bgGradient="from-gray-200 to-gray-400"
               onEdit={viceCaptains[0] ? () => openEdit(viceCaptains[0]) : undefined}
               onDelete={viceCaptains[0] ? () => handleDelete(viceCaptains[0].id) : undefined}
@@ -263,13 +281,13 @@ export default function DutyRotationPage() {
 
         {/* ========== 第三层：每日轮值 ========== */}
         <div className="bg-white rounded-2xl border shadow-sm p-6">
-          <h3 className="font-semibold text-gray-500 text-sm mb-5 text-center">每日轮值</h3>
+          <h3 className="font-semibold text-stone-500 text-sm mb-5 text-center">每日轮值</h3>
           <div className="grid grid-cols-5 gap-5">
             {[1, 2, 3, 4, 5].map(wd => {
               const dayStudents = byWeekday(wd)
               return (
                 <div key={wd} className="flex flex-col items-center">
-                  <p className="font-semibold text-gray-500 text-sm mb-4 bg-gray-50 rounded-lg py-1.5 w-full text-center">{WEEKDAY_NAMES[wd]}</p>
+                  <p className="font-semibold text-stone-500 text-sm mb-4 bg-stone-50 rounded-lg py-1.5 w-full text-center">{WEEKDAY_NAMES[wd]}</p>
                   <div className="flex flex-col items-center gap-4 w-full">
                     {[1, 2].map(pos => {
                       const student = dayStudents.find(s => s.position === pos)
@@ -280,7 +298,7 @@ export default function DutyRotationPage() {
                           roleLabel="轮值"
                           size={88}
                           icon={<Users size={32} className="text-amber-200" />}
-                          ringColor="bg-slate-50 text-slate-500"
+                          ringColor="bg-stone-50 text-stone-500"
                           bgGradient="from-slate-100 to-amber-200"
                           onEdit={() => openEdit(student)}
                           onDelete={() => handleDelete(student.id)}
@@ -289,7 +307,7 @@ export default function DutyRotationPage() {
                         <button
                           key={pos}
                           onClick={() => openAdd('rotation', wd, pos)}
-                          className="flex flex-col items-center gap-1.5 py-4 w-full border-2 border-dashed border-gray-200 hover:border-amber-300 rounded-xl text-gray-300 hover:text-amber-400 transition-colors"
+                          className="flex flex-col items-center gap-1.5 py-4 w-full border-2 border-dashed border-stone-200 hover:border-amber-300 rounded-xl text-stone-300 hover:text-amber-400 transition-colors"
                         >
                           <Plus size={22} />
                           <span className="text-xs">添加第{pos}位</span>
@@ -307,7 +325,7 @@ export default function DutyRotationPage() {
         <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingEntry ? '修改成员' : '添加成员'}>
           <div className="p-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">角色</label>
+              <label className="block text-sm font-medium text-stone-600 mb-1">角色</label>
               <select value={formRole} onChange={e => setFormRole(e.target.value as DutyRole)} className="w-full border rounded-lg px-3 py-2 text-sm">
                 <option value="monitor">{DUTY_ROLE_LABELS.monitor}</option>
                 <option value="captain">{DUTY_ROLE_LABELS.captain}</option>
@@ -318,7 +336,7 @@ export default function DutyRotationPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">学生</label>
+              <label className="block text-sm font-medium text-stone-600 mb-1">学生</label>
               <select value={formStudentId} onChange={e => setFormStudentId(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm">
                 <option value="">请选择学生</option>
                 {students.map(s => (
@@ -330,7 +348,7 @@ export default function DutyRotationPage() {
             {formRole === 'rotation' && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">星期</label>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">星期</label>
                   <select value={formWeekday} onChange={e => setFormWeekday(Number(e.target.value))} className="w-full border rounded-lg px-3 py-2 text-sm">
                     {[1, 2, 3, 4, 5].map(wd => (
                       <option key={wd} value={wd}>{WEEKDAY_NAMES[wd]}</option>
@@ -338,7 +356,7 @@ export default function DutyRotationPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">位置</label>
+                  <label className="block text-sm font-medium text-stone-600 mb-1">位置</label>
                   <select value={formPosition} onChange={e => setFormPosition(Number(e.target.value))} className="w-full border rounded-lg px-3 py-2 text-sm">
                     <option value={1}>第1位</option>
                     <option value={2}>第2位</option>
@@ -349,7 +367,7 @@ export default function DutyRotationPage() {
 
             {(formRole === 'captain' || formRole === 'vice_captain') && (
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">负责日期段</label>
+                <label className="block text-sm font-medium text-stone-600 mb-1">负责日期段</label>
                 <select value={formWeekdayGroup} onChange={e => setFormWeekdayGroup(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm">
                   <option value="mon_wed">周一至周三</option>
                   <option value="thu_fri">周四至周五</option>
@@ -358,18 +376,18 @@ export default function DutyRotationPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">照片</label>
+              <label className="block text-sm font-medium text-stone-600 mb-1">照片</label>
               <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
               <div className="flex items-center gap-3">
-                <div className="w-20 h-24 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden border">
+                <div className="w-20 h-24 rounded-xl bg-stone-100 flex items-center justify-center overflow-hidden border">
                   {formPhoto ? (
                     <img src={formPhoto} alt="预览" className="w-full h-full object-cover" />
                   ) : (
-                    <Camera size={24} className="text-gray-300" />
+                    <Camera size={24} className="text-stone-300" />
                   )}
                 </div>
                 <div className="space-y-1">
-                  <button onClick={() => fileRef.current?.click()} className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600">
+                  <button onClick={() => fileRef.current?.click()} className="px-3 py-1.5 text-xs bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors text-stone-600">
                     上传照片
                   </button>
                   {formPhoto && (
@@ -382,7 +400,7 @@ export default function DutyRotationPage() {
             </div>
 
             <div className="flex gap-3 justify-end pt-2 border-t">
-              <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm text-stone-500 hover:bg-stone-100 rounded-lg transition-colors">
                 取消
               </button>
               <button onClick={handleSave} disabled={!formStudentId}

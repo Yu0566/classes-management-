@@ -256,109 +256,127 @@ export function startServer(port: number, devMode?: boolean): Promise<{ ip: stri
       return
     }
 
-    serverPort = port
     isDevMode = devMode ?? !distExists()
     if (isDevMode) updateDevUrl()
 
-    // 注册 Windows 防火墙入站规则
+    const MAX_RETRIES = 20
+    let currentPort = port
+
+    // 注册 Windows 防火墙入站规则（仅对首个端口添加）
     addFirewallRule(port)
 
-    // WebSocket 代理（转发到 Vite HMR）
-    function handleUpgrade(req: http.IncomingMessage, socket: import('stream').Duplex, head: Buffer) {
-      if (!isDevMode) {
-        socket.destroy()
+    function tryListen(): void {
+      if (currentPort >= port + MAX_RETRIES) {
+        reject(new Error(`端口 ${port}-${port + MAX_RETRIES - 1} 均被占用，无法启动 LAN 服务器`))
         return
       }
-      const targetUrl = new URL(VITE_DEV_URL)
-      const proxyReq = http.request({
-        hostname: targetUrl.hostname,
-        port: targetUrl.port,
-        path: req.url,
-        method: req.method || 'GET',
-        headers: { ...req.headers, host: targetUrl.host },
+
+      const srv = http.createServer((req, res) => {
+        res.on('error', (err) => { console.error('[LAN] response error:', err.message) })
+        req.on('error', (err) => { console.error('[LAN] request error:', err.message) })
+
+        const url = req.url || '/'
+        const method = (req.method || 'GET').toUpperCase()
+
+        console.log(`[LAN] ${method} ${url}`)
+
+        if (url.startsWith('/api/db/')) {
+          const endpoint = url.replace('/api/db/', '')
+          if (method === 'POST') {
+            handleAPI(req, res, endpoint)
+          } else {
+            sendJSON(res, { success: false, error: 'Method not allowed' }, 405)
+          }
+          return
+        }
+
+        if (url === '/api/notify') {
+          if (method === 'POST') {
+            handleNotify(req, res)
+          } else {
+            sendJSON(res, { success: false, error: 'Method not allowed' }, 405)
+          }
+          return
+        }
+
+        if (method === 'GET') {
+          if (isDevMode) {
+            proxyToVite(req, res)
+          } else {
+            serveStatic(res, url)
+          }
+        } else {
+          res.writeHead(405)
+          res.end('Method not allowed')
+        }
       })
-      proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
-        const resHeaders = Object.entries(proxyRes.headers)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join('\r\n')
-        socket.write(`HTTP/1.1 101 Switching Protocols\r\n${resHeaders}\r\n\r\n`)
-        if (proxyHead.length > 0) socket.write(proxyHead)
-        proxySocket.pipe(socket)
-        socket.pipe(proxySocket)
+
+      // WebSocket 代理（转发到 Vite HMR）
+      srv.on('upgrade', (req, socket, head) => {
+        if (!isDevMode) {
+          socket.destroy()
+          return
+        }
+        const targetUrl = new URL(VITE_DEV_URL)
+        const proxyReq = http.request({
+          hostname: targetUrl.hostname,
+          port: targetUrl.port,
+          path: req.url,
+          method: req.method || 'GET',
+          headers: { ...req.headers, host: targetUrl.host },
+        })
+        proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+          const resHeaders = Object.entries(proxyRes.headers)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join('\r\n')
+          socket.write(`HTTP/1.1 101 Switching Protocols\r\n${resHeaders}\r\n\r\n`)
+          if (proxyHead.length > 0) socket.write(proxyHead)
+          proxySocket.pipe(socket)
+          socket.pipe(proxySocket)
+        })
+        proxyReq.on('error', (err) => {
+          console.error('[LAN] WS proxy error:', err.message)
+          socket.destroy()
+        })
+        socket.on('error', () => proxyReq.destroy())
+        proxyReq.end()
       })
-      proxyReq.on('error', (err) => {
-        console.error('[LAN] WS proxy error:', err.message)
-        socket.destroy()
+
+      let started = false
+
+      srv.on('error', (err: NodeJS.ErrnoException) => {
+        if (started) {
+          // 启动后的运行时错误：记录日志并清理
+          console.error('[LAN] server error:', err.message)
+          server = null
+          return
+        }
+        if (err.code === 'EADDRINUSE') {
+          console.log(`[LAN] 端口 ${currentPort} 被占用，尝试 ${currentPort + 1}...`)
+          currentPort++
+          tryListen()
+        } else {
+          console.error('[LAN] server error:', err.message)
+          reject(err)
+        }
       })
-      socket.on('error', () => proxyReq.destroy())
-      proxyReq.end()
+
+      srv.on('clientError', (err, socket) => {
+        console.error('[LAN] client error:', err.message)
+        socket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
+      })
+
+      srv.listen(currentPort, '0.0.0.0', () => {
+        started = true
+        serverPort = currentPort
+        server = srv
+        const ip = getLanIP()
+        console.log(`[LAN] 服务器已启动 http://${ip}:${currentPort} (${isDevMode ? 'dev代理模式' : '生产模式'})`)
+        resolve({ ip, port: currentPort })
+      })
     }
 
-    server = http.createServer((req, res) => {
-      // 防止客户端断开连接导致进程崩溃
-      res.on('error', (err) => { console.error('[LAN] response error:', err.message) })
-      req.on('error', (err) => { console.error('[LAN] request error:', err.message) })
-
-      const url = req.url || '/'
-      const method = (req.method || 'GET').toUpperCase()
-
-      console.log(`[LAN] ${method} ${url}`)
-
-      // API routes
-      if (url.startsWith('/api/db/')) {
-        const endpoint = url.replace('/api/db/', '')
-        if (method === 'POST') {
-          handleAPI(req, res, endpoint)
-        } else {
-          sendJSON(res, { success: false, error: 'Method not allowed' }, 405)
-        }
-        return
-      }
-
-      if (url === '/api/notify') {
-        if (method === 'POST') {
-          handleNotify(req, res)
-        } else {
-          sendJSON(res, { success: false, error: 'Method not allowed' }, 405)
-        }
-        return
-      }
-
-      // Static file serving or proxy
-      if (method === 'GET') {
-        if (isDevMode) {
-          proxyToVite(req, res)
-        } else {
-          serveStatic(res, url)
-        }
-      } else {
-        res.writeHead(405)
-        res.end('Method not allowed')
-      }
-    })
-
-    server.on('upgrade', (req, socket, head) => handleUpgrade(req, socket, head))
-
-    server.on('error', (err: NodeJS.ErrnoException) => {
-      server = null
-      if (err.code === 'EADDRINUSE') {
-        reject(new Error(`端口 ${port} 已被占用，请更换端口`))
-      } else {
-        reject(err)
-      }
-    })
-
-    // 处理客户端连接错误，防止进程崩溃
-    server.on('clientError', (err, socket) => {
-      console.error('[LAN] client error:', err.message)
-      socket.end('HTTP/1.1 400 Bad Request\r\n\r\n')
-    })
-
-    server.listen(port, '0.0.0.0', () => {
-      const ip = getLanIP()
-      console.log(`[LAN] 服务器已启动 http://${ip}:${port} (${isDevMode ? 'dev代理模式' : '生产模式'})`)
-      resolve({ ip, port })
-    })
+    tryListen()
   })
 }
 

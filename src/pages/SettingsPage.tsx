@@ -25,8 +25,9 @@ export default function SettingsPage() {
   // LAN 访问状态
   const [lanRunning, setLanRunning] = useState(false)
   const [lanIP, setLanIP] = useState('')
+  const [lanPort, setLanPort] = useState(3456)
   const [lanMode, setLanMode] = useState('')
-  const LAN_PORT = 3456
+  const DEFAULT_LAN_PORT = 3456
   const [lanCopied, setLanCopied] = useState(false)
   const [lanError, setLanError] = useState('')
   const [lanLoading, setLanLoading] = useState(false)
@@ -61,10 +62,11 @@ export default function SettingsPage() {
       window.electronAPI!.lan.getStatus().then(s => {
         setLanRunning(s.running)
         setLanIP(s.ip)
+        setLanPort(s.port || 3456)
         setLanMode(s.mode || '')
         // 自动启动：如果未运行且开启了自启
         if (!s.running && localStorage.getItem('lan_auto_start') === 'true') {
-          window.electronAPI!.lan.start(LAN_PORT).then(r => {
+          window.electronAPI!.lan.start(DEFAULT_LAN_PORT).then(r => {
             if (r.success) {
               setLanRunning(true)
               setLanIP(r.ip || '')
@@ -133,7 +135,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!isElectron || !hasTunnelAPI || !lanRunning) return
     if (tunnelStatus === 'stopped' && tunnelAutoStart) {
-      window.electronAPI!.tunnel.start(LAN_PORT).then(r => {
+      window.electronAPI!.tunnel.start(DEFAULT_LAN_PORT).then(r => {
         if (!r.success) setTunnelError(r.error || '启动失败')
       }).catch(() => {}).finally(() => setTunnelLoading(false))
     }
@@ -151,10 +153,11 @@ export default function SettingsPage() {
         await window.electronAPI.lan.stop()
         setLanRunning(false)
       } else {
-        const result = await window.electronAPI.lan.start(LAN_PORT)
+        const result = await window.electronAPI.lan.start(DEFAULT_LAN_PORT)
         if (result.success) {
           setLanRunning(true)
           setLanIP(result.ip || '')
+          setLanPort(result.port || DEFAULT_LAN_PORT)
           // 获取模式
           window.electronAPI!.lan.getStatus().then(s => setLanMode(s.mode || '')).catch(() => {})
         } else {
@@ -171,7 +174,7 @@ export default function SettingsPage() {
   }, [lanRunning])
 
   const handleCopyUrl = useCallback(() => {
-    navigator.clipboard.writeText(`http://${lanIP}:${LAN_PORT}`)
+    navigator.clipboard.writeText(`http://${lanIP}:${lanPort}`)
     setLanCopied(true)
     setTimeout(() => setLanCopied(false), 2000)
   }, [lanIP])
@@ -184,7 +187,7 @@ export default function SettingsPage() {
       if (tunnelStatus === 'connected' || tunnelStatus === 'connecting') {
         await window.electronAPI.tunnel.stop()
       } else {
-        const result = await window.electronAPI.tunnel.start(LAN_PORT)
+        const result = await window.electronAPI.tunnel.start(DEFAULT_LAN_PORT)
         if (!result.success) setTunnelError(result.error || '启动失败')
       }
     } catch (err) {
@@ -302,7 +305,7 @@ export default function SettingsPage() {
   return (
     <div className="h-full overflow-auto">
       <div className="p-6 max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">系统设置</h1>
+        <h1 className="text-2xl font-bold text-stone-800 mb-6">系统设置</h1>
 
         {/* 标签 */}
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -311,7 +314,7 @@ export default function SettingsPage() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === t.key ? 'bg-primary-500 text-white' : 'border text-gray-600 hover:bg-gray-50'
+                tab === t.key ? 'bg-primary-500 text-white' : 'border text-stone-600 hover:bg-stone-50'
               }`}
             >
               <t.icon size={16} /> {t.label}
@@ -327,18 +330,18 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3 mb-6">
               <HardDrive size={24} className="text-blue-500" />
               <div>
-                <h3 className="text-lg font-semibold text-gray-700">备份与恢复</h3>
-                <p className="text-sm text-gray-500">导出数据到文件，重装后可导入恢复</p>
+                <h3 className="text-lg font-semibold text-stone-700">备份与恢复</h3>
+                <p className="text-sm text-stone-500">导出数据到文件，重装后可导入恢复</p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <div className="bg-gray-50 rounded-lg p-4">
+              <div className="bg-stone-50 rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <FileDown size={20} className="text-blue-500" />
-                  <span className="font-medium text-gray-700">导出数据备份</span>
+                  <span className="font-medium text-stone-700">导出数据备份</span>
                 </div>
-                <p className="text-sm text-gray-500 mb-3">
+                <p className="text-sm text-stone-500 mb-3">
                   将所有小组和学生数据导出为 JSON 文件，下载到本地保存。
                 </p>
                 <button
@@ -351,12 +354,12 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4">
+              <div className="bg-stone-50 rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <Download size={20} className="text-green-500" />
-                  <span className="font-medium text-gray-700">从备份恢复</span>
+                  <span className="font-medium text-stone-700">从备份恢复</span>
                 </div>
-                <p className="text-sm text-gray-500 mb-3">
+                <p className="text-sm text-stone-500 mb-3">
                   选择之前导出的 JSON 备份文件，恢复小组和学生数据。
                 </p>
                 <button
@@ -379,9 +382,9 @@ export default function SettingsPage() {
 
         {tab === 'export' && (
           <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
-            <RefreshCw size={48} className="mx-auto mb-3 text-gray-300" />
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">数据导出</h3>
-            <p className="text-gray-500 text-sm mb-4">
+            <RefreshCw size={48} className="mx-auto mb-3 text-stone-300" />
+            <h3 className="text-lg font-semibold text-stone-700 mb-2">数据导出</h3>
+            <p className="text-stone-500 text-sm mb-4">
               导出积分表、考勤表等数据为 Excel/CSV 格式
             </p>
             <div className="flex gap-2 justify-center">
@@ -392,7 +395,7 @@ export default function SettingsPage() {
                 导出考勤表
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-4">Excel/CSV 导出功能将在后续版本实现</p>
+            <p className="text-xs text-stone-400 mt-4">Excel/CSV 导出功能将在后续版本实现</p>
           </div>
         )}
 
@@ -400,17 +403,17 @@ export default function SettingsPage() {
           <>
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="flex items-center gap-3 mb-6">
-              <Wifi size={24} className={lanRunning ? 'text-green-500' : 'text-gray-300'} />
+              <Wifi size={24} className={lanRunning ? 'text-green-500' : 'text-stone-300'} />
               <div>
-                <h3 className="text-lg font-semibold text-gray-700">局域网访问</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-stone-700">局域网访问</h3>
+                <p className="text-sm text-stone-500">
                   开启后，局域网内的其他设备可通过浏览器访问本系统
                 </p>
               </div>
             </div>
 
             {!isElectron ? (
-              <p className="text-sm text-gray-400 text-center py-4">
+              <p className="text-sm text-stone-400 text-center py-4">
                 此功能仅在桌面端可用
               </p>
             ) : !hasLanAPI ? (
@@ -425,9 +428,9 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={autoStart}
                     onChange={e => setAutoStart(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
+                    className="w-4 h-4 rounded border-stone-300 text-primary-500 focus:ring-primary-400"
                   />
-                  <span className="text-sm text-gray-600">启动应用时自动开启 LAN 服务器</span>
+                  <span className="text-sm text-stone-600">启动应用时自动开启 LAN 服务器</span>
                 </label>
 
                 {/* 开关 */}
@@ -443,8 +446,8 @@ export default function SettingsPage() {
                   >
                     {lanLoading ? '处理中...' : lanRunning ? '停止服务器' : '启动服务器'}
                   </button>
-                  <span className={`inline-flex items-center gap-1.5 text-sm ${lanRunning ? 'text-green-600' : 'text-gray-400'}`}>
-                    <span className={`inline-block w-2 h-2 rounded-full ${lanRunning ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <span className={`inline-flex items-center gap-1.5 text-sm ${lanRunning ? 'text-green-600' : 'text-stone-400'}`}>
+                    <span className={`inline-block w-2 h-2 rounded-full ${lanRunning ? 'bg-green-500' : 'bg-stone-300'}`} />
                     {lanRunning ? '运行中' : '已停止'}
                   </span>
                   {lanRunning && lanMode && (
@@ -465,15 +468,15 @@ export default function SettingsPage() {
 
                 {/* 访问地址 */}
                 {lanRunning && (
-                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                    <p className="text-sm text-gray-600 mb-2">局域网访问地址：</p>
+                  <div className="bg-stone-50 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-stone-600 mb-2">局域网访问地址：</p>
                     <div className="flex items-center gap-2">
                       <code className="flex-1 bg-white px-3 py-2 rounded border text-sm text-primary-600 font-mono select-all">
-                        http://{lanIP}:{LAN_PORT}
+                        http://{lanIP}:{lanPort}
                       </code>
                       <button
                         onClick={handleCopyUrl}
-                        className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-100 transition-colors"
+                        className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-stone-100 transition-colors"
                       >
                         {lanCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                         {lanCopied ? '已复制' : '复制'}
@@ -486,7 +489,7 @@ export default function SettingsPage() {
                 {lanRunning && (
                   <div className="space-y-2">
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-700">
-                      请确保防火墙允许端口 {LAN_PORT} 的入站连接。建议仅在安全的局域网环境中使用此功能。
+                      请确保防火墙允许端口 {lanPort} 的入站连接。建议仅在安全的局域网环境中使用此功能。
                     </div>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-600">
                       如果 IP 地址经常变化，建议在路由器中将本机设为固定 IP，或在 Windows 网络设置中配置静态 IP。
@@ -501,10 +504,10 @@ export default function SettingsPage() {
           {hasTunnelAPI && (
             <div className="bg-white rounded-xl shadow-sm border p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Globe size={24} className={tunnelStatus === 'connected' ? 'text-green-500' : 'text-gray-300'} />
+                <Globe size={24} className={tunnelStatus === 'connected' ? 'text-green-500' : 'text-stone-300'} />
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-700">远程访问（Cloudflare Tunnel）</h3>
-                  <p className="text-sm text-gray-500">
+                  <h3 className="text-lg font-semibold text-stone-700">远程访问（Cloudflare Tunnel）</h3>
+                  <p className="text-sm text-stone-500">
                     通过公网域名从任何设备访问本系统，地址永不改变
                   </p>
                 </div>
@@ -516,9 +519,9 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={tunnelAutoStart}
                   onChange={e => setTunnelAutoStart(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
+                  className="w-4 h-4 rounded border-stone-300 text-primary-500 focus:ring-primary-400"
                 />
-                <span className="text-sm text-gray-600">LAN 服务器启动时自动连接隧道</span>
+                <span className="text-sm text-stone-600">LAN 服务器启动时自动连接隧道</span>
               </label>
 
               {/* 开关 */}
@@ -538,12 +541,12 @@ export default function SettingsPage() {
                 <span className={`inline-flex items-center gap-1.5 text-sm ${
                   tunnelStatus === 'connected' ? 'text-green-600' :
                   tunnelStatus === 'connecting' ? 'text-blue-500' :
-                  tunnelStatus === 'error' ? 'text-red-500' : 'text-gray-400'
+                  tunnelStatus === 'error' ? 'text-red-500' : 'text-stone-400'
                 }`}>
                   <span className={`inline-block w-2 h-2 rounded-full ${
                     tunnelStatus === 'connected' ? 'bg-green-500' :
                     tunnelStatus === 'connecting' ? 'bg-blue-400 animate-pulse' :
-                    tunnelStatus === 'error' ? 'bg-red-500' : 'bg-gray-300'
+                    tunnelStatus === 'error' ? 'bg-red-500' : 'bg-stone-300'
                   }`} />
                   {tunnelStatus === 'connected' ? '已连接' :
                    tunnelStatus === 'connecting' ? '连接中...' :
@@ -559,15 +562,15 @@ export default function SettingsPage() {
               )}
 
               {/* 公网地址（始终显示） */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <p className="text-sm text-gray-600 mb-2">公网访问地址（永久不变）：</p>
+              <div className="bg-stone-50 rounded-lg p-4 mb-4">
+                <p className="text-sm text-stone-600 mb-2">公网访问地址（永久不变）：</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 bg-white px-3 py-2 rounded border text-sm text-primary-600 font-mono select-all">
                     https://classmanagement.top
                   </code>
                   <button
                     onClick={handleCopyTunnelUrl}
-                    className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+                    className="flex items-center gap-1 px-3 py-2 text-sm border rounded-lg hover:bg-stone-100 transition-colors shrink-0"
                   >
                     {tunnelUrlCopied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                     {tunnelUrlCopied ? '已复制' : '复制'}
@@ -593,13 +596,13 @@ export default function SettingsPage() {
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="text-center mb-6">
               <Database size={48} className="mx-auto mb-3 text-primary-400" />
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">课堂管理系统</h3>
-              <p className="text-sm text-gray-500">
+              <h3 className="text-lg font-semibold text-stone-700 mb-1">课堂管理系统</h3>
+              <p className="text-sm text-stone-500">
                 版本 {appVersion || '—'}
               </p>
             </div>
 
-            <div className="text-sm text-gray-600 space-y-1 mb-6 text-center">
+            <div className="text-sm text-stone-600 space-y-1 mb-6 text-center">
               <p>技术栈：Electron + React + TypeScript + SQLite</p>
               <p>数据库：sql.js (SQLite WASM)</p>
               <p>UI：Tailwind CSS + Lucide Icons</p>
@@ -608,7 +611,7 @@ export default function SettingsPage() {
             {/* 自动更新 */}
             {isElectron && (
               <div className="border-t pt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">自动更新</h4>
+                <h4 className="text-sm font-medium text-stone-700 mb-3">自动更新</h4>
 
                 <div className="flex items-center gap-3 mb-3">
                   <button
@@ -691,12 +694,12 @@ export default function SettingsPage() {
             )}
 
             {!isElectron && (
-              <p className="text-xs text-gray-400 text-center py-4">
+              <p className="text-xs text-stone-400 text-center py-4">
                 自动更新功能仅在桌面端可用
               </p>
             )}
 
-            <p className="text-xs text-gray-400 mt-6 text-center">桌面端一体化班级管理解决方案</p>
+            <p className="text-xs text-stone-400 mt-6 text-center">桌面端一体化班级管理解决方案</p>
           </div>
         )}
       </div>

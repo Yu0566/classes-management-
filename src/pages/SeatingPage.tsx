@@ -129,7 +129,7 @@ export default function SeatingPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   const seatedCount = students.filter(s => (s.seat_order ?? -1) >= 0).length
@@ -139,14 +139,14 @@ export default function SeatingPage() {
       <div className="p-6">
         {/* 顶部栏 */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">座位编排</h1>
+          <h1 className="text-2xl font-bold text-stone-800">座位编排</h1>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-stone-500">
               {seatedCount} 已安排 / {students.length} 名学生
             </span>
             <button
               onClick={handleReset}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm border border-stone-200 text-stone-500 rounded-lg hover:bg-stone-50 transition-colors"
             >
               <RotateCcw size={14} />
               重置座位
@@ -211,7 +211,7 @@ function UnseatedPool({
 
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-medium text-gray-500 mb-2">
+      <h2 className="text-sm font-medium text-stone-500 mb-2">
         待安排学生（{students.length}人）
       </h2>
       <div
@@ -219,10 +219,10 @@ function UnseatedPool({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className="flex flex-wrap gap-2 p-3 border-2 border-dashed rounded-lg min-h-[44px] transition-colors border-gray-200 bg-gray-50"
+        className="flex flex-wrap gap-2 p-3 border-2 border-dashed rounded-lg min-h-[44px] transition-colors border-stone-200 bg-stone-50"
       >
         {students.length === 0 ? (
-          <p className="text-sm text-gray-400 w-full text-center">所有学生已安排座位</p>
+          <p className="text-sm text-stone-400 w-full text-center">所有学生已安排座位</p>
         ) : (
           students.map(s => {
             const g = groups.find(grp => grp.id === s.group_id)
@@ -230,7 +230,7 @@ function UnseatedPool({
               <StudentChip
                 key={s.id}
                 student={s}
-                groupColor={g?.color || 'bg-gray-400'}
+                groupColor={g?.color || 'bg-stone-400'}
                 isLeader={false}
                 onDragStart={onDragStart}
               />
@@ -316,8 +316,8 @@ function SeatSlot({
   }
 
   const baseClass = student
-    ? 'border-gray-100 bg-white'
-    : 'border-dashed border-gray-200 bg-gray-50'
+    ? 'border-stone-100 bg-white'
+    : 'border-dashed border-stone-200 bg-stone-50'
 
   return (
     <div
@@ -327,7 +327,7 @@ function SeatSlot({
       onDrop={handleDrop}
       className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all duration-150 ${baseClass}`}
     >
-      <span className="text-xs text-gray-300 w-10 flex-shrink-0">{label}</span>
+      <span className="text-xs text-stone-300 w-10 flex-shrink-0">{label}</span>
       {student ? (
         <StudentChip
           student={student}
@@ -336,7 +336,7 @@ function SeatSlot({
           onDragStart={onDragStart}
         />
       ) : (
-        <span className="text-xs text-gray-300 italic">空位</span>
+        <span className="text-xs text-stone-300 italic">空位</span>
       )}
     </div>
   )

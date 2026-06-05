@@ -71,7 +71,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => handleClose(false)} />
             <div className="relative bg-white rounded-2xl shadow-2xl w-96 max-h-[85vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
+              <div className="flex items-center gap-3 px-6 py-5 border-b border-stone-100">
                 {variant === 'danger' || isError ? (
                   <div className={`flex-shrink-0 w-10 h-10 rounded-full ${isError ? 'bg-red-100' : 'bg-red-100'} flex items-center justify-center`}>
                     {isError ? <XCircle size={20} className="text-red-500" /> : <AlertTriangle size={20} className="text-red-500" />}
@@ -81,18 +81,18 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                     <CheckCircle size={20} className="text-primary-600" />
                   </div>
                 )}
-                <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
+                <h2 className="text-lg font-semibold text-stone-800">{title}</h2>
               </div>
               <div className="px-6 py-4">
-                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-line">
                   {state.options.message}
                 </p>
               </div>
-              <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
+              <div className="px-6 py-4 border-t border-stone-100 flex gap-3 justify-end">
                 {state.type === 'confirm' && (
                   <button
                     onClick={() => handleClose(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"
                   >
                     {state.options.cancelLabel || '取消'}
                   </button>

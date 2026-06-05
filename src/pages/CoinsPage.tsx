@@ -70,7 +70,7 @@ export default function CoinsPage() {
   const totalCoins = groups.reduce((s, g) => s + g.coins, 0)
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   return (
@@ -78,20 +78,20 @@ export default function CoinsPage() {
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">宝龙币管理</h1>
-            <p className="text-sm text-gray-500 mt-1">总余额：<span className="font-bold text-yellow-600">{totalCoins}</span> 宝龙币 · 小组同步自学生管理</p>
+            <h1 className="text-2xl font-bold text-stone-800">宝龙币管理</h1>
+            <p className="text-sm text-stone-500 mt-1">总余额：<span className="font-bold text-yellow-600">{totalCoins}</span> 宝龙币 · 小组同步自学生管理</p>
           </div>
         </div>
 
         {/* 结算区域 */}
         <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
-          <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <h2 className="font-semibold text-stone-700 mb-3 flex items-center gap-2">
             <Calculator size={18} className="text-yellow-500" />
             宝龙币结算
           </h2>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">目标数量：</span>
+              <span className="text-sm text-stone-500">目标数量：</span>
               <input
                 type="number"
                 value={target}
@@ -104,7 +104,7 @@ export default function CoinsPage() {
               />
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-stone-400 mt-2">
             公式：(宝龙币数 - {target}) × 3 计入总积分 · 加分上限12分 · 扣分不设限 · 点击"结算"后计入总分并归零
           </p>
           <button
@@ -117,18 +117,18 @@ export default function CoinsPage() {
           {/* 结算预览 */}
           {groups.length > 0 && (
             <div className="mt-3 pt-3 border-t">
-              <p className="text-xs text-gray-500 mb-2">结算预览：</p>
+              <p className="text-xs text-stone-500 mb-2">结算预览：</p>
               <div className="grid grid-cols-4 gap-2">
                 {groups.map(g => {
                   const rawDelta = (g.coins - target) * 3
                   const delta = rawDelta > 0 ? Math.min(rawDelta, 12) : rawDelta
                   return (
-                    <div key={g.id} className="text-xs bg-gray-50 rounded p-2 text-center">
+                    <div key={g.id} className="text-xs bg-stone-50 rounded p-2 text-center">
                       <span className="font-medium">{displayName(g)}</span>
-                      <span className="text-gray-400 ml-1">{g.coins}币</span>
-                      <span className={`block mt-0.5 font-bold ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                      <span className="text-stone-400 ml-1">{g.coins}币</span>
+                      <span className={`block mt-0.5 font-bold ${delta > 0 ? 'text-green-600' : delta < 0 ? 'text-red-600' : 'text-stone-400'}`}>
                         {delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '0'}
-                        {rawDelta > 12 ? <span className="text-gray-400 font-normal"> (上限)</span> : null}
+                        {rawDelta > 12 ? <span className="text-stone-400 font-normal"> (上限)</span> : null}
                       </span>
                     </div>
                   )
@@ -199,7 +199,7 @@ export default function CoinsPage() {
                 </div>
                 <button
                   onClick={() => handleShowHistory(g.id)}
-                  className="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-gray-500 border rounded hover:bg-gray-50"
+                  className="w-full flex items-center justify-center gap-1 py-1.5 text-xs text-stone-500 border rounded hover:bg-stone-50"
                 >
                   <History size={12} /> 变动记录
                 </button>
@@ -208,7 +208,7 @@ export default function CoinsPage() {
           ))}
 
           {groups.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-400">
+            <div className="col-span-full text-center py-12 text-stone-400">
               <Coins size={48} className="mx-auto mb-2 opacity-30" />
               <p>还没有班级小组，请先在"学生管理 → 小组管理"中添加</p>
             </div>
@@ -224,16 +224,16 @@ export default function CoinsPage() {
       >
         <div className="space-y-2">
           {history.length === 0 ? (
-            <p className="text-center text-gray-400 py-8">暂无变动记录</p>
+            <p className="text-center text-stone-400 py-8">暂无变动记录</p>
           ) : (
             history.map(h => (
-              <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-100 text-sm">
-                <span className="text-gray-600">{h.reason || '无原因'}</span>
+              <div key={h.id} className="flex items-center justify-between py-2 border-b border-stone-100 text-sm">
+                <span className="text-stone-600">{h.reason || '无原因'}</span>
                 <div className="flex items-center gap-3">
                   <span className={`font-bold ${h.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                     {h.delta >= 0 ? '+' : ''}{h.delta}
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-stone-400">
                     {new Date(h.timestamp).toLocaleString('zh-CN')}
                   </span>
                 </div>
@@ -241,7 +241,7 @@ export default function CoinsPage() {
             ))
           )}
         </div>
-        <button onClick={() => setShowHistory(null)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">关闭</button>
+        <button onClick={() => setShowHistory(null)} className="mt-4 w-full py-2 text-stone-600 border rounded-lg hover:bg-stone-50">关闭</button>
       </Modal>
     </div>
   )

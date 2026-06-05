@@ -413,7 +413,7 @@ export default function StudentsPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   const groupCount = groups.length
@@ -425,19 +425,19 @@ export default function StudentsPage() {
         {/* 顶部 */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">学生管理</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-stone-800">学生管理</h1>
+            <p className="text-sm text-stone-500 mt-1">
               {groupCount} 个小组 · {students.length} 名学生 · {studentsInGroups} 名已分组
             </p>
           </div>
         </div>
 
         {/* Tab 切换 */}
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4 w-fit">
+        <div className="flex gap-1 bg-stone-100 rounded-lg p-1 mb-4 w-fit">
           <button
             onClick={() => setTab('groups')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === 'groups' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              tab === 'groups' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
             }`}
           >
             小组管理
@@ -445,7 +445,7 @@ export default function StudentsPage() {
           <button
             onClick={() => setTab('students')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === 'students' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              tab === 'students' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
             }`}
           >
             学生列表
@@ -471,7 +471,7 @@ export default function StudentsPage() {
                       setShowBatchAdd(true)
                       setBatchGroupId(groups[0]?.id || '')
                     }}
-                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
+                    className="flex items-center gap-2 px-4 py-2 border border-stone-200 text-stone-500 rounded-lg hover:bg-stone-50"
                   >
                     <Users size={18} /> 批量添加
                   </button>
@@ -487,7 +487,7 @@ export default function StudentsPage() {
                   </button>
                   <button
                     onClick={() => { setShowLunchImport(true); setLunchImportText(''); setLunchImportResult(null) }}
-                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
+                    className="flex items-center gap-2 px-4 py-2 border border-stone-200 text-stone-500 rounded-lg hover:bg-stone-50"
                   >
                     <Upload size={18} /> 午餐午休导入
                   </button>
@@ -496,7 +496,7 @@ export default function StudentsPage() {
             </div>
             {/* 搜索 */}
             <div className="relative w-64">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input
                 type="text"
                 placeholder="搜索学生姓名或小组..."
@@ -511,37 +511,37 @@ export default function StudentsPage() {
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b">
+                <tr className="bg-stone-50 border-b">
                   <th className="w-10 px-3 py-3">
                     <input
                       type="checkbox"
                       checked={allVisibleSelected}
                       onChange={toggleSelectAll}
-                      className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
+                      className="w-4 h-4 rounded border-stone-300 text-primary-500 focus:ring-primary-400"
                     />
                   </th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">姓名</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">所属小组</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">每日一练</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">午餐午休</th>
-                  <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">操作</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">姓名</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">所属小组</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">每日一练</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">午餐午休</th>
+                  <th className="text-right px-4 py-3 text-sm font-medium text-stone-500">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredStudents.map(s => (
-                  <tr key={s.id} className={`hover:bg-gray-50 ${selectedIds.has(s.id) ? 'bg-primary-50' : ''}`}>
+                  <tr key={s.id} className={`hover:bg-stone-50 ${selectedIds.has(s.id) ? 'bg-primary-50' : ''}`}>
                     <td className="px-3 py-3">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(s.id)}
                         onChange={() => toggleSelect(s.id)}
-                        className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
+                        className="w-4 h-4 rounded border-stone-300 text-primary-500 focus:ring-primary-400"
                       />
                     </td>
                     <td className="px-4 py-3 font-medium">{s.name}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full text-white ${
-                        groups.find(g => g.id === s.group_id)?.color || 'bg-gray-400'
+                        groups.find(g => g.id === s.group_id)?.color || 'bg-stone-400'
                       }`}>
                         {(() => { const grp = groups.find(g => g.id === s.group_id); return grp ? `${grp.name}${grp.leader_name ? `（${grp.leader_name}）` : ''}` : (s.group_name || '未分组'); })()}
                       </span>
@@ -552,7 +552,7 @@ export default function StudentsPage() {
                       ) : s.practice_label === 'tisheng' ? (
                         <span className="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">提升</span>
                       ) : (
-                        <span className="text-xs text-gray-300">-</span>
+                        <span className="text-xs text-stone-300">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -564,7 +564,7 @@ export default function StudentsPage() {
                           )}
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-300">-</span>
+                        <span className="text-xs text-stone-300">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -579,15 +579,15 @@ export default function StudentsPage() {
                             setEditGroupId(s.group_id || '')
                             setEditAsLeader(isLeader(s.group_id, s.name))
                           }}
-                          className="p-1.5 text-gray-400 hover:text-primary-500 rounded hover:bg-gray-100"
+                          className="p-1.5 text-stone-400 hover:text-primary-500 rounded hover:bg-stone-100"
                         >
                           <Pencil size={15} />
                         </button>
                         {s.group_id && (
                           <button
                             onClick={() => toggleLeader(s.name, s.group_id, isLeader(s.group_id, s.name))}
-                            className={`p-1.5 rounded hover:bg-gray-100 ${
-                              isLeader(s.group_id, s.name) ? 'text-amber-500' : 'text-gray-300 hover:text-amber-500'
+                            className={`p-1.5 rounded hover:bg-stone-100 ${
+                              isLeader(s.group_id, s.name) ? 'text-amber-500' : 'text-stone-300 hover:text-amber-500'
                             }`}
                             title={isLeader(s.group_id, s.name) ? '取消组长' : '设为组长'}
                           >
@@ -599,14 +599,14 @@ export default function StudentsPage() {
                             setMoveStudent(s)
                             setMoveGroupId(groups[0]?.id || '')
                           }}
-                          className="p-1.5 text-gray-400 hover:text-blue-500 rounded hover:bg-gray-100"
+                          className="p-1.5 text-stone-400 hover:text-blue-500 rounded hover:bg-stone-100"
                           title="换组"
                         >
                           <MoveRight size={15} />
                         </button>
                         <button
                           onClick={() => handleDelete(s)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-100"
+                          className="p-1.5 text-stone-400 hover:text-red-500 rounded hover:bg-stone-100"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -616,7 +616,7 @@ export default function StudentsPage() {
                 ))}
                 {filteredStudents.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center py-12 text-gray-400">
+                    <td colSpan={6} className="text-center py-12 text-stone-400">
                       {search ? '没有匹配的学生' : '还没有学生，点击"添加学生"开始'}
                     </td>
                   </tr>
@@ -624,7 +624,7 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-gray-400 mt-2">共 {filteredStudents.length} 名学生</p>
+          <p className="text-xs text-stone-400 mt-2">共 {filteredStudents.length} 名学生</p>
         </>
         )}
 
@@ -633,28 +633,28 @@ export default function StudentsPage() {
         <>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <p className="text-sm text-gray-500">共 {groups.length} 个小组</p>
-              <span className="text-sm text-gray-400">
+              <p className="text-sm text-stone-500">共 {groups.length} 个小组</p>
+              <span className="text-sm text-stone-400">
                 {seatedCount} 已安排 / {students.length} 名学生
               </span>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowBatchGroups(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
+                className="flex items-center gap-2 px-4 py-2 border border-stone-200 text-stone-500 rounded-lg hover:bg-stone-50"
               >
                 <Users size={18} /> 批量生成
               </button>
               <button
                 onClick={handleRotate}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
+                className="flex items-center gap-2 px-4 py-2 border border-stone-200 text-stone-500 rounded-lg hover:bg-stone-50"
                 title="每组学生移动到下一组"
               >
                 <RefreshCw size={18} /> 一键轮换
               </button>
               <button
                 onClick={handleResetSeating}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50"
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-stone-200 text-stone-500 rounded-lg hover:bg-stone-50"
               >
                 <RotateCcw size={14} />
                 重置座位
@@ -710,7 +710,7 @@ export default function StudentsPage() {
             })}
 
             {groups.length === 0 && (
-              <div className="col-span-full text-center py-12 text-gray-400">
+              <div className="col-span-full text-center py-12 text-stone-400">
                 <p>还没有小组，点击"添加小组"开始</p>
               </div>
             )}
@@ -729,7 +729,7 @@ export default function StudentsPage() {
           autoFocus
         />
         {batchNames.trim() && (
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-stone-400 mb-3">
             识别到 {batchNames.split(/[\n,，]+/).filter(n => n.trim()).length} 名学生
           </p>
         )}
@@ -746,7 +746,7 @@ export default function StudentsPage() {
         <div className="flex gap-2 justify-end">
           <button
             onClick={() => { setShowBatchAdd(false); setBatchNames('') }}
-            className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
           >
             取消
           </button>
@@ -784,7 +784,7 @@ export default function StudentsPage() {
         <div className="flex gap-2 justify-end">
           <button
             onClick={() => { setShowAdd(false); setAddName('') }}
-            className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
           >
             取消
           </button>
@@ -810,7 +810,7 @@ export default function StudentsPage() {
           onKeyDown={e => e.key === 'Enter' && editName.trim() && handleEdit()}
         />
         <div className="mb-3">
-          <label className="text-sm text-gray-500 block mb-1">每日一练标签</label>
+          <label className="text-sm text-stone-500 block mb-1">每日一练标签</label>
           <select
             value={editPracticeLabel}
             onChange={e => setEditPracticeLabel(e.target.value)}
@@ -822,7 +822,7 @@ export default function StudentsPage() {
           </select>
         </div>
         <div className="mb-3">
-          <label className="text-sm text-gray-500 block mb-1">午餐午休标签</label>
+          <label className="text-sm text-stone-500 block mb-1">午餐午休标签</label>
           <select
             value={editLunchLabel}
             onChange={e => setEditLunchLabel(e.target.value)}
@@ -834,23 +834,23 @@ export default function StudentsPage() {
         </div>
         {editLunchLabel === 'zaixiao' && (
           <div className="mb-3 flex items-center gap-2">
-            <label className="text-sm text-gray-500">长期请假</label>
+            <label className="text-sm text-stone-500">长期请假</label>
             <button
               type="button"
               onClick={() => setEditLunchLongterm(!editLunchLongterm)}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                editLunchLongterm ? 'bg-amber-500' : 'bg-gray-300'
+                editLunchLongterm ? 'bg-amber-500' : 'bg-stone-300'
               }`}
             >
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
                 editLunchLongterm ? 'translate-x-4' : 'translate-x-1'
               }`} />
             </button>
-            <span className="text-xs text-gray-400">{editLunchLongterm ? '每天自动请假' : '每日手动考勤'}</span>
+            <span className="text-xs text-stone-400">{editLunchLongterm ? '每天自动请假' : '每日手动考勤'}</span>
           </div>
         )}
         <div className="mb-3">
-          <label className="text-sm text-gray-500 block mb-1">小组</label>
+          <label className="text-sm text-stone-500 block mb-1">小组</label>
           <select
             value={editGroupId}
             onChange={e => setEditGroupId(e.target.value)}
@@ -863,12 +863,12 @@ export default function StudentsPage() {
           </select>
         </div>
         {editGroupId && (
-          <label className="flex items-center gap-2 mb-3 cursor-pointer select-none text-sm text-gray-600">
+          <label className="flex items-center gap-2 mb-3 cursor-pointer select-none text-sm text-stone-600">
             <input
               type="checkbox"
               checked={editAsLeader}
               onChange={e => setEditAsLeader(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+              className="w-4 h-4 rounded border-stone-300 text-amber-500 focus:ring-amber-400"
             />
             <Crown size={14} className="text-amber-500" />
             设为组长
@@ -877,7 +877,7 @@ export default function StudentsPage() {
         <div className="flex gap-2 justify-end">
           <button
             onClick={() => { setEditStudent(null); setEditName(''); setEditPracticeLabel(''); setEditLunchLabel(''); setEditLunchLongterm(false); setEditGroupId(''); setEditAsLeader(false) }}
-            className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
           >
             取消
           </button>
@@ -893,7 +893,7 @@ export default function StudentsPage() {
 
       {/* 换组弹窗 */}
       <Modal open={moveStudent !== null} onClose={() => setMoveStudent(null)} title={`移动 "${moveStudent?.name}" 到其他小组`} width="sm">
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-stone-500 mb-3">
           当前小组：{moveStudent ? (() => { const grp = groups.find(g => g.id === moveStudent.group_id); return grp ? `${grp.name}${grp.leader_name ? `（${grp.leader_name}）` : ''}` : (moveStudent.group_name || '未分组'); })() : ''}
         </p>
         <select
@@ -909,7 +909,7 @@ export default function StudentsPage() {
         <div className="flex gap-2 justify-end">
           <button
             onClick={() => setMoveStudent(null)}
-            className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
           >
             取消
           </button>
@@ -934,7 +934,7 @@ export default function StudentsPage() {
           onKeyDown={e => e.key === 'Enter' && addGroupName.trim() && handleAddGroup()}
         />
         <div className="mb-4">
-          <p className="text-sm text-gray-500 mb-2">选择颜色</p>
+          <p className="text-sm text-stone-500 mb-2">选择颜色</p>
           <div className="flex gap-2">
             {colorOptions.map(c => (
               <button
@@ -948,14 +948,14 @@ export default function StudentsPage() {
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <button onClick={() => setShowAddGroup(false)} className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+          <button onClick={() => setShowAddGroup(false)} className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50">取消</button>
           <button onClick={handleAddGroup} disabled={!addGroupName.trim()} className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50">确认</button>
         </div>
       </Modal>
 
       {/* 批量生成小组弹窗 */}
       <Modal open={showBatchGroups} onClose={() => setShowBatchGroups(false)} title="批量生成小组" width="sm">
-        <p className="text-sm text-gray-500 mb-3">
+        <p className="text-sm text-stone-500 mb-3">
           输入需要生成的小组数量，系统将自动创建并命名（如"第1组""第2组"…），颜色自动轮换。
         </p>
         <div className="flex items-center gap-2 mb-4">
@@ -969,13 +969,13 @@ export default function StudentsPage() {
             autoFocus
             onKeyDown={e => e.key === 'Enter' && handleBatchGroups()}
           />
-          <span className="text-sm text-gray-500">个小组</span>
+          <span className="text-sm text-stone-500">个小组</span>
         </div>
-        <p className="text-xs text-gray-400 mb-4">
+        <p className="text-xs text-stone-400 mb-4">
           当前已有 {groups.length} 个小组，将自动从第{groups.length + 1}组开始命名
         </p>
         <div className="flex gap-2 justify-end">
-          <button onClick={() => setShowBatchGroups(false)} className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+          <button onClick={() => setShowBatchGroups(false)} className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50">取消</button>
           <button onClick={handleBatchGroups} className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600">确认生成</button>
         </div>
       </Modal>
@@ -991,7 +991,7 @@ export default function StudentsPage() {
           onKeyDown={e => e.key === 'Enter' && editGroupName.trim() && handleEditGroup()}
         />
         <div className="mb-3">
-          <p className="text-sm text-gray-500 mb-2">选择组长</p>
+          <p className="text-sm text-stone-500 mb-2">选择组长</p>
           <select
             value={editGroupLeader}
             onChange={e => setEditGroupLeader(e.target.value)}
@@ -1004,7 +1004,7 @@ export default function StudentsPage() {
           </select>
         </div>
         <div className="mb-4">
-          <p className="text-sm text-gray-500 mb-2">选择颜色</p>
+          <p className="text-sm text-stone-500 mb-2">选择颜色</p>
           <div className="flex gap-2">
             {colorOptions.map(c => (
               <button
@@ -1018,7 +1018,7 @@ export default function StudentsPage() {
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <button onClick={() => setEditGroup(null)} className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+          <button onClick={() => setEditGroup(null)} className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50">取消</button>
           <button onClick={handleEditGroup} disabled={!editGroupName.trim()} className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50">保存</button>
         </div>
       </Modal>
@@ -1026,8 +1026,8 @@ export default function StudentsPage() {
       {/* 交换学生弹窗 */}
       <Modal open={swapSource !== null} onClose={() => { setSwapSource(null); setSwapTargetId('') }} title="交换学生" width="sm">
         {swapSource && (
-          <p className="text-sm text-gray-500 mb-3">
-            将 <span className="font-medium text-gray-800">"{swapSource.name}{swapSource.leader_name ? `（${swapSource.leader_name}）` : ''}"</span> 的全部学生与目标小组交换
+          <p className="text-sm text-stone-500 mb-3">
+            将 <span className="font-medium text-stone-800">"{swapSource.name}{swapSource.leader_name ? `（${swapSource.leader_name}）` : ''}"</span> 的全部学生与目标小组交换
           </p>
         )}
         <select
@@ -1043,21 +1043,21 @@ export default function StudentsPage() {
           ))}
         </select>
         {swapTargetId && swapSource && (
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-stone-400 mb-3">
             "{swapSource.name}{swapSource.leader_name ? `（${swapSource.leader_name}）` : ''}"（{students.filter(s => s.group_id === swapSource.id).length}人）
             ↔
             "{(() => { const tg = groups.find(g => g.id === swapTargetId); return tg ? `${tg.name}${tg.leader_name ? `（${tg.leader_name}）` : ''}` : ''; })()}"（{students.filter(s => s.group_id === swapTargetId).length}人）
           </p>
         )}
         <div className="flex gap-2 justify-end">
-          <button onClick={() => { setSwapSource(null); setSwapTargetId('') }} className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+          <button onClick={() => { setSwapSource(null); setSwapTargetId('') }} className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50">取消</button>
           <button onClick={handleSwap} disabled={!swapTargetId} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">确认交换</button>
         </div>
       </Modal>
 
       {/* 批量导入午餐午休名单弹窗 */}
       <Modal open={showLunchImport} onClose={() => { setShowLunchImport(false); setLunchImportText(''); setLunchImportResult(null) }} title="批量导入午餐午休名单">
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-stone-500 mb-4">
           粘贴学生姓名，每行一个，或用逗号分隔。系统会自动匹配已有学生并设为"在校就餐"。
         </p>
         <textarea
@@ -1068,7 +1068,7 @@ export default function StudentsPage() {
           autoFocus
         />
         {lunchImportText.trim() && (
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-stone-400 mb-3">
             识别到 {lunchImportText.split(/[\n,，]+/).filter(n => n.trim()).length} 个姓名
           </p>
         )}
@@ -1090,7 +1090,7 @@ export default function StudentsPage() {
         <div className="flex gap-2 justify-end">
           <button
             onClick={() => { setShowLunchImport(false); setLunchImportText(''); setLunchImportResult(null) }}
-            className="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50 text-sm"
+            className="px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50 text-sm"
           >
             关闭
           </button>
@@ -1132,7 +1132,7 @@ function UnseatedPool({
 
   return (
     <div className="mb-6">
-      <h2 className="text-sm font-medium text-gray-500 mb-2">
+      <h2 className="text-sm font-medium text-stone-500 mb-2">
         待安排学生（{students.length}人）
       </h2>
       <div
@@ -1140,10 +1140,10 @@ function UnseatedPool({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className="flex flex-wrap gap-2 p-3 border-2 border-dashed rounded-lg min-h-[44px] transition-colors border-gray-200 bg-gray-50"
+        className="flex flex-wrap gap-2 p-3 border-2 border-dashed rounded-lg min-h-[44px] transition-colors border-stone-200 bg-stone-50"
       >
         {students.length === 0 ? (
-          <p className="text-sm text-gray-400 w-full text-center">所有学生已安排座位</p>
+          <p className="text-sm text-stone-400 w-full text-center">所有学生已安排座位</p>
         ) : (
           students.map(s => {
             const g = groups.find(grp => grp.id === s.group_id)
@@ -1151,7 +1151,7 @@ function UnseatedPool({
               <StudentChip
                 key={s.id}
                 student={s}
-                groupColor={g?.color || 'bg-gray-400'}
+                groupColor={g?.color || 'bg-stone-400'}
                 isLeader={false}
                 onDragStart={onDragStart}
               />
@@ -1250,8 +1250,8 @@ function SeatSlot({
   }
 
   const baseClass = student
-    ? 'border-gray-100 bg-white'
-    : 'border-dashed border-gray-200 bg-gray-50'
+    ? 'border-stone-100 bg-white'
+    : 'border-dashed border-stone-200 bg-stone-50'
 
   return (
     <div
@@ -1261,7 +1261,7 @@ function SeatSlot({
       onDrop={handleDrop}
       className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border-2 transition-all duration-150 ${baseClass}`}
     >
-      <span className="text-xs text-gray-300 w-10 flex-shrink-0">{label}</span>
+      <span className="text-xs text-stone-300 w-10 flex-shrink-0">{label}</span>
       {student ? (
         <StudentChip
           student={student}
@@ -1270,7 +1270,7 @@ function SeatSlot({
           onDragStart={onDragStart}
         />
       ) : (
-        <span className="text-xs text-gray-300 italic">空位</span>
+        <span className="text-xs text-stone-300 italic">空位</span>
       )}
     </div>
   )

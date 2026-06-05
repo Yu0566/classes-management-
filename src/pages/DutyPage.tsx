@@ -291,7 +291,7 @@ export default function DutyPage() {
   )
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   const signedInCount = dutyStudents.filter(d => d.sign_in_time).length
@@ -299,13 +299,13 @@ export default function DutyPage() {
   return (
     <div className="h-full overflow-auto">
       <div className="p-6 max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">值日管理</h1>
+        <h1 className="text-2xl font-bold text-stone-800 mb-4">值日管理</h1>
 
         {/* 日期选择 */}
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() - 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={20} /></button>
+          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() - 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-stone-100 rounded-lg"><ChevronLeft size={20} /></button>
           <span className="text-lg font-medium min-w-[180px] text-center">{date}</span>
-          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() + 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={20} /></button>
+          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() + 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-stone-100 rounded-lg"><ChevronRight size={20} /></button>
           <button onClick={() => setDate(todayStr())} className="px-3 py-1 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50">今天</button>
         </div>
 
@@ -325,11 +325,11 @@ export default function DutyPage() {
               return (
                 <div key={step.state} className="flex items-center gap-2">
                   <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                    isCurrent ? 'bg-primary-500 text-white' : isActive ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-400'
+                    isCurrent ? 'bg-primary-500 text-white' : isActive ? 'bg-primary-100 text-primary-600' : 'bg-stone-100 text-stone-400'
                   }`}>
                     <Icon size={14} /> {step.label}
                   </div>
-                  {i < 2 && <div className={`w-8 h-0.5 ${isActive ? 'bg-primary-300' : 'bg-gray-200'}`} />}
+                  {i < 2 && <div className={`w-8 h-0.5 ${isActive ? 'bg-primary-300' : 'bg-stone-200'}`} />}
                 </div>
               )
             })}
@@ -340,16 +340,16 @@ export default function DutyPage() {
         <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 w-full"
+            className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-800 w-full"
           >
             <Settings size={16} />
             值日设置
-            <span className="text-xs text-gray-400 ml-auto">{showSettings ? '收起' : '展开'}</span>
+            <span className="text-xs text-stone-400 ml-auto">{showSettings ? '收起' : '展开'}</span>
           </button>
           {showSettings && (
             <div className="mt-4 pt-4 border-t space-y-4">
               <div>
-                <label className="block text-sm text-gray-500 mb-1">倒计时时长（分钟）</label>
+                <label className="block text-sm text-stone-500 mb-1">倒计时时长（分钟）</label>
                 <input
                   type="number"
                   min={1}
@@ -363,10 +363,10 @@ export default function DutyPage() {
                   }}
                   className="w-24 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
-                <span className="text-xs text-gray-400 ml-2">范围 1-120 分钟</span>
+                <span className="text-xs text-stone-400 ml-2">范围 1-120 分钟</span>
               </div>
               <div>
-                <label className="block text-sm text-gray-500 mb-1">未签到扣分</label>
+                <label className="block text-sm text-stone-500 mb-1">未签到扣分</label>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -375,7 +375,7 @@ export default function DutyPage() {
                       setDutyPenaltyPoints(v)
                       localStorage.setItem('duty_penalty_points', String(v))
                     }}
-                    className="w-8 h-8 flex items-center justify-center border rounded-lg hover:bg-gray-100 text-gray-500"
+                    className="w-8 h-8 flex items-center justify-center border rounded-lg hover:bg-stone-100 text-stone-500"
                   >−</button>
                   <input
                     type="number"
@@ -396,15 +396,15 @@ export default function DutyPage() {
                       setDutyPenaltyPoints(v)
                       localStorage.setItem('duty_penalty_points', String(v))
                     }}
-                    className="w-8 h-8 flex items-center justify-center border rounded-lg hover:bg-gray-100 text-gray-500"
+                    className="w-8 h-8 flex items-center justify-center border rounded-lg hover:bg-stone-100 text-stone-500"
                   >+</button>
-                  <span className="text-xs text-gray-400">分/人</span>
+                  <span className="text-xs text-stone-400">分/人</span>
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-gray-500 mb-1">管理员密码</label>
+                <label className="block text-sm text-stone-500 mb-1">管理员密码</label>
                 {showChangePwd ? (
-                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  <div className="bg-stone-50 rounded-lg p-3 space-y-2">
                     <input
                       type="password" placeholder="旧密码"
                       value={oldPwd} onChange={e => setOldPwd(e.target.value)}
@@ -431,7 +431,7 @@ export default function DutyPage() {
                       </button>
                       <button
                         onClick={() => { setShowChangePwd(false); setOldPwd(''); setNewPwd(''); setConfirmPwd(''); setPwdError('') }}
-                        className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-100"
+                        className="px-3 py-1.5 text-sm border rounded-lg hover:bg-stone-100"
                       >
                         取消
                       </button>
@@ -440,7 +440,7 @@ export default function DutyPage() {
                 ) : (
                   <button
                     onClick={() => setShowChangePwd(true)}
-                    className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 text-gray-600"
+                    className="px-3 py-1.5 text-sm border rounded-lg hover:bg-stone-50 text-stone-600"
                   >
                     修改密码
                   </button>
@@ -454,7 +454,7 @@ export default function DutyPage() {
         {windowState === 'idle' && (
           <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-gray-700">值日名单 ({dutyStudents.length}人)</h2>
+              <h2 className="font-semibold text-stone-700">值日名单 ({dutyStudents.length}人)</h2>
               <button
                 onClick={() => setShowStudentPicker(true)}
                 className="flex items-center gap-1 text-sm px-3 py-1.5 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
@@ -464,7 +464,7 @@ export default function DutyPage() {
             </div>
 
             {dutyStudents.length === 0 ? (
-              <p className="text-center text-gray-400 py-4 text-sm">
+              <p className="text-center text-stone-400 py-4 text-sm">
                 系统已自动扫描当日考勤迟到和作业未交的同学<br />
                 也可手动添加学生
               </p>
@@ -523,7 +523,7 @@ export default function DutyPage() {
                   className={`p-3 rounded-lg text-center text-sm font-medium transition-colors ${
                     ds.sign_in_time
                       ? 'bg-green-200 text-green-800 cursor-default'
-                      : 'bg-white text-gray-700 hover:bg-green-100 hover:text-green-700 border border-blue-200'
+                      : 'bg-white text-stone-700 hover:bg-green-100 hover:text-green-700 border border-blue-200'
                   }`}
                 >
                   {ds.sign_in_time ? (
@@ -542,11 +542,11 @@ export default function DutyPage() {
 
         {/* 完成状态 */}
         {windowState === 'finished' && (
-          <div className="bg-gray-50 border rounded-xl p-6 mb-4">
+          <div className="bg-stone-50 border rounded-xl p-6 mb-4">
             <div className="text-center mb-4">
               <Check size={48} className="mx-auto mb-2 text-green-500" />
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">值日流程已完成</h3>
-              <p className="text-gray-500 text-sm">
+              <h3 className="text-lg font-semibold text-stone-700 mb-1">值日流程已完成</h3>
+              <p className="text-stone-500 text-sm">
                 签到 {signedInCount}/{dutyStudents.length} 人
               </p>
             </div>
@@ -608,10 +608,10 @@ export default function DutyPage() {
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 border-b">
-                  <th className="text-left px-4 py-2 text-sm font-medium text-gray-500">姓名</th>
-                  <th className="text-center px-4 py-2 text-sm font-medium text-gray-500">签到</th>
-                  <th className="text-center px-4 py-2 text-sm font-medium text-gray-500">签到时间</th>
+                <tr className="bg-stone-50 border-b">
+                  <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">姓名</th>
+                  <th className="text-center px-4 py-2 text-sm font-medium text-stone-500">签到</th>
+                  <th className="text-center px-4 py-2 text-sm font-medium text-stone-500">签到时间</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -621,7 +621,7 @@ export default function DutyPage() {
                     <td className="px-4 py-2 text-center">
                       {ds.sign_in_time ? <Check size={16} className="inline text-green-500" /> : <X size={16} className="inline text-red-400" />}
                     </td>
-                    <td className="px-4 py-2 text-center text-xs text-gray-400">
+                    <td className="px-4 py-2 text-center text-xs text-stone-400">
                       {ds.sign_in_time ? new Date(ds.sign_in_time).toLocaleTimeString('zh-CN') : '-'}
                     </td>
                   </tr>
@@ -636,23 +636,23 @@ export default function DutyPage() {
       <Modal open={showStudentPicker} onClose={() => setShowStudentPicker(false)} title="选择值日学生" width="sm">
         <div className="space-y-1">
           {availableStudents.length === 0 ? (
-            <p className="text-center text-gray-400 py-4">所有学生已添加</p>
+            <p className="text-center text-stone-400 py-4">所有学生已添加</p>
           ) : (
             availableStudents.map(s => (
               <button
                 key={s.id}
                 onClick={() => handleAddStudent(s.id, s.name)}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center justify-between"
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-stone-50 text-sm flex items-center justify-between"
               >
                 <span>{s.name}</span>
-                <span className="text-xs text-gray-400">{(() => { const g = groupMap.get(s.group_id); return g ? `${g.name}${g.leader_name ? `（${g.leader_name}）` : ''}` : (s.group_name || '-'); })()}</span>
+                <span className="text-xs text-stone-400">{(() => { const g = groupMap.get(s.group_id); return g ? `${g.name}${g.leader_name ? `（${g.leader_name}）` : ''}` : (s.group_name || '-'); })()}</span>
               </button>
             ))
           )}
         </div>
         <button
           onClick={() => setShowStudentPicker(false)}
-          className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+          className="mt-4 w-full py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
         >
           完成
         </button>
@@ -660,7 +660,7 @@ export default function DutyPage() {
 
       {/* 密码弹窗 */}
       <Modal open={showPasswordModal} onClose={() => { setShowPasswordModal(false); setPasswordInput(''); setPasswordError(false) }} title="强制结束倒计时" width="sm">
-        <p className="text-sm text-gray-500 mb-3">请输入管理员密码以强制结束倒计时</p>
+        <p className="text-sm text-stone-500 mb-3">请输入管理员密码以强制结束倒计时</p>
         <input
           type="password"
           value={passwordInput}
@@ -676,7 +676,7 @@ export default function DutyPage() {
         <div className="flex gap-2 mt-4">
           <button
             onClick={() => { setShowPasswordModal(false); setPasswordInput(''); setPasswordError(false) }}
-            className="flex-1 py-2 text-sm border rounded-lg hover:bg-gray-50"
+            className="flex-1 py-2 text-sm border rounded-lg hover:bg-stone-50"
           >
             取消
           </button>

@@ -117,7 +117,7 @@ export default function HomeworkPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   return (
@@ -125,10 +125,10 @@ export default function HomeworkPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* 顶部 */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">作业管理</h1>
+          <h1 className="text-2xl font-bold text-stone-800">作业管理</h1>
           <button
             onClick={openHistory}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
           >
             <History size={18} /> 未交记录
           </button>
@@ -137,7 +137,7 @@ export default function HomeworkPage() {
         {/* 日期和科目选择 */}
         <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
           <div className="flex items-center gap-4 mb-3">
-            <span className="text-sm text-gray-500">日期：</span>
+            <span className="text-sm text-stone-500">日期：</span>
             <input
               type="date"
               value={date}
@@ -146,7 +146,7 @@ export default function HomeworkPage() {
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-gray-500 mr-1">今日科目：</span>
+            <span className="text-sm text-stone-500 mr-1">今日科目：</span>
             {ALL_SUBJECTS.map(subj => (
               <button
                 key={subj}
@@ -154,7 +154,7 @@ export default function HomeworkPage() {
                 className={`px-3 py-1 rounded-full text-sm border transition-colors ${
                   subjects.includes(subj)
                     ? 'bg-primary-100 text-primary-700 border-primary-300'
-                    : 'bg-gray-50 text-gray-400 border-gray-200'
+                    : 'bg-stone-50 text-stone-400 border-stone-200'
                 }`}
               >
                 {subj}
@@ -172,7 +172,7 @@ export default function HomeworkPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 selectedGroup === g.id
                   ? `${g.color} text-white border-transparent`
-                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                  : 'bg-white text-stone-500 border-stone-200 hover:bg-stone-50'
               }`}
             >
               {g.name}{g.leader_name ? `（${g.leader_name}）` : ''}
@@ -188,7 +188,7 @@ export default function HomeworkPage() {
               const groupStudents = students.filter(s => s.group_id === selectedGroup)
               return (
                 <>
-                  <div className={`px-4 py-2 text-white text-sm font-medium ${group?.color || 'bg-gray-400'} flex items-center justify-between`}>
+                  <div className={`px-4 py-2 text-white text-sm font-medium ${group?.color || 'bg-stone-400'} flex items-center justify-between`}>
                     <span>{group?.name}{group?.leader_name ? `（${group.leader_name}）` : ''} · {groupStudents.length}人</span>
                     <button
                       onClick={resetGroupAllComplete}
@@ -202,12 +202,12 @@ export default function HomeworkPage() {
                     {groupStudents.length > 0 ? (
                       <table className="w-full">
                         <thead>
-                          <tr className="bg-gray-50 border-b">
-                            <th className="text-left px-4 py-2 text-sm font-medium text-gray-500 sticky left-0 bg-gray-50">
+                          <tr className="bg-stone-50 border-b">
+                            <th className="text-left px-4 py-2 text-sm font-medium text-stone-500 sticky left-0 bg-stone-50">
                               姓名
                             </th>
                             {subjects.map(subj => (
-                              <th key={subj} className="text-center px-3 py-2 text-sm font-medium text-gray-500 min-w-[80px]">
+                              <th key={subj} className="text-center px-3 py-2 text-sm font-medium text-stone-500 min-w-[80px]">
                                 {subj}
                               </th>
                             ))}
@@ -215,7 +215,7 @@ export default function HomeworkPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {groupStudents.map(s => (
-                            <tr key={s.id} className="hover:bg-gray-50">
+                            <tr key={s.id} className="hover:bg-stone-50">
                               <td className="px-4 py-2 text-sm font-medium sticky left-0 bg-white">
                                 <div className="flex items-center gap-1">
                                   <span>{s.name}</span>
@@ -224,7 +224,7 @@ export default function HomeworkPage() {
                                   )}
                                   <button
                                     onClick={() => resetStudentAllIncomplete(s.id)}
-                                    className="p-0.5 text-gray-300 hover:text-red-500 transition-colors"
+                                    className="p-0.5 text-stone-300 hover:text-red-500 transition-colors"
                                     title="全科设为未交"
                                   >
                                     <RefreshCw size={12} />
@@ -250,7 +250,7 @@ export default function HomeworkPage() {
                         </tbody>
                       </table>
                     ) : (
-                      <div className="text-center py-8 text-gray-400 text-sm">该小组暂无学生</div>
+                      <div className="text-center py-8 text-stone-400 text-sm">该小组暂无学生</div>
                     )}
                   </div>
                 </>
@@ -258,11 +258,11 @@ export default function HomeworkPage() {
             })()}
           </div>
         ) : selectedGroup && subjects.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">请先选择今天的科目</div>
+          <div className="text-center py-12 text-stone-400">请先选择今天的科目</div>
         ) : null}
 
         {/* 底部提示 */}
-        <p className="text-xs text-gray-400 mt-3">
+        <p className="text-xs text-stone-400 mt-3">
           默认所有同学状态为"交齐"，点击按钮切换：交齐 → 未交 → 未交齐 → 交齐
         </p>
       </div>
@@ -270,26 +270,26 @@ export default function HomeworkPage() {
       {/* 未交记录弹窗 */}
       <Modal open={showHistory} onClose={() => setShowHistory(false)} title="未交作业记录" width="lg">
         {historyData.length === 0 ? (
-          <p className="text-center text-gray-400 py-8">太棒了，没有未交作业记录！</p>
+          <p className="text-center text-stone-400 py-8">太棒了，没有未交作业记录！</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50">
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">日期</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">姓名</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">小组</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">科目</th>
-                <th className="text-left px-3 py-2 text-gray-500 font-medium">状态</th>
+              <tr className="border-b bg-stone-50">
+                <th className="text-left px-3 py-2 text-stone-500 font-medium">日期</th>
+                <th className="text-left px-3 py-2 text-stone-500 font-medium">姓名</th>
+                <th className="text-left px-3 py-2 text-stone-500 font-medium">小组</th>
+                <th className="text-left px-3 py-2 text-stone-500 font-medium">科目</th>
+                <th className="text-left px-3 py-2 text-stone-500 font-medium">状态</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {historyData.map(r => {
                 const cfg = STATUS_MAP[r.status]
                 return (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-gray-600">{r.date}</td>
+                  <tr key={r.id} className="hover:bg-stone-50">
+                    <td className="px-3 py-2 text-stone-600">{r.date}</td>
                     <td className="px-3 py-2 font-medium">{r.student_name}</td>
-                    <td className="px-3 py-2 text-gray-500">{r.group_name || '-'}</td>
+                    <td className="px-3 py-2 text-stone-500">{r.group_name || '-'}</td>
                     <td className="px-3 py-2">{r.subject}</td>
                     <td className="px-3 py-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.color}`}>
@@ -302,7 +302,7 @@ export default function HomeworkPage() {
             </tbody>
           </table>
         )}
-        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+        <button onClick={() => setShowHistory(false)} className="mt-4 w-full py-2 text-stone-600 border rounded-lg hover:bg-stone-50">
           关闭
         </button>
       </Modal>

@@ -96,7 +96,7 @@ function NotificationOverlay({
         </button>
 
         {/* 提示 */}
-        <p className="text-slate-500 text-sm mt-6">
+        <p className="text-stone-500 text-sm mt-6">
           按 Esc 或点击任意位置关闭 · {AUTO_DISMISS_MS / 1000}秒后自动关闭
         </p>
       </motion.div>

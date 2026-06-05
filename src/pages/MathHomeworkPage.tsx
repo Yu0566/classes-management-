@@ -78,10 +78,10 @@ export default function MathHomeworkPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-slate-50">
+      <div className="flex items-center justify-center h-full bg-stone-50">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
-          <span className="text-xs text-slate-400 tracking-widest uppercase">加载中</span>
+          <div className="w-8 h-8 border-2 border-stone-200 border-t-indigo-500 rounded-full animate-spin" />
+          <span className="text-xs text-stone-400 tracking-widest uppercase">加载中</span>
         </div>
       </div>
     )
@@ -90,45 +90,45 @@ export default function MathHomeworkPage() {
   const group = groups.find(g => g.id === selectedGroup)
 
   return (
-    <div className="h-full overflow-auto bg-slate-50">
+    <div className="h-full overflow-auto bg-stone-50">
       <div className="p-5 max-w-5xl mx-auto space-y-4">
 
         {/* 顶部 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 rounded-full bg-gradient-to-b from-indigo-400 to-indigo-600" />
-            <h1 className="text-lg font-bold text-slate-700 tracking-wide">数学作业等级</h1>
+            <h1 className="text-lg font-bold text-stone-700 tracking-wide">数学作业等级</h1>
           </div>
           <button
             onClick={openHistory}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-500 bg-white/70 backdrop-blur border border-slate-200 rounded-xl hover:bg-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-stone-500 bg-white/70 backdrop-blur border border-stone-200 rounded-xl hover:bg-white transition-colors"
           >
             <Clock size={13} /> 不合格记录
           </button>
         </div>
 
         {/* 日期 + 统计 */}
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/70 backdrop-blur">
+        <div className="relative overflow-hidden rounded-2xl border border-stone-200 bg-white/70 backdrop-blur">
           <div className="h-0.5 bg-gradient-to-r from-indigo-400 to-indigo-300" />
           <div className="px-5 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <span className="text-sm text-slate-500">日期</span>
+                <span className="text-sm text-stone-500">日期</span>
                 <input
                   type="date"
                   value={date}
                   onChange={e => { setDate(e.target.value); setSelectedGroup(null) }}
-                  className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="border border-stone-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 />
               </div>
               <div className="flex items-center gap-5 text-xs">
-                <span className="text-slate-500">总人数 <span className="font-mono font-bold text-slate-700 tabular-nums">{totalCount}</span></span>
-                <span className="text-slate-300">|</span>
+                <span className="text-stone-500">总人数 <span className="font-mono font-bold text-stone-700 tabular-nums">{totalCount}</span></span>
+                <span className="text-stone-300">|</span>
                 <span className={failCount > 0 ? 'text-red-500' : 'text-emerald-500'}>
                   不合格 <span className="font-mono font-bold tabular-nums">{failCount}</span>
                 </span>
-                <span className="text-slate-300">|</span>
-                <span className={failCount === 0 ? 'text-emerald-500' : 'text-slate-500'}>
+                <span className="text-stone-300">|</span>
+                <span className={failCount === 0 ? 'text-emerald-500' : 'text-stone-500'}>
                   合格率 <span className="font-mono font-bold tabular-nums">{totalCount > 0 ? Math.round((totalCount - failCount) / totalCount * 100) : 0}</span>%
                 </span>
               </div>
@@ -148,7 +148,7 @@ export default function MathHomeworkPage() {
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   selectedGroup === g.id
                     ? `${g.color} text-white border-transparent shadow-sm`
-                    : 'bg-white/70 text-slate-500 border-slate-200 hover:bg-white'
+                    : 'bg-white/70 text-stone-500 border-stone-200 hover:bg-white'
                 }`}
               >
                 {g.name}{g.leader_name ? `（${g.leader_name}）` : ''}
@@ -164,22 +164,22 @@ export default function MathHomeworkPage() {
 
         {/* 学生列表 */}
         {selectedGroup && (
-          <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white/70 backdrop-blur">
+          <div className="relative overflow-hidden rounded-2xl border border-stone-200 bg-white/70 backdrop-blur">
             <div className={`h-0.5 bg-gradient-to-r ${failCount > 0 ? 'from-red-400 to-red-300' : 'from-emerald-400 to-emerald-300'}`} />
-            <div className={`px-4 py-2 text-white text-sm font-medium ${group?.color || 'bg-gray-400'} flex items-center justify-between`}>
+            <div className={`px-4 py-2 text-white text-sm font-medium ${group?.color || 'bg-stone-400'} flex items-center justify-between`}>
               <span>{group?.name}{group?.leader_name ? `（${group.leader_name}）` : ''} · {groupStudents.length}人</span>
             </div>
 
             {groupStudents.length === 0 ? (
-              <div className="text-center py-10 text-xs text-slate-400">该小组暂无学生</div>
+              <div className="text-center py-10 text-xs text-stone-400">该小组暂无学生</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-slate-50/50 border-b border-slate-100">
-                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500 w-32">姓名</th>
-                      <th className="text-left px-4 py-2.5 text-xs font-medium text-slate-500">不合格原因</th>
-                      <th className="text-center px-4 py-2.5 text-xs font-medium text-slate-500 w-28">操作</th>
+                    <tr className="bg-stone-50/50 border-b border-stone-100">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 w-32">姓名</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500">不合格原因</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-stone-500 w-28">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -189,10 +189,10 @@ export default function MathHomeworkPage() {
                       return (
                         <tr
                           key={s.id}
-                          className={`transition-colors ${isFailing ? 'bg-red-50/50' : 'hover:bg-slate-50/50'}`}
+                          className={`transition-colors ${isFailing ? 'bg-red-50/50' : 'hover:bg-stone-50/50'}`}
                         >
                           <td className="px-4 py-2.5">
-                            <span className={`text-sm font-medium ${isFailing ? 'text-red-700' : 'text-slate-700'}`}>
+                            <span className={`text-sm font-medium ${isFailing ? 'text-red-700' : 'text-stone-700'}`}>
                               {s.name}
                             </span>
                           </td>
@@ -211,7 +211,7 @@ export default function MathHomeworkPage() {
                                 value={reasons[s.id] || ''}
                                 onChange={e => handleReasonChange(s.id, e.target.value)}
                                 placeholder="输入不合格原因..."
-                                className="w-full max-w-xs border border-slate-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 text-slate-500 placeholder:text-slate-300"
+                                className="w-full max-w-xs border border-stone-200 rounded-lg px-3 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 text-stone-500 placeholder:text-stone-300"
                               />
                             )}
                           </td>
@@ -246,24 +246,24 @@ export default function MathHomeworkPage() {
         {/* 历史记录弹窗 */}
         <Modal open={showHistory} onClose={() => setShowHistory(false)} title="数学作业不合格记录" width="lg">
           {historyData.length === 0 ? (
-            <p className="text-center text-gray-400 py-8 text-sm">暂无不合格记录</p>
+            <p className="text-center text-stone-400 py-8 text-sm">暂无不合格记录</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50">
-                  <th className="text-left px-3 py-2 text-gray-500 font-medium">日期</th>
-                  <th className="text-left px-3 py-2 text-gray-500 font-medium">姓名</th>
-                  <th className="text-left px-3 py-2 text-gray-500 font-medium">小组</th>
-                  <th className="text-left px-3 py-2 text-gray-500 font-medium">不合格原因</th>
+                <tr className="border-b bg-stone-50">
+                  <th className="text-left px-3 py-2 text-stone-500 font-medium">日期</th>
+                  <th className="text-left px-3 py-2 text-stone-500 font-medium">姓名</th>
+                  <th className="text-left px-3 py-2 text-stone-500 font-medium">小组</th>
+                  <th className="text-left px-3 py-2 text-stone-500 font-medium">不合格原因</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {historyData.map(r => (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-gray-600">{r.date}</td>
+                  <tr key={r.id} className="hover:bg-stone-50">
+                    <td className="px-3 py-2 text-stone-600">{r.date}</td>
                     <td className="px-3 py-2 font-medium text-red-600">{r.student_name}</td>
-                    <td className="px-3 py-2 text-gray-500">{r.group_name || '-'}</td>
-                    <td className="px-3 py-2 text-gray-600">{r.reason || '-'}</td>
+                    <td className="px-3 py-2 text-stone-500">{r.group_name || '-'}</td>
+                    <td className="px-3 py-2 text-stone-600">{r.reason || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -271,7 +271,7 @@ export default function MathHomeworkPage() {
           )}
           <button
             onClick={() => setShowHistory(false)}
-            className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50 text-sm"
+            className="mt-4 w-full py-2 text-stone-600 border rounded-lg hover:bg-stone-50 text-sm"
           >
             关闭
           </button>

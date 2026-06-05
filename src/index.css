@@ -14,6 +14,7 @@ html, body, #root {
 }
 
 body {
+  background-color: #fdfaf3;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;

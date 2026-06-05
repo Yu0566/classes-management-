@@ -53,18 +53,18 @@ export default function LunchRestPage() {
   const unsignedCount = records.filter(r => r.status === 'unsigned').length
   const longtermCount = records.filter(r => r.longterm).length
 
-  if (loading) return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+  if (loading) return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
 
   return (
     <div className="h-full overflow-auto">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">午餐午休考勤</h1>
+        <h1 className="text-2xl font-bold text-stone-800 mb-4">午餐午休考勤</h1>
 
         {/* 日期导航 */}
         <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() - 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeft size={20} /></button>
+          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() - 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-stone-100 rounded-lg"><ChevronLeft size={20} /></button>
           <span className="text-lg font-medium min-w-[180px] text-center">{date}</span>
-          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() + 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRight size={20} /></button>
+          <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() + 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-stone-100 rounded-lg"><ChevronRight size={20} /></button>
           <button onClick={() => setDate(todayStr())} className="px-3 py-1 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50">今天</button>
         </div>
 
@@ -73,11 +73,11 @@ export default function LunchRestPage() {
           {[
             { label: '已签到', value: signedCount, color: 'text-green-600' },
             { label: '请假', value: leaveCount, color: 'text-yellow-600' },
-            { label: '未设置', value: unsignedCount, color: 'text-gray-500' },
+            { label: '未设置', value: unsignedCount, color: 'text-stone-500' },
             { label: '长期请假', value: longtermCount, color: 'text-amber-600' },
           ].map(item => (
             <div key={item.label} className="bg-white rounded-lg border p-3 text-center">
-              <div className="text-xs text-gray-500">{item.label}</div>
+              <div className="text-xs text-stone-500">{item.label}</div>
               <div className={`text-lg font-bold ${item.color}`}>{item.value}</div>
             </div>
           ))}
@@ -85,7 +85,7 @@ export default function LunchRestPage() {
 
         {/* 批量操作 */}
         <div className="flex gap-2 mb-4">
-          <span className="text-sm text-gray-500 py-1.5">批量操作：</span>
+          <span className="text-sm text-stone-500 py-1.5">批量操作：</span>
           <button
             onClick={() => handleBatchSet('signed')}
             className="text-xs px-3 py-1.5 rounded-lg border bg-green-50 text-green-600 hover:bg-green-100"
@@ -98,30 +98,30 @@ export default function LunchRestPage() {
           >
             全部请假
           </button>
-          <span className="text-xs text-gray-400 py-1.5 ml-2">（长期请假学生不受影响）</span>
+          <span className="text-xs text-stone-400 py-1.5 ml-2">（长期请假学生不受影响）</span>
         </div>
 
         {/* 学生列表 */}
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">姓名</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-500 w-[80px]">小组</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">午休状态</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500 w-[80px]">长期请假</th>
+              <tr className="bg-stone-50 border-b">
+                <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">姓名</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-stone-500 w-[80px]">小组</th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-stone-500">午休状态</th>
+                <th className="text-center px-4 py-3 text-sm font-medium text-stone-500 w-[80px]">长期请假</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {records.map(r => {
                 const stat = LUNCH_REST_STATUS[r.status as LunchRestStatus] || LUNCH_REST_STATUS.leave
                 return (
-                  <tr key={r.studentId} className={`hover:bg-gray-50 ${r.longterm ? 'bg-amber-50/50' : ''}`}>
+                  <tr key={r.studentId} className={`hover:bg-stone-50 ${r.longterm ? 'bg-amber-50/50' : ''}`}>
                     <td className="px-4 py-2 font-medium text-sm">
                       {r.studentName}
                       {r.longterm && <span className="ml-1 text-xs text-amber-500">(长期)</span>}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-500">{r.groupName || '-'}</td>
+                    <td className="px-4 py-2 text-xs text-stone-500">{r.groupName || '-'}</td>
                     <td className="px-2 py-2 text-center">
                       {r.longterm ? (
                         <span className="text-xs px-3 py-1 rounded-full bg-amber-100 text-amber-700">请假</span>
@@ -140,7 +140,7 @@ export default function LunchRestPage() {
                         className={`text-xs px-2 py-1 rounded transition-colors ${
                           r.longterm
                             ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                            : 'text-gray-300 hover:text-amber-500 hover:bg-amber-50'
+                            : 'text-stone-300 hover:text-amber-500 hover:bg-amber-50'
                         }`}
                         title={r.longterm ? '取消长期请假' : '设为长期请假'}
                       >
@@ -153,7 +153,7 @@ export default function LunchRestPage() {
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-stone-400 mt-2">
           点击状态切换签到/请假 | 共 {records.length} 名在校就餐学生 | {longtermCount} 名长期请假
         </p>
       </div>

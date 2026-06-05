@@ -93,7 +93,7 @@ export default function GroupsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-gray-400">加载中...</div>
+        <div className="text-stone-400">加载中...</div>
       </div>
     )
   }
@@ -106,11 +106,11 @@ export default function GroupsPage() {
       <div className="max-w-6xl mx-auto p-6">
         {/* 顶部操作栏 */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">小组积分管理</h1>
+          <h1 className="text-2xl font-bold text-stone-800">小组积分管理</h1>
           <div className="flex gap-2">
             <button
               onClick={handleResetAll}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border rounded-lg hover:bg-stone-50 transition-colors"
               title="所有小组积分清零"
             >
               <Trash2 size={16} />
@@ -118,7 +118,7 @@ export default function GroupsPage() {
             </button>
             <button
               onClick={handleUndo}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border rounded-lg hover:bg-stone-50 transition-colors"
               title="撤销上一步积分操作"
             >
               <Undo size={16} />
@@ -126,14 +126,14 @@ export default function GroupsPage() {
             </button>
             <button
               onClick={handleRankingBonus}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border rounded-lg hover:bg-stone-50 transition-colors"
             >
               <Calculator size={16} />
               一键算分
             </button>
             <button
               onClick={() => setShowHistory(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-stone-600 border rounded-lg hover:bg-stone-50 transition-colors"
             >
               <History size={16} />
               操作历史
@@ -143,7 +143,7 @@ export default function GroupsPage() {
 
         {/* 排名榜 */}
         <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
-          <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <h2 className="font-semibold text-stone-700 mb-3 flex items-center gap-2">
             <TrendingUp size={18} className="text-primary-500" />
             总积分排名
           </h2>
@@ -161,7 +161,7 @@ export default function GroupsPage() {
                   }}
                 />
                 <div className="text-xs mt-1 text-center font-medium truncate w-full">{group.name}{group.leader_name ? `（${group.leader_name}）` : ''}</div>
-                <div className="text-xs text-gray-500">{group.total_score}</div>
+                <div className="text-xs text-stone-500">{group.total_score}</div>
               </div>
             ))}
           </div>
@@ -227,7 +227,7 @@ export default function GroupsPage() {
 
               {/* 快捷操作 */}
               <div className="p-3">
-                <p className="text-xs text-gray-400 mb-1">学习积分</p>
+                <p className="text-xs text-stone-400 mb-1">学习积分</p>
                 <div className="flex gap-1 mb-2">
                   {[1, 2, 3, 5, 10].map(n => (
                     <button
@@ -251,7 +251,7 @@ export default function GroupsPage() {
                   ))}
                 </div>
                 <div className="mt-3 pt-3 border-t">
-                  <p className="text-xs text-gray-400 mb-1">总积分</p>
+                  <p className="text-xs text-stone-400 mb-1">总积分</p>
                   <div className="flex gap-1 mb-2">
                     {[1, 2, 3, 5, 10].map(n => (
                       <button
@@ -280,7 +280,7 @@ export default function GroupsPage() {
           ))}
 
           {groups.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-400">
+            <div className="col-span-full text-center py-12 text-stone-400">
               <p className="text-4xl mb-2">📭</p>
               <p>还没有小组，请到"学生管理 → 小组管理"添加小组</p>
             </div>
@@ -292,19 +292,19 @@ export default function GroupsPage() {
       <Modal open={showHistory} onClose={() => setShowHistory(false)} title="操作历史（最近30条）">
         <div className="space-y-2">
           {history.length === 0 ? (
-            <p className="text-center text-gray-400 py-8">暂无操作记录</p>
+            <p className="text-center text-stone-400 py-8">暂无操作记录</p>
           ) : (
             history.map(h => (
-              <div key={h.id} className="flex items-center justify-between py-2 border-b border-gray-100 text-sm">
+              <div key={h.id} className="flex items-center justify-between py-2 border-b border-stone-100 text-sm">
                 <div>
                   <span className="font-medium">{h.group_name}</span>
-                  <span className="text-gray-400 ml-2">{h.reason}</span>
+                  <span className="text-stone-400 ml-2">{h.reason}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`font-bold ${h.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                     {h.delta >= 0 ? '+' : ''}{h.delta}
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-stone-400">
                     {new Date(h.created_at).toLocaleString('zh-CN')}
                   </span>
                 </div>
@@ -314,7 +314,7 @@ export default function GroupsPage() {
         </div>
         <button
           onClick={() => { setShowHistory(false); loadHistory() }}
-          className="mt-4 w-full py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
+          className="mt-4 w-full py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
         >
           关闭
         </button>

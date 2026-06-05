@@ -1,7 +1,7 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { initDatabase, getDatabase, closeDatabase } from './database/connection'
+import { initDatabase, getDatabase, closeDatabase, checkOldData } from './database/connection'
 import { registerIpcHandlers } from './ipc-handlers'
 import { stopServer, setNotifier } from './lan-server'
 import { stopTunnel } from './tunnel'
@@ -26,6 +26,12 @@ if (!gotTheLock) {
 
 let mainWindow: BrowserWindow | null = null
 const isDev = !app.isPackaged
+
+// 开发模式使用独立的 userData 目录，与正式版数据完全隔离
+if (isDev) {
+  const devUserData = path.join(app.getPath('userData'), '..', 'class-management-dev')
+  app.setPath('userData', devUserData)
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -78,6 +84,32 @@ app.whenReady().then(async () => {
   // 初始化数据库（开发模式使用独立数据库，避免测试数据污染正式版）
   const dbFileName = app.isPackaged ? 'class-management.db' : 'class-management-dev.db'
   const dbPath = path.join(app.getPath('userData'), dbFileName)
+
+  // 检测旧版本数据（仅在打包版提示，开发模式跳过以免干扰调试）
+  if (app.isPackaged) {
+    const { hasOldData, studentCount } = await checkOldData(dbPath)
+    if (hasOldData) {
+      const result = await dialog.showMessageBox({
+        type: 'question',
+        title: '检测到旧版本数据',
+        message: `检测到旧版本数据（${studentCount} 名学生）`,
+        detail: '是否同步旧数据到新版本？\n\n选择"同步"将保留所有历史数据（班级、积分、考勤、值日、成长记录等）。\n选择"全新开始"将以空白状态启动，旧数据将被备份为 .bak 文件。',
+        buttons: ['同步旧数据', '全新开始'],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      })
+
+      if (result.response === 1) {
+        // 用户选择"全新开始"——备份旧数据库
+        const bakPath = dbPath + '.' + Date.now() + '.bak'
+        fs.renameSync(dbPath, bakPath)
+        console.log('旧数据已备份到:', bakPath)
+      }
+      // 用户选择"同步"，直接使用现有数据库
+    }
+  }
+
   await initDatabase(dbPath)
 
   // 注册 IPC 处理器

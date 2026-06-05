@@ -108,8 +108,8 @@ export default function NotifyPage() {
         <div className="flex items-center gap-3 mb-6">
           <Megaphone size={28} className="text-amber-500" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">班级通知</h1>
-            <p className="text-sm text-gray-500">向教室电脑桌面发送弹窗通知</p>
+            <h1 className="text-2xl font-bold text-stone-800">班级通知</h1>
+            <p className="text-sm text-stone-500">向教室电脑桌面发送弹窗通知</p>
           </div>
         </div>
 
@@ -117,7 +117,7 @@ export default function NotifyPage() {
           <div className="space-y-4">
             {/* 内容 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">通知内容</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1">通知内容</label>
               <textarea
                 value={notifyMessage}
                 onChange={e => setNotifyMessage(e.target.value)}
@@ -126,12 +126,12 @@ export default function NotifyPage() {
                 className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
                 maxLength={200}
               />
-              <p className="text-xs text-gray-400 mt-1">{notifyMessage.length}/200</p>
+              <p className="text-xs text-stone-400 mt-1">{notifyMessage.length}/200</p>
             </div>
 
             {/* 显示方式 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">显示方式</label>
+              <label className="block text-sm font-medium text-stone-700 mb-2">显示方式</label>
               <div className="flex gap-3">
                 {[
                   { key: 'fullscreen' as const, label: '全屏显示', desc: '覆盖整个屏幕，适合重要通知', emoji: '🖥️' },
@@ -144,12 +144,12 @@ export default function NotifyPage() {
                     className={`flex-1 p-3 rounded-xl border-2 text-left transition-all ${
                       notifyMode === opt.key
                         ? 'border-amber-400 bg-amber-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-stone-200 hover:border-stone-300'
                     }`}
                   >
                     <div className="text-lg mb-0.5">{opt.emoji}</div>
-                    <div className="text-sm font-medium text-gray-700">{opt.label}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">{opt.desc}</div>
+                    <div className="text-sm font-medium text-stone-700">{opt.label}</div>
+                    <div className="text-xs text-stone-400 mt-0.5">{opt.desc}</div>
                   </button>
                 ))}
               </div>
@@ -157,7 +157,7 @@ export default function NotifyPage() {
 
             {/* 紧急程度 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">紧急程度</label>
+              <label className="block text-sm font-medium text-stone-700 mb-2">紧急程度</label>
               <div className="flex gap-2">
                 {([
                   { key: '普通' as const, label: '普通', emoji: '⚪', color: 'gray' },
@@ -170,13 +170,13 @@ export default function NotifyPage() {
                     onClick={() => setNotifyUrgency(u.key)}
                     className={`flex-1 p-2.5 rounded-xl border-2 text-center transition-all ${
                       notifyUrgency === u.key
-                        ? u.color === 'red' ? 'border-red-400 bg-red-50' : u.color === 'orange' ? 'border-orange-400 bg-orange-50' : 'border-gray-400 bg-gray-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? u.color === 'red' ? 'border-red-400 bg-red-50' : u.color === 'orange' ? 'border-orange-400 bg-orange-50' : 'border-stone-400 bg-stone-50'
+                        : 'border-stone-200 hover:border-stone-300'
                     }`}
                   >
                     <div className="text-base">{u.emoji}</div>
                     <div className={`text-xs font-medium mt-0.5 ${
-                      u.color === 'red' ? 'text-red-600' : u.color === 'orange' ? 'text-orange-600' : 'text-gray-600'
+                      u.color === 'red' ? 'text-red-600' : u.color === 'orange' ? 'text-orange-600' : 'text-stone-600'
                     }`}>{u.label}</div>
                   </button>
                 ))}
@@ -186,7 +186,7 @@ export default function NotifyPage() {
             {/* 停留时长 */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-stone-700">
                   停留时长：<span className="text-amber-600 font-bold">{notifyPermanent ? '长期' : `${notifyDuration} 秒`}</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer">
@@ -196,7 +196,7 @@ export default function NotifyPage() {
                     onChange={e => setNotifyPermanent(e.target.checked)}
                     className="w-3.5 h-3.5 rounded accent-amber-500"
                   />
-                  <span className="text-xs text-gray-500">长期显示（手动关闭）</span>
+                  <span className="text-xs text-stone-500">长期显示（手动关闭）</span>
                 </label>
               </div>
               {!notifyPermanent && (
@@ -206,9 +206,9 @@ export default function NotifyPage() {
                     min={5} max={120} step={5}
                     value={notifyDuration}
                     onChange={e => setNotifyDuration(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                    className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
                   />
-                  <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+                  <div className="flex justify-between text-xs text-stone-400 mt-0.5">
                     <span>5秒</span><span>30秒</span><span>60秒</span><span>120秒</span>
                   </div>
                 </>
@@ -217,9 +217,9 @@ export default function NotifyPage() {
 
             {/* 图片 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-stone-700 mb-1">
                 图片（可选 · 最多4张）
-                {notifyImages.length > 0 && <span className="text-gray-400 font-normal ml-1">({notifyImages.length}/4)</span>}
+                {notifyImages.length > 0 && <span className="text-stone-400 font-normal ml-1">({notifyImages.length}/4)</span>}
               </label>
               {notifyImages.length > 0 && (
                 <div className="flex gap-2 flex-wrap mb-2">
@@ -238,12 +238,12 @@ export default function NotifyPage() {
               )}
               {notifyImages.length < 4 && (
                 <div className="flex gap-2">
-                  <label className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm text-gray-500 hover:bg-gray-50 cursor-pointer">
+                  <label className="flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm text-stone-500 hover:bg-stone-50 cursor-pointer">
                     <ImageIcon size={14} />
                     选择图片
                     <input type="file" accept="image/*" multiple className="hidden" onChange={handleFilePick} />
                   </label>
-                  <span className="text-xs text-gray-400 self-center">或直接粘贴图片（Ctrl+V）</span>
+                  <span className="text-xs text-stone-400 self-center">或直接粘贴图片（Ctrl+V）</span>
                 </div>
               )}
             </div>
@@ -280,34 +280,34 @@ export default function NotifyPage() {
           {/* 历史记录 */}
           {notifyHistory.length > 0 && (
             <div className="border-t pt-4 mt-6">
-              <h4 className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-1.5">
+              <h4 className="text-sm font-medium text-stone-600 mb-2 flex items-center gap-1.5">
                 <Clock size={14} /> 最近发送记录
               </h4>
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
                 {notifyHistory.map(record => (
                   <div
                     key={record.id}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-200 cursor-pointer group transition-colors"
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-stone-50 border border-transparent hover:border-stone-200 cursor-pointer group transition-colors"
                     onClick={() => handleApplyHistory(record)}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${record.mode === 'fullscreen' ? 'bg-purple-400' : 'bg-amber-400'}`} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-700 truncate">{record.message}</div>
+                      <div className="text-sm text-stone-700 truncate">{record.message}</div>
                     </div>
                     {record.images && record.images.length > 0 && (
                       <div className="flex gap-0.5 flex-shrink-0">
                         {record.images.slice(0, 3).map((img, i) => (
                           <img key={i} src={img} className="w-7 h-7 rounded object-cover" alt="" />
                         ))}
-                        {record.images.length > 3 && <span className="text-[10px] text-gray-400 self-center">+{record.images.length - 3}</span>}
+                        {record.images.length > 3 && <span className="text-[10px] text-stone-400 self-center">+{record.images.length - 3}</span>}
                       </div>
                     )}
-                    <span className="text-[10px] text-gray-400 flex-shrink-0">
+                    <span className="text-[10px] text-stone-400 flex-shrink-0">
                       {record.urgency === '紧急' ? '🔴' : record.urgency === '重要' ? '🟠' : ''} {record.mode === 'fullscreen' ? '全屏' : '顶部'} · {record.duration === 0 ? '长期' : `${record.duration}s`}
                     </span>
                     <button
                       onClick={e => { e.stopPropagation(); handleDeleteHistory(record.id) }}
-                      className="p-1 rounded hover:bg-red-100 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                      className="p-1 rounded hover:bg-red-100 text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                     >
                       <Trash2 size={12} />
                     </button>
@@ -319,8 +319,8 @@ export default function NotifyPage() {
 
           {/* 使用说明 */}
           <div className="border-t pt-4 mt-6">
-            <h4 className="text-sm font-medium text-gray-600 mb-2">使用说明</h4>
-            <ul className="text-sm text-gray-500 space-y-1.5 list-disc list-inside">
+            <h4 className="text-sm font-medium text-stone-600 mb-2">使用说明</h4>
+            <ul className="text-sm text-stone-500 space-y-1.5 list-disc list-inside">
               <li>办公室电脑通过浏览器访问本系统的 LAN 地址</li>
               <li>填写标题、内容，选择显示方式和停留时长，可附带图片</li>
               <li>全屏显示：覆盖整个桌面，适合重要通知</li>

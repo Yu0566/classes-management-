@@ -98,7 +98,7 @@ export default function AttendancePage() {
   const attendanceRate = total > 0 ? Math.round((presentCount / total) * 100) : 100
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-gray-400">加载中...</div>
+    return <div className="flex items-center justify-center h-full text-stone-400">加载中...</div>
   }
 
   return (
@@ -106,12 +106,12 @@ export default function AttendancePage() {
       <div className="p-6">
         {/* 顶部 */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">每日考勤</h1>
+          <h1 className="text-2xl font-bold text-stone-800">每日考勤</h1>
           <div className="flex gap-2">
             <button
               onClick={() => setActiveTab('register')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === 'register' ? 'bg-primary-500 text-white' : 'border text-gray-600 hover:bg-gray-50'
+                activeTab === 'register' ? 'bg-primary-500 text-white' : 'border text-stone-600 hover:bg-stone-50'
               }`}
             >
               考勤登记
@@ -119,7 +119,7 @@ export default function AttendancePage() {
             <button
               onClick={() => setActiveTab('stats')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === 'stats' ? 'bg-primary-500 text-white' : 'border text-gray-600 hover:bg-gray-50'
+                activeTab === 'stats' ? 'bg-primary-500 text-white' : 'border text-stone-600 hover:bg-stone-50'
               }`}
             >
               <BarChart3 size={16} className="inline mr-1" />
@@ -132,11 +132,11 @@ export default function AttendancePage() {
           <>
             {/* 日期导航 */}
             <div className="flex items-center gap-3 mb-4">
-              <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => changeDate(-1)} className="p-2 hover:bg-stone-100 rounded-lg">
                 <ChevronLeft size={20} />
               </button>
               <span className="text-lg font-medium min-w-[200px] text-center">{formatDate(date)}</span>
-              <button onClick={() => changeDate(1)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => changeDate(1)} className="p-2 hover:bg-stone-100 rounded-lg">
                 <ChevronRight size={20} />
               </button>
               <button
@@ -154,10 +154,10 @@ export default function AttendancePage() {
                 { label: '正常', value: stats.normal, color: 'text-green-600' },
                 { label: '迟到', value: stats.late, color: 'text-yellow-600' },
                 { label: '缺勤', value: stats.absent, color: 'text-red-600' },
-                { label: '请假', value: stats.leave, color: 'text-gray-500' },
+                { label: '请假', value: stats.leave, color: 'text-stone-500' },
               ].map(item => (
                 <div key={item.label} className="bg-white rounded-lg border p-3 text-center">
-                  <div className="text-xs text-gray-500">{item.label}</div>
+                  <div className="text-xs text-stone-500">{item.label}</div>
                   <div className={`text-lg font-bold ${item.color}`}>{item.value}</div>
                 </div>
               ))}
@@ -165,7 +165,7 @@ export default function AttendancePage() {
 
             {/* 批量操作 */}
             <div className="flex gap-2 mb-4">
-              <span className="text-sm text-gray-500 py-1.5">批量设置：</span>
+              <span className="text-sm text-stone-500 py-1.5">批量设置：</span>
               {ATTENDANCE_CYCLE.map(s => (
                 <button
                   key={s}
@@ -181,20 +181,20 @@ export default function AttendancePage() {
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">姓名</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium text-gray-500 w-[80px]">小组</th>
-                    <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">考勤状态</th>
-                    <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">备注</th>
+                  <tr className="bg-stone-50 border-b">
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">姓名</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500 w-[80px]">小组</th>
+                    <th className="text-center px-4 py-3 text-sm font-medium text-stone-500">考勤状态</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">备注</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {records.map(r => {
                     const stat = ATTENDANCE_STATUS[r.status as AttendanceStatus] || ATTENDANCE_STATUS.normal
                     return (
-                      <tr key={r.studentId} className="hover:bg-gray-50">
+                      <tr key={r.studentId} className="hover:bg-stone-50">
                         <td className="px-4 py-2 font-medium text-sm">{r.studentName}</td>
-                        <td className="px-4 py-2 text-xs text-gray-500">{r.groupName || '-'}</td>
+                        <td className="px-4 py-2 text-xs text-stone-500">{r.groupName || '-'}</td>
                         <td className="px-2 py-2 text-center">
                           <button
                             onClick={() => handleCycle(r.studentId, r.status)}
@@ -223,7 +223,7 @@ export default function AttendancePage() {
                               </button>
                               <button
                                 onClick={() => setShowRemark(null)}
-                                className="text-xs text-gray-400 hover:underline"
+                                className="text-xs text-stone-400 hover:underline"
                               >
                                 取消
                               </button>
@@ -231,7 +231,7 @@ export default function AttendancePage() {
                           ) : (
                             <button
                               onClick={() => { setShowRemark(r.studentId); setRemarkText(r.remark || '') }}
-                              className="text-xs text-gray-400 hover:text-primary-500 cursor-pointer"
+                              className="text-xs text-stone-400 hover:text-primary-500 cursor-pointer"
                             >
                               {r.remark || '点击添加备注'}
                             </button>
@@ -244,7 +244,7 @@ export default function AttendancePage() {
               </table>
             </div>
 
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="text-xs text-stone-400 mt-2">
               点击状态按钮循环切换 | 点击备注列添加请假原因等 | 共 {total} 名学生
             </p>
           </>
@@ -258,7 +258,7 @@ export default function AttendancePage() {
                 onChange={e => setStatsStart(e.target.value)}
                 className="border rounded-lg px-3 py-1.5 text-sm"
               />
-              <span className="text-gray-400">至</span>
+              <span className="text-stone-400">至</span>
               <input
                 type="date"
                 value={statsEnd}
@@ -273,16 +273,16 @@ export default function AttendancePage() {
                 { label: '日均出勤率', value: `${attendanceRate}%`, color: 'text-green-600' },
                 { label: '迟到总人次', value: stats.late, color: 'text-yellow-600' },
                 { label: '缺勤总人次', value: stats.absent, color: 'text-red-600' },
-                { label: '请假总人次', value: stats.leave, color: 'text-gray-500' },
+                { label: '请假总人次', value: stats.leave, color: 'text-stone-500' },
               ].map(item => (
                 <div key={item.label} className="bg-white rounded-lg border p-4 text-center">
-                  <div className="text-sm text-gray-500 mb-1">{item.label}</div>
+                  <div className="text-sm text-stone-500 mb-1">{item.label}</div>
                   <div className={`text-2xl font-bold ${item.color}`}>{item.value}</div>
                 </div>
               ))}
             </div>
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-stone-400">
               统计范围：{statsStart} ~ {statsEnd}（统计功能将在后续版本支持更多维度）
             </p>
           </>

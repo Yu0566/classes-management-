@@ -140,15 +140,15 @@ export default function DataImportPage() {
   return (
     <div className="h-full overflow-auto">
       <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">数据导入</h1>
-        <p className="text-sm text-gray-500 mb-6">
+        <h1 className="text-2xl font-bold text-stone-800 mb-2">数据导入</h1>
+        <p className="text-sm text-stone-500 mb-6">
           从 Web 版班级管理系统或桌面版导出的 JSON 文件，将数据迁移到桌面版
         </p>
 
         {/* 导入按钮 */}
         <div className="bg-white rounded-xl shadow-sm border p-8 text-center mb-6">
           <Upload size={48} className="mx-auto mb-3 text-primary-400" />
-          <p className="text-gray-600 mb-4">选择 JSON 备份文件</p>
+          <p className="text-stone-600 mb-4">选择 JSON 备份文件</p>
           <button
             onClick={handleFileSelect}
             disabled={importing}
@@ -156,7 +156,7 @@ export default function DataImportPage() {
           >
             {importing ? '导入中...' : '选择文件并导入'}
           </button>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-stone-400 mt-2">
             支持桌面版 v3 全量备份格式和 Web 版 localStorage 格式
           </p>
         </div>
@@ -164,13 +164,13 @@ export default function DataImportPage() {
         {/* 预览 + 确认导入 */}
         {preview && !result && pendingData && (
           <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-            <h3 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+            <h3 className="font-medium text-stone-800 mb-3 flex items-center gap-2">
               <Database size={18} className="text-blue-500" /> 数据预览
             </h3>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {Object.entries(preview).map(([key, count]) => (
-                <div key={key} className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                  {key}：<span className="font-semibold text-gray-800">{count}</span> 条
+                <div key={key} className="text-sm text-stone-600 bg-stone-50 rounded-lg px-3 py-2">
+                  {key}：<span className="font-semibold text-stone-800">{count}</span> 条
                 </div>
               ))}
             </div>
@@ -218,7 +218,7 @@ export default function DataImportPage() {
               </button>
               <button
                 onClick={() => { setPreview(null); setPendingData(null) }}
-                className="px-4 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
+                className="px-4 py-2.5 border rounded-lg text-stone-600 hover:bg-stone-50 text-sm"
               >
                 取消
               </button>
@@ -254,7 +254,7 @@ export default function DataImportPage() {
               {result.attendanceRecords > 0 && <p className="text-sm">考勤记录：{result.attendanceRecords} 条</p>}
               {result.homeworkRecords > 0 && <p className="text-sm">作业记录：{result.homeworkRecords} 条</p>}
               {Object.values(result).every(v => typeof v === 'number' && v === 0) && !result.errors.length && (
-                <p className="text-sm text-gray-400">未识别到有效数据</p>
+                <p className="text-sm text-stone-400">未识别到有效数据</p>
               )}
             </div>
 
@@ -269,7 +269,7 @@ export default function DataImportPage() {
 
             <button
               onClick={() => { setResult(null); setPreview(null) }}
-              className="mt-4 px-4 py-2 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm"
+              className="mt-4 px-4 py-2 border rounded-lg text-stone-600 hover:bg-stone-50 text-sm"
             >
               导入更多
             </button>
