@@ -29,6 +29,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('app:closing', callback)
   },
 
+  // 数据变更通知（主窗口用）
+  onDataChanged: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('main:refresh', handler)
+    return () => ipcRenderer.removeListener('main:refresh', handler)
+  },
+
   // 通知事件
   onNotifyShow: (callback: (notification: { title: string; message: string }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, notification: { title: string; message: string }) => callback(notification)
@@ -58,6 +65,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     start: (port: number) => ipcRenderer.invoke('lan:start', port),
     stop: () => ipcRenderer.invoke('lan:stop'),
     getStatus: () => ipcRenderer.invoke('lan:status'),
+    setDeviceName: (name: string) => ipcRenderer.invoke('device-name:set', name),
   },
 
   // Cloudflare Tunnel 控制

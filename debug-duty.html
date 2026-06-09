@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>值日数据排查</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; max-width: 900px; margin: 0 auto; background: #fdfaf3; }
+  h2 { color: #444; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; background: #fff; border-radius: 8px; overflow: hidden; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+  th { background: #f5f0e8; }
+  .err { color: red; padding: 12px; background: #fff0f0; border-radius: 8px; }
+  .loading { color: #999; padding: 20px; }
+</style>
+</head>
+<body>
+<h2>值日排查 - duty_records（最近10条）</h2>
+<div id="r1" class="loading">加载中...</div>
+
+<h2>每天值日学生数 & 签到情况</h2>
+<div id="r2" class="loading">加载中...</div>
+
+<h2>扣分记录</h2>
+<div id="r3" class="loading">加载中...</div>
+
+<script>
+const BASE = 'https://classmanagement.top';
+function post(sql) {
+  return fetch(BASE + '/api/db/query', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({sql})
+  }).then(r => r.json()).then(d => d.data);
+}
+function tbl(rows) {
+  if (!rows || rows.length === 0) return '<p>无数据</p>';
+  var cols = Object.keys(rows[0]);
+  var h = '<tr>' + cols.map(function(c){return '<th>' + c + '</th>';}).join('') + '</tr>';
+  var body = rows.map(function(r){
+    return '<tr>' + cols.map(function(c){
+      var v = r[c];
+      if (v === null) v = '<i>null</i>';
+      else if (typeof v === 'number' && c.includes('_at')) v = new Date(v).toLocaleString('zh-CN');
+      return '<td>' + v + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+  return '<table>' + h + body + '</table>';
+}
+
+Promise.all([
+  post('SELECT * FROM duty_records ORDER BY date DESC LIMIT 10'),
+  post(`SELECT dr.date, COUNT(ds.id) as total_students, SUM(CASE WHEN ds.sign_in_time IS NOT NULL THEN 1 ELSE 0 END) as signed, SUM(CASE WHEN ds.sign_in_time IS NULL THEN 1 ELSE 0 END) as not_signed, SUM(CASE WHEN ds.penalty_applied=1 THEN 1 ELSE 0 END) as penalized FROM duty_records dr LEFT JOIN duty_students ds ON ds.duty_record_id=dr.id GROUP BY dr.date ORDER BY dr.date DESC LIMIT 10`),
+  post(`SELECT student_name, points, reason, date, datetime(timestamp/1000,'unixepoch','localtime') as time FROM deduction_records WHERE reason='值日未签到' ORDER BY date DESC, time DESC LIMIT 20`)
+]).then(function(results) {
+  document.getElementById('r1').innerHTML = tbl(results[0]);
+  document.getElementById('r2').innerHTML = tbl(results[1]);
+  document.getElementById('r3').innerHTML = tbl(results[2]);
+}).catch(function(e) {
+  document.getElementById('r1').innerHTML = '<div class="err">错误: ' + e.message + '</div>';
+  document.getElementById('r2').innerHTML = '';
+  document.getElementById('r3').innerHTML = '';
+});
+</script>
+</body>
+</html>

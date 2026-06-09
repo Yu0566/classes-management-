@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { History, RefreshCw, CheckCheck, Crown } from 'lucide-react'
+import { History, RefreshCw, CheckCheck, Crown, Edit3 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as homeworkApi from '@/lib/homework'
 import * as studentApi from '@/lib/students'
 import * as groupApi from '@/lib/groups'
@@ -18,16 +19,32 @@ const STATUS_MAP: Record<HomeworkStatus, { label: string; color: string; icon: s
 
 const STATUS_ORDER: HomeworkStatus[] = ['complete', 'incomplete', 'partial']
 
+const WEEKDAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+function todayStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function formatDateCN(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${WEEKDAY_NAMES[d.getDay()]}`
+}
+
 export default function HomeworkPage() {
+  const { confirm } = useConfirm()
   const [students, setStudents] = useState<StudentWithGroup[]>([])
   const [groups, setGroups] = useState<Group[]>([])
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(todayStr())
+  const [supplementMode, setSupplementMode] = useState(false)
   const [subjects, setSubjects] = useState<string[]>([...DEFAULT_SELECTED])
   const [records, setRecords] = useState<Map<string, HomeworkStatus>>(new Map())
   const [loading, setLoading] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [historyData, setHistoryData] = useState<homeworkApi.HomeworkRecordWithStudent[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+
+  const isToday = date === todayStr()
 
   const loadAll = useCallback(async () => {
     const [s, allGroups, subjs, recs] = await Promise.all([
@@ -78,7 +95,8 @@ export default function HomeworkPage() {
     })
   }
 
-  const resetStudentAllIncomplete = async (studentId: string) => {
+  const resetStudentAllIncomplete = async (studentId: string, studentName: string) => {
+    if (!await confirm({ message: `确认将"${studentName}"所有科目设为未交？` })) return
     for (const subj of subjects) {
       await homeworkApi.setHomeworkStatus(studentId, date, subj, 'incomplete')
     }
@@ -93,6 +111,8 @@ export default function HomeworkPage() {
 
   const resetGroupAllComplete = async () => {
     if (!selectedGroup) return
+    const group = groups.find(g => g.id === selectedGroup)
+    if (!await confirm({ message: `确认将"${group?.name || '本组'}"所有学生全科设为交齐？\n此操作会清除该组今天的全部作业登记数据。` })) return
     const groupStudents = students.filter(s => s.group_id === selectedGroup)
     for (const s of groupStudents) {
       for (const subj of subjects) {
@@ -136,14 +156,37 @@ export default function HomeworkPage() {
 
         {/* 日期和科目选择 */}
         <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
-          <div className="flex items-center gap-4 mb-3">
-            <span className="text-sm text-stone-500">日期：</span>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
+          <div className="flex items-center gap-3 mb-3">
+            {supplementMode ? (
+              <>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+                <button
+                  onClick={() => { setDate(todayStr()); setSupplementMode(false) }}
+                  className="text-xs px-3 py-1.5 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200"
+                >
+                  返回今天
+                </button>
+              </>
+            ) : (
+              <>
+                <span className={`text-lg font-bold ${isToday ? 'text-primary-600' : 'text-stone-700'}`}>
+                  {formatDateCN(date)}
+                  {isToday && <span className="ml-2 text-xs bg-primary-100 text-primary-600 px-2 py-0.5 rounded-full align-middle">今天</span>}
+                </span>
+                <button
+                  onClick={() => setSupplementMode(true)}
+                  className="text-xs px-2 py-1 text-stone-400 hover:text-stone-600 border rounded hover:bg-stone-50 flex items-center gap-1"
+                  title="补登其他日期"
+                >
+                  <Edit3 size={12} /> 补登
+                </button>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-stone-500 mr-1">今日科目：</span>
@@ -223,7 +266,7 @@ export default function HomeworkPage() {
                                     <Crown size={13} className="text-yellow-500" />
                                   )}
                                   <button
-                                    onClick={() => resetStudentAllIncomplete(s.id)}
+                                    onClick={() => resetStudentAllIncomplete(s.id, s.name)}
                                     className="p-0.5 text-stone-300 hover:text-red-500 transition-colors"
                                     title="全科设为未交"
                                   >

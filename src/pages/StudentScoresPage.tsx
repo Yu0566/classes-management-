@@ -1,36 +1,40 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowUpDown, Search } from 'lucide-react'
+import { ArrowUpDown, Lock, Search } from 'lucide-react'
 import * as studentApi from '@/lib/students'
 import { adjustStudentScore } from '@/lib/students'
 import { queryAll } from '@/lib/db'
 import { calculateAllScores, resetAllScores, type StudentScore } from '@/lib/scores'
 import { getAllScoreSettings, setScoreSetting, setScorePoints } from '@/lib/score-settings'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
-import type { StudentWithGroup, DailyStatus, DeductionRecord, ManualAdjustRecord } from '@/types'
+import { DUTY_PASSWORD } from '@/lib/duty'
+import type { StudentWithGroup, DailyStatus } from '@/types'
+import { getUnifiedLedger, type LedgerEntry, type LedgerType } from '@/lib/score-ledger'
 
 type SortKey = keyof StudentScore
 
 export default function StudentScoresPage() {
   const { confirm } = useConfirm()
-  const [tab, setTab] = useState<'scores' | 'deductions'>('scores')
+  const [tab, setTab] = useState<'scores' | 'ledger'>('scores')
   const [scores, setScores] = useState<StudentScore[]>([])
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('total')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [enabledCategories, setEnabledCategories] = useState<Set<string>>(new Set())
   const [categoryPoints, setCategoryPoints] = useState<Map<string, number>>(new Map())
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [passwordError, setPasswordError] = useState('')
 
-  // 扣分记录相关
-  const [deductions, setDeductions] = useState<DeductionRecord[]>([])
-  const [manualAdjusts, setManualAdjusts] = useState<ManualAdjustRecord[]>([])
+  // 积分流水
+  const [ledger, setLedger] = useState<LedgerEntry[]>([])
+  const [ledgerType, setLedgerType] = useState<LedgerType | 'all'>('all')
   const [searchName, setSearchName] = useState('')
   const [searchDate, setSearchDate] = useState('')
   const loadData = useCallback(async () => {
-    const [students, allStatuses, d, m] = await Promise.all([
+    const [students, allStatuses, ledgerData] = await Promise.all([
       studentApi.getAllStudents(),
       queryAll<DailyStatus>('SELECT * FROM daily_statuses'),
-      queryAll<DeductionRecord>('SELECT * FROM deduction_records ORDER BY timestamp DESC LIMIT 500'),
-      queryAll<ManualAdjustRecord>('SELECT * FROM manual_adjust_records ORDER BY timestamp DESC LIMIT 500'),
+      getUnifiedLedger(),
     ])
 
     const statusMap = new Map<string, DailyStatus[]>()
@@ -50,8 +54,7 @@ export default function StudentScoresPage() {
     setEnabledCategories(enabled)
     setCategoryPoints(pts)
     setScores(calculateAllScores(students, statusMap, enabled, pts))
-    setDeductions(d)
-    setManualAdjusts(m)
+    setLedger(ledgerData)
     setLoading(false)
   }, [])
 
@@ -80,16 +83,22 @@ export default function StudentScoresPage() {
     </th>
   )
 
-  const filteredDeductions = deductions.filter(d => {
-    if (searchName && !d.student_name.includes(searchName)) return false
-    if (searchDate && d.date !== searchDate) return false
+  const filteredLedger = ledger.filter(entry => {
+    if (ledgerType !== 'all' && entry.type !== ledgerType) return false
+    if (searchName) {
+      const name = entry.studentName || entry.groupName || ''
+      if (!name.includes(searchName)) return false
+    }
+    if (searchDate && entry.date !== searchDate) return false
     return true
   })
 
-  const filteredManual = manualAdjusts.filter(m => {
-    if (searchName && !m.student_name.includes(searchName)) return false
-    return true
-  })
+  const deductionCount = ledger.filter(e => e.type === 'deduction').length
+  const deductionTotal = ledger.filter(e => e.type === 'deduction').reduce((s, e) => s + e.points, 0)
+  const manualCount = ledger.filter(e => e.type === 'manual').length
+  const manualTotal = ledger.filter(e => e.type === 'manual').reduce((s, e) => s + e.points, 0)
+  const groupCount = ledger.filter(e => e.type === 'group').length
+  const groupTotal = ledger.filter(e => e.type === 'group').reduce((s, e) => s + e.points, 0)
 
   const quickAdjust = async (studentId: string, studentName: string, delta: number) => {
     try {
@@ -122,7 +131,20 @@ export default function StudentScoresPage() {
   }
 
   const handleReset = async () => {
-    if (!await confirm({ message: '确认清零所有个人积分？\n\n这将清空所有学生的积分、每日状态、扣分记录和手动调整记录。此操作不可恢复。' })) return
+    setPasswordModalOpen(true)
+    setPasswordInput('')
+    setPasswordError('')
+  }
+
+  const confirmReset = async () => {
+    const dutyPassword = localStorage.getItem('duty_password') || DUTY_PASSWORD
+    if (passwordInput !== dutyPassword) {
+      setPasswordError('密码错误')
+      return
+    }
+    setPasswordModalOpen(false)
+    setPasswordInput('')
+    setPasswordError('')
     await resetAllScores()
     await loadData()
   }
@@ -146,18 +168,18 @@ export default function StudentScoresPage() {
               积分一览
             </button>
             <button
-              onClick={() => setTab('deductions')}
+              onClick={() => setTab('ledger')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                tab === 'deductions' ? 'bg-primary-500 text-white' : 'border border-stone-200 text-stone-500 hover:bg-stone-50'
+                tab === 'ledger' ? 'bg-primary-500 text-white' : 'border border-stone-200 text-stone-500 hover:bg-stone-50'
               }`}
             >
-              扣分记录
+              积分流水
             </button>
             <button
               onClick={handleReset}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
             >
-              积分清零
+              <Lock size={14} /> 密码清零
             </button>
           </div>
         </div>
@@ -302,13 +324,13 @@ export default function StudentScoresPage() {
           </>
         ) : (
           <>
-            {/* 扣分统计概览 */}
+            {/* 积分流水统计概览 */}
             <div className="grid grid-cols-4 gap-3 mb-4">
               {[
-                { label: '扣分总条数', value: deductions.length, color: 'text-red-600' },
-                { label: '累计扣分', value: deductions.reduce((s, d) => s + d.points, 0), color: 'text-red-600' },
-                { label: '手动调整条数', value: manualAdjusts.length, color: 'text-blue-600' },
-                { label: '手动调整净额', value: manualAdjusts.reduce((s, m) => s + m.delta, 0), color: 'text-blue-600' },
+                { label: '系统扣分', value: `${deductionCount}条 / ${deductionTotal}分`, color: 'text-red-600' },
+                { label: '手动调整', value: `${manualCount}条 / ${manualTotal >= 0 ? '+' : ''}${manualTotal}分`, color: 'text-blue-600' },
+                { label: '小组操作', value: `${groupCount}条 / ${groupTotal >= 0 ? '+' : ''}${groupTotal}分`, color: 'text-amber-600' },
+                { label: '流水总计', value: `${ledger.length}条`, color: 'text-stone-600' },
               ].map(item => (
                 <div key={item.label} className="bg-white rounded-lg border p-3 text-center">
                   <div className="text-xs text-stone-500">{item.label}</div>
@@ -318,76 +340,82 @@ export default function StudentScoresPage() {
             </div>
 
             {/* 筛选 */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <div className="flex gap-1 bg-stone-100 rounded-lg p-0.5">
+                {([
+                  ['all', '全部'],
+                  ['deduction', '系统扣分'],
+                  ['manual', '手动调整'],
+                  ['group', '小组操作'],
+                ] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setLedgerType(key)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      ledgerType === key ? 'bg-white text-stone-700 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
               <div className="relative">
                 <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400" />
                 <input
-                  type="text" placeholder="搜索姓名..."
+                  type="text" placeholder="搜索姓名/小组..."
                   value={searchName} onChange={e => setSearchName(e.target.value)}
-                  className="pl-7 pr-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-400 w-32"
+                  className="pl-7 pr-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-400 w-36"
                 />
               </div>
               <input
                 type="date" value={searchDate} onChange={e => setSearchDate(e.target.value)}
                 className="border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
               />
+              {(ledgerType !== 'all' || searchName || searchDate) && (
+                <button
+                  onClick={() => { setLedgerType('all'); setSearchName(''); setSearchDate('') }}
+                  className="text-xs text-stone-400 hover:text-stone-600 underline"
+                >清除筛选</button>
+              )}
             </div>
 
-            {/* 系统扣分列表 */}
-            <div className="bg-white rounded-xl shadow-sm border overflow-hidden mb-4">
-              <h3 className="px-4 py-2 text-sm font-medium text-stone-500 bg-stone-50 border-b">系统自动扣分</h3>
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-stone-50 border-b">
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">姓名</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">扣分</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">原因</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">日期</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">时间</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredDeductions.map(d => (
-                    <tr key={d.id} className="hover:bg-stone-50">
-                      <td className="px-4 py-2 text-sm font-medium">{d.student_name}</td>
-                      <td className="px-4 py-2 text-sm text-red-600 font-bold">-{d.points}</td>
-                      <td className="px-4 py-2 text-sm text-stone-600">{d.reason}</td>
-                      <td className="px-4 py-2 text-sm text-stone-400">{d.date}</td>
-                      <td className="px-4 py-2 text-xs text-stone-400">{new Date(d.timestamp).toLocaleString('zh-CN')}</td>
-                    </tr>
-                  ))}
-                  {filteredDeductions.length === 0 && (
-                    <tr><td colSpan={5} className="text-center py-8 text-stone-400 text-sm">暂无系统扣分记录</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* 手动调整列表 */}
+            {/* 统一流水表 */}
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-              <h3 className="px-4 py-2 text-sm font-medium text-stone-500 bg-stone-50 border-b">手动调整记录</h3>
               <table className="w-full">
                 <thead>
                   <tr className="bg-stone-50 border-b">
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">姓名</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">调整</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">原因</th>
-                    <th className="text-left px-4 py-2 text-sm font-medium text-stone-500">时间</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500 w-16">类型</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">姓名</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">小组</th>
+                    <th className="text-center px-4 py-3 text-sm font-medium text-stone-500 w-16">变动</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500">原因</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500 w-24">日期</th>
+                    <th className="text-left px-4 py-3 text-sm font-medium text-stone-500 w-36">时间</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredManual.map(m => (
-                    <tr key={m.id} className="hover:bg-stone-50">
-                      <td className="px-4 py-2 text-sm font-medium">{m.student_name}</td>
-                      <td className={`px-4 py-2 text-sm font-bold ${m.delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {m.delta >= 0 ? '+' : ''}{m.delta}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-stone-600">{m.reason}</td>
-                      <td className="px-4 py-2 text-xs text-stone-400">{new Date(m.timestamp).toLocaleString('zh-CN')}</td>
-                    </tr>
-                  ))}
-                  {filteredManual.length === 0 && (
-                    <tr><td colSpan={4} className="text-center py-8 text-stone-400 text-sm">暂无手动调整记录</td></tr>
+                  {filteredLedger.map(entry => {
+                    const typeTag = entry.type === 'deduction'
+                      ? { label: '系统扣分', cls: 'bg-red-100 text-red-700' }
+                      : entry.type === 'manual'
+                        ? { label: '手动调整', cls: 'bg-blue-100 text-blue-700' }
+                        : { label: '小组操作', cls: 'bg-amber-100 text-amber-700' }
+                    const pointsCls = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-stone-400'
+                    const pointsStr = entry.points > 0 ? `+${entry.points}` : `${entry.points}`
+                    return (
+                      <tr key={`${entry.type}-${entry.id}`} className="hover:bg-stone-50">
+                        <td className="px-4 py-2">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${typeTag.cls}`}>{typeTag.label}</span>
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">{entry.studentName || '-'}</td>
+                        <td className="px-4 py-2 text-sm text-stone-500">{entry.groupName || '-'}</td>
+                        <td className={`px-4 py-2 text-sm font-bold text-center ${pointsCls}`}>{pointsStr}</td>
+                        <td className="px-4 py-2 text-sm text-stone-600">{entry.reason}</td>
+                        <td className="px-4 py-2 text-sm text-stone-400">{entry.date || '-'}</td>
+                        <td className="px-4 py-2 text-xs text-stone-400">{new Date(entry.timestamp).toLocaleString('zh-CN')}</td>
+                      </tr>
+                    )
+                  })}
+                  {filteredLedger.length === 0 && (
+                    <tr><td colSpan={7} className="text-center py-12 text-stone-400 text-sm">暂无积分流水记录</td></tr>
                   )}
                 </tbody>
               </table>
@@ -395,6 +423,30 @@ export default function StudentScoresPage() {
           </>
         )}
       </div>
+
+      {/* 密码验证弹窗 */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setPasswordModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-stone-800 mb-2">验证密码</h3>
+            <p className="text-sm text-stone-500 mb-3">清零个人积分将删除所有学生的积分、每日状态、扣分记录和手动调整记录，此操作不可恢复。</p>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={e => { setPasswordInput(e.target.value); setPasswordError('') }}
+              onKeyDown={e => e.key === 'Enter' && passwordInput && confirmReset()}
+              placeholder="请输入管理员密码"
+              autoFocus
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 mb-2"
+            />
+            {passwordError && <p className="text-xs text-red-500 mb-2">{passwordError}</p>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setPasswordModalOpen(false)} className="px-4 py-2 text-sm text-stone-500 hover:bg-stone-100 rounded-lg transition-colors">取消</button>
+              <button onClick={confirmReset} disabled={!passwordInput} className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors">确认清零</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

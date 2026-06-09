@@ -4,7 +4,14 @@ async function apiCall(endpoint: string, body: Record<string, unknown>): Promise
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) {
+    let serverMsg = `HTTP ${res.status}`
+    try {
+      const errBody = await res.json()
+      if (errBody?.error) serverMsg = errBody.error
+    } catch { /* ignore */ }
+    throw new Error(serverMsg)
+  }
   return res.json()
 }
 

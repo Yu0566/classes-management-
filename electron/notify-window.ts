@@ -16,20 +16,24 @@ function getDevPort(): number {
 
 export type NotifyMode = 'fullscreen' | 'top'
 export type Urgency = '普通' | '重要' | '紧急'
+export type ConfirmMode = 'none' | 'any' | 'specific'
 
 interface NotifyItem {
+  notificationId: string
   message: string
   mode: NotifyMode
   duration: number
   images: string[]
   urgency: Urgency
+  confirmMode: ConfirmMode
+  confirmStudents: string[]
+  lanPort: number
 }
 
 const queue: NotifyItem[] = []
 let activeWin: BrowserWindow | null = null
 
 function createNotifyWindow(item: NotifyItem): BrowserWindow {
-  console.log('[NotifyWindow] createNotifyWindow item.urgency:', item.urgency, 'item:', JSON.stringify({ message: item.message, mode: item.mode, duration: item.duration, urgency: item.urgency }))
   const isTop = item.mode === 'top'
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
@@ -37,12 +41,10 @@ function createNotifyWindow(item: NotifyItem): BrowserWindow {
   const win = new BrowserWindow({
     ...(isTop
       ? {
-          x: 0,
-          y: 0,
+          x: 0, y: 0,
           width: screenWidth,
           height: Math.floor(screenHeight / 3),
-          resizable: false,
-          movable: false,
+          resizable: false, movable: false,
         }
       : {
           fullscreen: true,
@@ -63,10 +65,16 @@ function createNotifyWindow(item: NotifyItem): BrowserWindow {
     : `file://${path.join(__dirname, '../dist/notify.html').replace(/\\/g, '/')}`
 
   const params = new URLSearchParams()
+  params.set('id', item.notificationId)
   params.set('message', item.message)
   params.set('mode', item.mode)
   params.set('duration', String(item.duration))
   params.set('urgency', item.urgency)
+  params.set('confirm_mode', item.confirmMode)
+  params.set('lan_port', String(item.lanPort))
+  if (item.confirmStudents.length > 0) {
+    params.set('confirm_students', item.confirmStudents.join(','))
+  }
   if (item.images && item.images.length > 0) {
     win.webContents.on('did-finish-load', () => {
       if (!win.isDestroyed()) {
@@ -80,7 +88,8 @@ function createNotifyWindow(item: NotifyItem): BrowserWindow {
 
   win.loadURL(`${baseUrl}?${params.toString()}&_t=${Date.now()}`)
 
-  if (item.duration > 0) {
+  // 需要确认的通知不自动关闭
+  if (item.duration > 0 && item.confirmMode === 'none') {
     const durationMs = item.duration * 1000
     setTimeout(() => {
       if (!win.isDestroyed()) win.close()
@@ -104,15 +113,26 @@ function showNext(): void {
 }
 
 export function showNotificationWindow(
-  _title: string,
+  notificationId: string,
   message: string,
   mode: NotifyMode = 'fullscreen',
   duration?: number,
   images?: string[],
-  urgency: Urgency = '普通'
+  urgency: Urgency = '普通',
+  confirmMode: ConfirmMode = 'none',
+  confirmStudents: string[] = [],
+  lanPort?: number,
 ): void {
   const effectiveDuration = duration ?? (mode === 'top' ? 8 : 30)
-  const item: NotifyItem = { message, mode, duration: effectiveDuration, images: images || [], urgency }
+  const item: NotifyItem = {
+    notificationId, message, mode,
+    duration: effectiveDuration,
+    images: images || [],
+    urgency,
+    confirmMode,
+    confirmStudents,
+    lanPort: lanPort || 3456,
+  }
 
   if (activeWin && !activeWin.isDestroyed()) {
     if (mode === 'top') {

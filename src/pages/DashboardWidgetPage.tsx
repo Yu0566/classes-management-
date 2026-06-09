@@ -3,6 +3,7 @@ import {
   Users, Medal, AlertTriangle, CheckCircle, Calculator,
   X, Maximize2, GripVertical, Coins, Shield, CalendarDays
 } from 'lucide-react'
+import * as coinsApi from '@/lib/coins'
 import * as groupApi from '@/lib/groups'
 import * as studentApi from '@/lib/students'
 import * as dutyApi from '@/lib/duty'
@@ -90,7 +91,7 @@ export default function DashboardWidgetPage() {
       groupApi.getAllGroups(),
       studentApi.getAllStudents(),
       getDailyStatuses(date),
-      queryAll<CoinGroup>('SELECT * FROM coin_groups'),
+      coinsApi.syncCoinGroups(),
     ])
     setGroups(g)
     setStudents(s)
@@ -678,16 +679,17 @@ export default function DashboardWidgetPage() {
                 <span className="text-[10px] text-stone-400">目标 {COIN_TARGET}</span>
               </div>
               <div className="space-y-1.5">
-                {belowTargetGroups.map(cg => {
+                {[...coinGroups].sort((a, b) => b.coins - a.coins).map(cg => {
                   const pct = Math.round((cg.coins / COIN_TARGET) * 100)
+                  const reached = cg.coins >= COIN_TARGET
                   return (
                     <div key={cg.id}>
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="text-[11px] text-stone-500">{cg.name}</span>
-                        <span className="text-[10px] text-stone-400 font-mono">{cg.coins}/{COIN_TARGET}</span>
+                        <span className={`text-[10px] font-mono ${reached ? 'text-emerald-600 font-semibold' : 'text-stone-400'}`}>{cg.coins}/{COIN_TARGET}</span>
                       </div>
                       <div className="h-1 bg-stone-100 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${Math.min(pct, 100)}%`, background: `linear-gradient(90deg, #fbbf24, ${pct >= 100 ? '#34d399' : '#f59e0b'})` }} />
+                        <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${Math.min(pct, 100)}%`, background: reached ? 'linear-gradient(90deg, #34d399, #10b981)' : 'linear-gradient(90deg, #fbbf24, #f59e0b)' }} />
                       </div>
                     </div>
                   )

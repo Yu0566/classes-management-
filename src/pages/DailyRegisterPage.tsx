@@ -511,6 +511,75 @@ export default function DailyRegisterPage() {
           )
         })}
 
+        {/* 未分组学生 */}
+        {(() => {
+          const ungrouped = students.filter(s => !s.group_id || !groupMap.has(s.group_id))
+          if (ungrouped.length === 0) return null
+          return (
+            <div className="mb-4 bg-white rounded-xl border-2 border-dashed border-stone-300 overflow-hidden">
+              <div className="bg-stone-100 px-4 py-2 border-b border-stone-200 flex items-center gap-2">
+                <span className="text-sm font-semibold text-stone-500">未分组</span>
+                <span className="text-xs text-stone-400">{ungrouped.length}人</span>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 p-3">
+                {ungrouped.map(s => {
+                  const status = getAttendStatus(s.id)
+                  const cfg = CARD_COLORS[status]
+                  const clickableForSignin = anyActive && status === 'unsigned'
+                  const clickableForCancel = anyActive && status === 'signed'
+                  const clickableForAdmin = (!anyActive || !activeWin) && (status === 'unsigned' || status === 'late' || status === 'leave')
+
+                  return (
+                    <div key={s.id} className="relative">
+                      <button
+                        onClick={() => {
+                          if (clickableForSignin) {
+                            handleSignIn(s.id)
+                          } else if (clickableForCancel) {
+                            handleCancelSignIn(s.id)
+                          } else if (clickableForAdmin) {
+                            setAdminTarget(s.id)
+                          }
+                        }}
+                        disabled={!clickableForSignin && !clickableForCancel && !clickableForAdmin}
+                        title={clickableForCancel ? '点击取消签到' : undefined}
+                        className={`w-full rounded-lg border-2 p-3 text-center transition-all ${
+                          `${cfg.card} ${clickableForSignin || clickableForCancel || clickableForAdmin ? 'shadow-sm hover:shadow-md hover:scale-105 cursor-pointer' : ''}`
+                        }`}
+                      >
+                        <div className="text-sm font-bold">{s.name}</div>
+                      </button>
+
+                      {adminTarget === s.id && (
+                        <div className="absolute top-0 left-0 right-0 bottom-0 bg-white rounded-lg border-2 border-stone-400 shadow-xl flex flex-col items-center justify-center gap-1 p-1 z-10">
+                          <button
+                            onClick={() => handleAdminSet(s.id, 'late')}
+                            className="w-full text-xs py-1.5 bg-red-100 text-red-700 rounded font-medium hover:bg-red-200"
+                          >
+                            迟到
+                          </button>
+                          <button
+                            onClick={() => handleAdminSet(s.id, 'leave')}
+                            className="w-full text-xs py-1.5 bg-orange-100 text-orange-700 rounded font-medium hover:bg-orange-200"
+                          >
+                            请假
+                          </button>
+                          <button
+                            onClick={() => setAdminTarget(null)}
+                            className="w-full text-xs py-1 text-stone-400 hover:text-stone-600"
+                          >
+                            取消
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+
         {students.length === 0 && (
           <div className="text-center py-12 text-stone-400">暂无学生数据</div>
         )}

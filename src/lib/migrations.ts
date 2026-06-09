@@ -278,6 +278,77 @@ export function runMigrations(db: SqlJsDatabase): void {
       FOREIGN KEY (group_id) REFERENCES groups(id),
       UNIQUE(group_id, date, label)
     );
+
+    -- 留堂/罚抄记录
+    CREATE TABLE IF NOT EXISTS detention_records (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      countdown_started_at INTEGER,
+      sign_in_window_start INTEGER,
+      sign_in_window_end INTEGER,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    );
+
+    -- 留堂/罚抄学生记录
+    CREATE TABLE IF NOT EXISTS detention_students (
+      id TEXT PRIMARY KEY,
+      detention_record_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      sign_in_time INTEGER,
+      penalty_applied INTEGER DEFAULT 0,
+      FOREIGN KEY (detention_record_id) REFERENCES detention_records(id),
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
+    -- 班级轮值安排
+    CREATE TABLE IF NOT EXISTS duty_roster (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('monitor', 'captain', 'vice_captain', 'duty_monitor', 'rotation')),
+      weekday INTEGER,
+      position INTEGER,
+      weekday_group TEXT,
+      photo TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      updated_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+    );
+
+    -- 通知历史记录
+    CREATE TABLE IF NOT EXISTS notification_history (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      mode TEXT DEFAULT 'fullscreen',
+      duration INTEGER DEFAULT 30,
+      image TEXT,
+      urgency TEXT DEFAULT '普通',
+      confirm_mode TEXT DEFAULT 'none',
+      confirm_students TEXT DEFAULT '[]',
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    );
+
+    -- 通知确认记录
+    CREATE TABLE IF NOT EXISTS notification_reads (
+      id TEXT PRIMARY KEY,
+      notification_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      read_at INTEGER NOT NULL,
+      FOREIGN KEY (notification_id) REFERENCES notification_history(id) ON DELETE CASCADE
+    );
+
+    -- 留言板
+    CREATE TABLE IF NOT EXISTS message_board (
+      id TEXT PRIMARY KEY,
+      student_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tag TEXT DEFAULT '其他',
+      expires_at INTEGER,
+      created_at INTEGER NOT NULL
+    );
   `)
 
   // 创建索引
@@ -298,6 +369,12 @@ export function runMigrations(db: SqlJsDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_practice_signins_date_label ON practice_signins(date, label);
     CREATE INDEX IF NOT EXISTS idx_math_hw_grades_date ON math_homework_grades(date);
     CREATE INDEX IF NOT EXISTS idx_practice_score_awards_date_label ON practice_score_awards(date, label);
+    CREATE INDEX IF NOT EXISTS idx_detention_records_date ON detention_records(date);
+    CREATE INDEX IF NOT EXISTS idx_detention_students_record ON detention_students(detention_record_id);
+    CREATE INDEX IF NOT EXISTS idx_duty_roster_role ON duty_roster(role);
+    CREATE INDEX IF NOT EXISTS idx_duty_roster_weekday ON duty_roster(weekday);
+    CREATE INDEX IF NOT EXISTS idx_notification_reads_nid ON notification_reads(notification_id);
+    CREATE INDEX IF NOT EXISTS idx_message_board_created ON message_board(created_at);
   `)
 
   // 兼容已有数据库：尝试添加缺失的列
@@ -306,7 +383,22 @@ export function runMigrations(db: SqlJsDatabase): void {
   try { db.exec("ALTER TABLE students ADD COLUMN lunch_label TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
   try { db.exec("ALTER TABLE students ADD COLUMN lunch_longterm INTEGER DEFAULT 0") } catch (_) { /* 列已存在 */ }
   try { db.exec("ALTER TABLE coin_groups ADD COLUMN group_id TEXT") } catch (_) { /* 列已存在 */ }
+
+  // 防止 coin_groups 同一 group_id 出现重复记录
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_coin_groups_group_id ON coin_groups(group_id) WHERE group_id IS NOT NULL") } catch (_) { /* ignore */ }
   try { db.exec("ALTER TABLE students ADD COLUMN seat_order INTEGER DEFAULT -1") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE score_category_settings ADD COLUMN points INTEGER DEFAULT 1") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE notification_history ADD COLUMN urgency TEXT DEFAULT '普通'") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE notification_history ADD COLUMN confirm_mode TEXT DEFAULT 'none'") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE notification_history ADD COLUMN confirm_students TEXT DEFAULT '[]'") } catch (_) { /* 列已存在 */ }
+
+  // 清理 duty_students 重复数据 + 添加唯一约束
+  try {
+    db.exec("DELETE FROM duty_students WHERE rowid NOT IN (SELECT MIN(rowid) FROM duty_students GROUP BY duty_record_id, student_id)")
+  } catch (_) { /* ignore */ }
+  try {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_duty_students_unique ON duty_students(duty_record_id, student_id)")
+  } catch (_) { /* 唯一索引已存在 */ }
 
   // 清理：无 practice_label 的学生不参与每日一练，不应被扣分
   try {

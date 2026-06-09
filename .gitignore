@@ -11,3 +11,4 @@ Thumbs.db
 android/
 tunnel/cert.pem
 tunnel/credentials.json
+.claude/

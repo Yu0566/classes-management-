@@ -8,6 +8,9 @@ const VIOLATION_STATUSES: Record<string, string[]> = {
   homework: ['incomplete', 'not_submitted'],
 }
 
+// 考勤缺勤状态——这些状态下学生不在校，不叠加每日一练扣分
+const ATTENDANCE_ABSENT = new Set(['unsigned', 'leave'])
+
 // 计算单个学生的积分明细
 export function calculateStudentScore(
   student: StudentWithGroup,
@@ -29,8 +32,10 @@ export function calculateStudentScore(
   const getPoints = (cat: string) => categoryPoints?.get(cat) ?? 1
 
   for (const s of statuses) {
-    // 仅当学生有 practice_label 时才校验每日一练（无标签的学生不参与每日一练）
-    if (enabled.has('daily_practice') && student.practice_label && VIOLATION_STATUSES.daily_practice.includes(s.daily_practice)) {
+    // 每日一练：仅有 practice_label 的学生参与；缺勤（unsigned/leave）时不扣
+    if (enabled.has('daily_practice') && student.practice_label
+        && !ATTENDANCE_ABSENT.has(s.attendance)
+        && VIOLATION_STATUSES.daily_practice.includes(s.daily_practice)) {
       dailyPractice -= getPoints('daily_practice')
     }
     if (enabled.has('attendance') && VIOLATION_STATUSES.attendance.includes(s.attendance)) {
@@ -74,7 +79,7 @@ export function calculateAllScores(
       studentName: student.name,
       groupName: student.group_name || '未分组',
       ...detail,
-      statusCount: statuses.length,
+      statusCount: new Set(statuses.map(s => s.date)).size,
     }
   })
 }

@@ -110,7 +110,8 @@ export async function adjustGroupScore(
 export async function setGroupScore(
   groupId: string,
   studyScore?: number,
-  totalScore?: number
+  totalScore?: number,
+  reason?: string
 ): Promise<void> {
   const group = await getGroup(groupId)
   if (!group) throw new Error('小组不存在')
@@ -123,7 +124,7 @@ export async function setGroupScore(
     operations.push({
       sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at)
             VALUES (?, ?, ?, ?, ?)`,
-      params: [uuid(), groupId, clamped - group.study_score, '手动编辑学习积分', now],
+      params: [uuid(), groupId, clamped - group.study_score, reason || '手动编辑学习积分', now],
     })
     operations.push({
       sql: 'UPDATE groups SET study_score = ?, updated_at = ? WHERE id = ?',
@@ -136,7 +137,7 @@ export async function setGroupScore(
     operations.push({
       sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at)
             VALUES (?, ?, ?, ?, ?)`,
-      params: [uuid(), groupId, clamped - group.total_score, '手动编辑总积分', now],
+      params: [uuid(), groupId, clamped - group.total_score, reason || '手动编辑总积分', now],
     })
     operations.push({
       sql: 'UPDATE groups SET total_score = ?, updated_at = ? WHERE id = ?',

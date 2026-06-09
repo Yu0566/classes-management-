@@ -122,6 +122,28 @@ export function runMigrations(db: SqlJsDatabase): void {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
+    -- 留堂/罚抄记录
+    CREATE TABLE IF NOT EXISTS detention_records (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL UNIQUE,
+      countdown_started_at INTEGER,
+      sign_in_window_start INTEGER,
+      sign_in_window_end INTEGER,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    );
+
+    -- 留堂/罚抄学生记录
+    CREATE TABLE IF NOT EXISTS detention_students (
+      id TEXT PRIMARY KEY,
+      detention_record_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      sign_in_time INTEGER,
+      penalty_applied INTEGER DEFAULT 0,
+      FOREIGN KEY (detention_record_id) REFERENCES detention_records(id),
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
     -- 作业
     CREATE TABLE IF NOT EXISTS homework (
       id TEXT PRIMARY KEY,
@@ -314,6 +336,8 @@ export function runMigrations(db: SqlJsDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_deduction_records_date ON deduction_records(date);
     CREATE INDEX IF NOT EXISTS idx_duty_records_date ON duty_records(date);
     CREATE INDEX IF NOT EXISTS idx_duty_students_record ON duty_students(duty_record_id);
+    CREATE INDEX IF NOT EXISTS idx_detention_records_date ON detention_records(date);
+    CREATE INDEX IF NOT EXISTS idx_detention_students_record ON detention_students(detention_record_id);
     CREATE INDEX IF NOT EXISTS idx_homework_submissions_homework ON homework_submissions(homework_id);
     CREATE INDEX IF NOT EXISTS idx_attendance_records_date ON attendance_records(date);
     CREATE INDEX IF NOT EXISTS idx_lunch_rest_records_date ON lunch_rest_records(date);
@@ -341,6 +365,9 @@ export function runMigrations(db: SqlJsDatabase): void {
 
   // 兼容已有数据库：尝试添加 group_id 列到 coin_groups
   try { db.exec("ALTER TABLE coin_groups ADD COLUMN group_id TEXT") } catch (_) { /* 列已存在 */ }
+
+  // 防止 coin_groups 同一 group_id 出现重复记录
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_coin_groups_group_id ON coin_groups(group_id) WHERE group_id IS NOT NULL") } catch (_) { /* ignore */ }
 
   // 兼容已有数据库：尝试添加 seat_order 列（座位编排）
   try { db.exec("ALTER TABLE students ADD COLUMN seat_order INTEGER DEFAULT -1") } catch (_) { /* 列已存在 */ }
@@ -370,11 +397,40 @@ export function runMigrations(db: SqlJsDatabase): void {
     )`)
   } catch (_) { /* 表已存在 */ }
   try { db.exec("ALTER TABLE notification_history ADD COLUMN urgency TEXT DEFAULT '普通'") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE notification_history ADD COLUMN confirm_mode TEXT DEFAULT 'none'") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE notification_history ADD COLUMN confirm_students TEXT DEFAULT '[]'") } catch (_) { /* 列已存在 */ }
+
+  // 通知确认记录
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS notification_reads (
+      id TEXT PRIMARY KEY,
+      notification_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      read_at INTEGER NOT NULL,
+      FOREIGN KEY (notification_id) REFERENCES notification_history(id) ON DELETE CASCADE
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_notification_reads_nid ON notification_reads(notification_id)") } catch (_) { /* ignore */ }
 
   // 清理：无 practice_label 的学生不参与每日一练，不应被扣分
   try {
     db.exec("UPDATE daily_statuses SET daily_practice = '' WHERE daily_practice = 'unsigned' AND student_id IN (SELECT id FROM students WHERE COALESCE(practice_label, '') = '')")
   } catch (_) { /* ignore */ }
+
+  // 留言板
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS message_board (
+      id TEXT PRIMARY KEY,
+      student_name TEXT NOT NULL,
+      content TEXT NOT NULL,
+      tag TEXT DEFAULT '其他',
+      expires_at INTEGER,
+      created_at INTEGER NOT NULL,
+      image TEXT
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try { db.exec("ALTER TABLE message_board ADD COLUMN image TEXT") } catch (_) { /* 列已存在 */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_message_board_created ON message_board(created_at)") } catch (_) { /* ignore */ }
 
   // 更新 schema version
   db.run(

@@ -27,12 +27,14 @@ interface Window {
       showMessageBox: (options: Record<string, unknown>) => Promise<{ response: number }>
     }
     onAppClosing: (callback: () => void) => () => void
+    onDataChanged: (callback: () => void) => () => void
     onNotifyShow: (callback: (notification: { title: string; message: string }) => void) => () => void
     getAppPath: () => Promise<string>
     lan: {
       start: (port: number) => Promise<{ success: boolean; ip?: string; port?: number; error?: string }>
       stop: () => Promise<{ success: boolean }>
       getStatus: () => Promise<{ running: boolean; ip: string; port: number; mode: string }>
+      setDeviceName: (name: string) => Promise<{ success: boolean }>
     }
     tunnel: {
       start: (port: number) => Promise<{ success: boolean; error?: string }>

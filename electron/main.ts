@@ -72,8 +72,8 @@ function createWindow() {
   initUpdater(mainWindow)
 
   // 通知转发：LAN 服务器收到通知 → 弹出桌面窗口
-  setNotifier(({ title, message, mode, duration, images, urgency }) => {
-    showNotificationWindow(title, message, mode, duration, images, urgency)
+  setNotifier(({ notificationId, message, mode, duration, images, urgency, confirmMode, confirmStudents, lanPort }) => {
+    showNotificationWindow(notificationId, message, mode, duration, images, urgency, confirmMode, confirmStudents, lanPort)
   })
 }
 

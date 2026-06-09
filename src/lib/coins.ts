@@ -48,8 +48,8 @@ export async function syncCoinGroups(): Promise<CoinGroup[]> {
     }
   }
 
-  // 删除同 group_id 的重复记录，只保留最新的一条
-  const dedupList = await queryAll<CoinGroup>('SELECT * FROM coin_groups WHERE group_id IS NOT NULL ORDER BY created_at DESC')
+  // 删除同 group_id 的重复记录，保留币数最多、最近更新的那条
+  const dedupList = await queryAll<CoinGroup>('SELECT * FROM coin_groups WHERE group_id IS NOT NULL ORDER BY coins DESC, updated_at DESC')
   const seen = new Set<string>()
   for (const cg of dedupList) {
     if (cg.group_id) {

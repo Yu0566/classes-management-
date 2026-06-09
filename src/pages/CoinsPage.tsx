@@ -15,7 +15,16 @@ export default function CoinsPage() {
   const [history, setHistory] = useState<CoinHistory[]>([])
   const [editingCoin, setEditingCoin] = useState<string | null>(null)
   const [editCoinValue, setEditCoinValue] = useState('')
-  const [target, setTarget] = useState(15)
+  const [target, setTarget] = useState(() => {
+    const saved = localStorage.getItem('coin_target')
+    return saved ? parseInt(saved, 10) : 15
+  })
+
+  // 持久化目标值
+  const updateTarget = (val: number) => {
+    setTarget(val)
+    localStorage.setItem('coin_target', String(val))
+  }
 
   const loadData = useCallback(async () => {
     const [cgs, classGroups] = await Promise.all([
@@ -34,12 +43,14 @@ export default function CoinsPage() {
   const handleAdjust = async (groupId: string, delta: number) => {
     await coinsApi.adjustCoins(groupId, delta, '快捷操作')
     await loadData()
+    window.electronAPI?.widget?.refresh()
   }
 
   const handleSettle = async () => {
     if (!await confirm({ message: `确认结算？\n将对各组宝龙币按公式（币数 - ${target}）× 3 计算积分（加分上限12），计入总分后全部归零。`, variant: 'normal' })) return
     await coinsApi.settleCoins(target)
     await loadData()
+    window.electronAPI?.widget?.refresh()
   }
 
   const handleCoinEdit = async () => {
@@ -54,6 +65,7 @@ export default function CoinsPage() {
     await coinsApi.adjustCoins(editingCoin, val - group.coins, '手动编辑')
     setEditingCoin(null)
     await loadData()
+    window.electronAPI?.widget?.refresh()
   }
 
   const handleShowHistory = async (groupId: string) => {
@@ -98,7 +110,7 @@ export default function CoinsPage() {
                 onChange={e => {
                   const newTarget = Number(e.target.value)
                   if (isNaN(newTarget) || newTarget < 0) return
-                  setTarget(newTarget)
+                  updateTarget(newTarget)
                 }}
                 className="w-20 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               />

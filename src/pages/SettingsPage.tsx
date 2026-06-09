@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Database, Download, HardDrive, RefreshCw, Wifi, Copy, Check, ExternalLink, Loader2, DownloadCloud, FileDown, Globe } from 'lucide-react'
+import { Database, Download, HardDrive, Wifi, Copy, Check, ExternalLink, Loader2, DownloadCloud, FileDown, Globe, RefreshCw, Upload } from 'lucide-react'
 import DataImportPage from './DataImportPage'
-import { queryAll } from '../lib/db'
+import { queryAll, executeTransaction } from '../lib/db'
 
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error' | 'not-available'
@@ -20,7 +20,7 @@ interface DownloadProgress {
 }
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<'import' | 'backup' | 'export' | 'lan' | 'about'>('import')
+  const [tab, setTab] = useState<'import' | 'lan' | 'about'>('import')
 
   // LAN 访问状态
   const [lanRunning, setLanRunning] = useState(false)
@@ -42,6 +42,9 @@ export default function SettingsPage() {
   const [tunnelAutoStart, setTunnelAutoStart] = useState(() => {
     return localStorage.getItem('tunnel_auto_start') !== 'false'
   })
+  const [deviceName, setDeviceNameState] = useState(() => {
+    return localStorage.getItem('device_name') || ''
+  })
 
   const isElectron = !!window.electronAPI
   const hasLanAPI = !!(window.electronAPI?.lan)
@@ -56,6 +59,13 @@ export default function SettingsPage() {
 
   // 数据导出
   const [exporting, setExporting] = useState(false)
+  const [exportingInfo, setExportingInfo] = useState(false)
+  const [exportingHistory, setExportingHistory] = useState(false)
+
+  // 分项导入
+  const [importingInfo, setImportingInfo] = useState(false)
+  const [importingHistory, setImportingHistory] = useState(false)
+  const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null)
 
   useEffect(() => {
     if (isElectron && hasLanAPI) {
@@ -116,6 +126,30 @@ export default function SettingsPage() {
     localStorage.setItem('tunnel_auto_start', String(tunnelAutoStart))
   }, [tunnelAutoStart])
 
+  // 设备名称同步到 localStorage + LAN 服务器
+  useEffect(() => {
+    localStorage.setItem('device_name', deviceName)
+    const port = lanPort || DEFAULT_LAN_PORT
+    const url = `http://localhost:${port}/api/device-name`
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceName }),
+    }).catch(() => {})
+  }, [deviceName, lanPort, lanRunning])
+
+  // 启动时把已存储的设备名称同步到 LAN 服务器
+  useEffect(() => {
+    if (lanRunning && deviceName) {
+      const port = lanPort || DEFAULT_LAN_PORT
+      fetch(`http://localhost:${port}/api/device-name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceName }),
+      }).catch(() => {})
+    }
+  }, [lanRunning]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Tunnel 状态订阅 + 自动启动
   useEffect(() => {
     if (!isElectron || !hasTunnelAPI) return
@@ -135,7 +169,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!isElectron || !hasTunnelAPI || !lanRunning) return
     if (tunnelStatus === 'stopped' && tunnelAutoStart) {
-      window.electronAPI!.tunnel.start(DEFAULT_LAN_PORT).then(r => {
+      window.electronAPI!.tunnel.start(lanPort).then(r => {
         if (!r.success) setTunnelError(r.error || '启动失败')
       }).catch(() => {}).finally(() => setTunnelLoading(false))
     }
@@ -187,7 +221,7 @@ export default function SettingsPage() {
       if (tunnelStatus === 'connected' || tunnelStatus === 'connecting') {
         await window.electronAPI.tunnel.stop()
       } else {
-        const result = await window.electronAPI.tunnel.start(DEFAULT_LAN_PORT)
+        const result = await window.electronAPI.tunnel.start(lanPort)
         if (!result.success) setTunnelError(result.error || '启动失败')
       }
     } catch (err) {
@@ -294,10 +328,259 @@ export default function SettingsPage() {
     }
   }, [])
 
+  // 导出学生结构信息（小组、学生、轮值安排）
+  const handleExportStudentInfo = useCallback(async () => {
+    setExportingInfo(true)
+    try {
+      const [groups, students, dutyRoster] = await Promise.all([
+        queryAll('SELECT id, name, leader_name, color, sort_order FROM groups ORDER BY sort_order'),
+        queryAll('SELECT id, name, group_id, practice_label, lunch_label, lunch_longterm, seat_order, sort_order FROM students ORDER BY sort_order'),
+        queryAll('SELECT * FROM duty_roster ORDER BY sort_order'),
+      ])
+
+      const SEAT_LABELS = ['左前', '左中', '左后', '左后二', '右后二', '右后', '右前']
+
+      const exportData = {
+        version: 1,
+        type: 'student_info',
+        exportedAt: new Date().toISOString(),
+        groups,
+        students: (students as any[]).map((s) => ({
+          ...s,
+          seat_label: (s.seat_order ?? -1) >= 0 ? SEAT_LABELS[s.seat_order] || `位置${s.seat_order}` : '未排座',
+        })),
+        dutyRoster,
+      }
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `学生结构信息_${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('导出学生信息失败:', err)
+    } finally {
+      setExportingInfo(false)
+    }
+  }, [])
+
+  // 导出历史记录（扣分、作业、每日一练、考勤等）
+  const handleExportHistory = useCallback(async () => {
+    setExportingHistory(true)
+    try {
+      const [
+        deductionRecords,
+        homeworkRecords,
+        mathHomeworkGrades,
+        dailyPracticeRecords,
+        practiceSignins,
+        attendanceRecords,
+        lunchRestRecords,
+        practiceScoreAwards,
+        dutyRecords,
+        dutyStudents,
+      ] = await Promise.all([
+        queryAll('SELECT * FROM deduction_records ORDER BY date DESC'),
+        queryAll('SELECT * FROM homework_records ORDER BY date DESC'),
+        queryAll('SELECT * FROM math_homework_grades ORDER BY date DESC'),
+        queryAll('SELECT * FROM daily_practice_records ORDER BY date DESC'),
+        queryAll('SELECT * FROM practice_signins ORDER BY date DESC'),
+        queryAll('SELECT * FROM attendance_records ORDER BY date DESC'),
+        queryAll('SELECT * FROM lunch_rest_records ORDER BY date DESC'),
+        queryAll('SELECT * FROM practice_score_awards ORDER BY date DESC'),
+        queryAll('SELECT * FROM duty_records ORDER BY date DESC'),
+        queryAll('SELECT * FROM duty_students ORDER BY student_name'),
+      ])
+
+      const exportData = {
+        version: 1,
+        type: 'historical_records',
+        exportedAt: new Date().toISOString(),
+        deductionRecords,
+        homeworkRecords,
+        mathHomeworkGrades,
+        dailyPracticeRecords,
+        practiceSignins,
+        attendanceRecords,
+        lunchRestRecords,
+        practiceScoreAwards,
+        dutyRecords,
+        dutyStudents,
+      }
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `历史数据记录_${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('导出历史记录失败:', err)
+    } finally {
+      setExportingHistory(false)
+    }
+  }, [])
+
+  // 通用文件选择器
+  const pickJSONFile = (): Promise<Record<string, unknown>> =>
+    new Promise((resolve, reject) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.json'
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return reject(new Error('未选择文件'))
+        try {
+          const text = await file.text()
+          resolve(JSON.parse(text))
+        } catch {
+          reject(new Error('文件格式无效'))
+        }
+      }
+      input.click()
+    })
+
+  // 导入学生结构信息（新格式）
+  const handleImportStudentInfo = useCallback(async () => {
+    setImportResult(null)
+    try {
+      const data = await pickJSONFile()
+      if (data.type !== 'student_info') {
+        setImportResult({ success: false, message: '文件类型不匹配，请选择"学生结构信息"备份文件' })
+        return
+      }
+      setImportingInfo(true)
+      const now = Date.now()
+      const ops: { sql: string; params: unknown[] }[] = []
+
+      // 小组
+      if (Array.isArray(data.groups)) {
+        for (const g of data.groups as Record<string, unknown>[]) {
+          ops.push({
+            sql: `INSERT OR REPLACE INTO groups (id, name, leader_name, color, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            params: [g.id, g.name, g.leader_name || '', g.color || 'bg-blue-500', g.sort_order ?? 0, g.created_at ?? now, now],
+          })
+        }
+      }
+      // 学生
+      if (Array.isArray(data.students)) {
+        for (const s of data.students as Record<string, unknown>[]) {
+          ops.push({
+            sql: `INSERT OR REPLACE INTO students (id, name, group_id, practice_label, lunch_label, lunch_longterm, seat_order, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            params: [s.id, s.name, s.group_id || '', s.practice_label || '', s.lunch_label || '', s.lunch_longterm ? 1 : 0, s.seat_order ?? -1, s.sort_order ?? 0, s.created_at ?? now, now],
+          })
+        }
+      }
+      // 轮值
+      if (Array.isArray(data.dutyRoster)) {
+        for (const r of data.dutyRoster as Record<string, unknown>[]) {
+          ops.push({
+            sql: `INSERT OR REPLACE INTO duty_roster (id, student_id, student_name, role, weekday, position, weekday_group, photo, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            params: [r.id, r.student_id, r.student_name, r.role, r.weekday ?? null, r.position ?? null, r.weekday_group || '', r.photo || '', r.sort_order ?? 0, r.created_at ?? now, now],
+          })
+        }
+      }
+
+      if (ops.length > 0) {
+        await executeTransaction(ops)
+      }
+      const gCount = Array.isArray(data.groups) ? data.groups.length : 0
+      const sCount = Array.isArray(data.students) ? data.students.length : 0
+      const dCount = Array.isArray(data.dutyRoster) ? data.dutyRoster.length : 0
+      setImportResult({ success: true, message: `已恢复 ${gCount} 个小组、${sCount} 名学生、${dCount} 条轮值安排` })
+    } catch (err) {
+      if (err instanceof Error && err.message !== '未选择文件') {
+        setImportResult({ success: false, message: err.message })
+      }
+    } finally {
+      setImportingInfo(false)
+    }
+  }, [])
+
+  // 导入历史数据记录（新格式）
+  const handleImportHistory = useCallback(async () => {
+    setImportResult(null)
+    try {
+      const data = await pickJSONFile()
+      if (data.type !== 'historical_records') {
+        setImportResult({ success: false, message: '文件类型不匹配，请选择"历史数据记录"备份文件' })
+        return
+      }
+      setImportingHistory(true)
+
+      const tableMap: [string, string[]][] = [
+        ['deductionRecords', ['id', 'student_id', 'student_name', 'points', 'reason', 'date', 'timestamp']],
+        ['homeworkRecords', ['id', 'student_id', 'date', 'subject', 'status', 'updated_at']],
+        ['mathHomeworkGrades', ['id', 'student_id', 'date', 'reason', 'created_at']],
+        ['dailyPracticeRecords', ['id', 'student_id', 'date', 'status', 'signed_at', 'updated_at']],
+        ['practiceSignins', ['id', 'student_id', 'date', 'label', 'sign_in_order', 'signed_at']],
+        ['attendanceRecords', ['id', 'student_id', 'date', 'status', 'remark', 'updated_at']],
+        ['lunchRestRecords', ['id', 'student_id', 'date', 'status', 'remark', 'updated_at']],
+        ['practiceScoreAwards', ['id', 'student_id', 'group_id', 'date', 'label', 'score_delta', 'created_at']],
+      ]
+
+      const ops: { sql: string; params: unknown[] }[] = []
+
+      for (const [key, cols] of tableMap) {
+        const tableName = key.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '')
+        const rows = data[key]
+        if (Array.isArray(rows)) {
+          for (const r of rows as Record<string, unknown>[]) {
+            ops.push({
+              sql: `INSERT OR REPLACE INTO ${tableName} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
+              params: cols.map(c => r[c] !== undefined ? r[c] : null),
+            })
+          }
+        }
+      }
+
+      // 值日记录（两表关联）
+      if (Array.isArray(data.dutyRecords)) {
+        for (const r of data.dutyRecords as Record<string, unknown>[]) {
+          ops.push({
+            sql: `INSERT OR REPLACE INTO duty_records (id, date, sign_in_window_start, sign_in_window_end, sign_out_window_start, sign_out_window_end, countdown_started_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            params: [r.id, r.date, r.sign_in_window_start ?? null, r.sign_in_window_end ?? null, r.sign_out_window_start ?? null, r.sign_out_window_end ?? null, r.countdown_started_at ?? null, r.created_at ?? null],
+          })
+        }
+      }
+      if (Array.isArray(data.dutyStudents)) {
+        for (const ds of data.dutyStudents as Record<string, unknown>[]) {
+          ops.push({
+            sql: `INSERT OR REPLACE INTO duty_students (id, duty_record_id, student_id, student_name, sign_in_time, sign_out_time, penalty_applied) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            params: [ds.id, ds.duty_record_id, ds.student_id, ds.student_name, ds.sign_in_time ?? null, ds.sign_out_time ?? null, ds.penalty_applied ?? 0],
+          })
+        }
+      }
+
+      if (ops.length > 0) {
+        await executeTransaction(ops)
+      }
+
+      let totalRecords = 0
+      for (const [key] of tableMap) {
+        if (Array.isArray(data[key])) totalRecords += data[key].length
+      }
+      if (Array.isArray(data.dutyRecords)) totalRecords += data.dutyRecords.length
+      if (Array.isArray(data.dutyStudents)) totalRecords += data.dutyStudents.length
+      setImportResult({ success: true, message: `已恢复 ${totalRecords} 条历史数据记录` })
+    } catch (err) {
+      if (err instanceof Error && err.message !== '未选择文件') {
+        setImportResult({ success: false, message: err.message })
+      }
+    } finally {
+      setImportingHistory(false)
+    }
+  }, [])
+
   const tabs = [
-    { key: 'import' as const, label: '数据导入', icon: Download },
-    { key: 'backup' as const, label: '备份恢复', icon: HardDrive },
-    { key: 'export' as const, label: '数据导出', icon: RefreshCw },
+    { key: 'import' as const, label: '数据备份与恢复', icon: Download },
     { key: 'lan' as const, label: 'LAN访问', icon: Wifi },
     { key: 'about' as const, label: '关于', icon: Database },
   ]
@@ -323,79 +606,120 @@ export default function SettingsPage() {
         </div>
 
         {/* 内容 */}
-        {tab === 'import' && <DataImportPage />}
-
-        {tab === 'backup' && (
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <HardDrive size={24} className="text-blue-500" />
-              <div>
-                <h3 className="text-lg font-semibold text-stone-700">备份与恢复</h3>
-                <p className="text-sm text-stone-500">导出数据到文件，重装后可导入恢复</p>
+        {tab === 'import' && (
+          <div className="space-y-6">
+            {/* ── 分项备份与恢复：学生结构信息 ── */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <FileDown size={24} className="text-primary-400" />
+                <div>
+                  <h3 className="text-lg font-semibold text-stone-700">学生结构信息</h3>
+                  <p className="text-sm text-stone-500">小组、学生标签、座位、轮值安排的备份与恢复</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {/* 导出 */}
+                <div className="bg-stone-50 rounded-lg p-4 flex flex-col">
+                  <p className="text-sm font-medium text-stone-700 mb-2">导出备份</p>
+                  <p className="text-xs text-stone-500">
+                    小组信息（含组长）、学生信息（含午餐午休标签、每日一练标签、座位）、班级轮值安排
+                  </p>
+                  <button
+                    onClick={handleExportStudentInfo}
+                    disabled={exportingInfo}
+                    className="mt-auto flex items-center gap-1.5 px-3 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {exportingInfo ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                    {exportingInfo ? '导出中...' : '导出备份'}
+                  </button>
+                </div>
+                {/* 恢复 */}
+                <div className="bg-stone-50 rounded-lg p-4 flex flex-col">
+                  <p className="text-sm font-medium text-stone-700 mb-2">恢复备份</p>
+                  <p className="text-xs text-stone-500">
+                    选择之前导出的学生结构信息 JSON 文件进行恢复
+                  </p>
+                  <button
+                    onClick={handleImportStudentInfo}
+                    disabled={importingInfo}
+                    className="mt-auto flex items-center gap-1.5 px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {importingInfo ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {importingInfo ? '恢复中...' : '恢复备份'}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="bg-stone-50 rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <FileDown size={20} className="text-blue-500" />
-                  <span className="font-medium text-stone-700">导出数据备份</span>
+            {/* ── 分项备份与恢复：历史数据记录 ── */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <DownloadCloud size={24} className="text-amber-500" />
+                <div>
+                  <h3 className="text-lg font-semibold text-stone-700">历史数据记录</h3>
+                  <p className="text-sm text-stone-500">扣分、作业、每日一练、考勤等历史数据的备份与恢复</p>
                 </div>
-                <p className="text-sm text-stone-500 mb-3">
-                  将所有小组和学生数据导出为 JSON 文件，下载到本地保存。
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {/* 导出 */}
+                <div className="bg-stone-50 rounded-lg p-4 flex flex-col">
+                  <p className="text-sm font-medium text-stone-700 mb-2">导出备份</p>
+                  <p className="text-xs text-stone-500">
+                    个人扣分、每日作业、数学作业等级、每日一练签到、考勤、午餐午休、值日记录、每日一练加分
+                  </p>
+                  <button
+                    onClick={handleExportHistory}
+                    disabled={exportingHistory}
+                    className="mt-auto flex items-center gap-1.5 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {exportingHistory ? <Loader2 size={14} className="animate-spin" /> : <DownloadCloud size={14} />}
+                    {exportingHistory ? '导出中...' : '导出备份'}
+                  </button>
+                </div>
+                {/* 恢复 */}
+                <div className="bg-stone-50 rounded-lg p-4 flex flex-col">
+                  <p className="text-sm font-medium text-stone-700 mb-2">恢复备份</p>
+                  <p className="text-xs text-stone-500">
+                    选择之前导出的历史数据记录 JSON 文件进行恢复
+                  </p>
+                  <button
+                    onClick={handleImportHistory}
+                    disabled={importingHistory}
+                    className="mt-auto flex items-center gap-1.5 px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {importingHistory ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+                    {importingHistory ? '恢复中...' : '恢复备份'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 恢复结果提示 */}
+            {importResult && (
+              <div className={`border rounded-lg p-4 ${importResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                <p className={`text-sm ${importResult.success ? 'text-green-700' : 'text-red-700'}`}>
+                  {importResult.message}
                 </p>
                 <button
-                  onClick={handleExportData}
-                  disabled={exporting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 text-sm font-medium transition-colors"
+                  onClick={() => setImportResult(null)}
+                  className="mt-2 text-xs underline opacity-60 hover:opacity-100"
                 >
-                  {exporting ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
-                  {exporting ? '导出中...' : '导出数据备份'}
+                  关闭
                 </button>
               </div>
+            )}
 
-              <div className="bg-stone-50 rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <Download size={20} className="text-green-500" />
-                  <span className="font-medium text-stone-700">从备份恢复</span>
+            {/* ── 旧版全量备份恢复 ── */}
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <HardDrive size={24} className="text-stone-400" />
+                <div>
+                  <h3 className="text-lg font-semibold text-stone-700">旧版全量备份恢复</h3>
+                  <p className="text-sm text-stone-500">从 Web 版或旧版桌面端导出的完整 JSON 文件恢复数据</p>
                 </div>
-                <p className="text-sm text-stone-500 mb-3">
-                  选择之前导出的 JSON 备份文件，恢复小组和学生数据。
-                </p>
-                <button
-                  onClick={() => setTab('import')}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium transition-colors"
-                >
-                  <Download size={14} /> 前往数据导入
-                </button>
               </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-600">
-                数据库文件路径：<br />
-                <code className="text-xs bg-blue-100 px-1 py-0.5 rounded select-all">
-                  C:\Users\{isElectron ? 'Username' : '...'}\AppData\Roaming\class-management\class-management.db
-                </code>
-              </div>
+              <DataImportPage />
             </div>
-          </div>
-        )}
-
-        {tab === 'export' && (
-          <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
-            <RefreshCw size={48} className="mx-auto mb-3 text-stone-300" />
-            <h3 className="text-lg font-semibold text-stone-700 mb-2">数据导出</h3>
-            <p className="text-stone-500 text-sm mb-4">
-              导出积分表、考勤表等数据为 Excel/CSV 格式
-            </p>
-            <div className="flex gap-2 justify-center">
-              <button className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
-                导出积分表
-              </button>
-              <button className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm">
-                导出考勤表
-              </button>
-            </div>
-            <p className="text-xs text-stone-400 mt-4">Excel/CSV 导出功能将在后续版本实现</p>
           </div>
         )}
 
@@ -465,6 +789,22 @@ export default function SettingsPage() {
                     {lanError}
                   </div>
                 )}
+
+                {/* 设备名称 */}
+                <div className="mb-4">
+                  <label className="block text-sm text-stone-600 mb-1.5">设备名称</label>
+                  <p className="text-xs text-stone-400 mb-2">
+                    设置后，局域网内的浏览器连接时会显示此名称，方便识别谁连到了这里
+                  </p>
+                  <input
+                    type="text"
+                    value={deviceName}
+                    onChange={e => setDeviceNameState(e.target.value)}
+                    placeholder="例如：教室电脑"
+                    maxLength={20}
+                    className="w-full max-w-xs px-3 py-2 border border-stone-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-200 focus:border-primary-300 outline-none"
+                  />
+                </div>
 
                 {/* 访问地址 */}
                 {lanRunning && (

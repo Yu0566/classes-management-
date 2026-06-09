@@ -110,6 +110,25 @@ export interface DutyRecord {
   students?: DutyStudent[]
 }
 
+// 留堂/罚抄记录
+export interface DetentionRecord {
+  id: string
+  date: string
+  countdown_started_at: number | null
+  sign_in_window_start: number | null
+  sign_in_window_end: number | null
+  created_at: number
+}
+
+export interface DetentionStudent {
+  id: string
+  detention_record_id: string
+  student_id: string
+  student_name: string
+  sign_in_time: number | null
+  penalty_applied: number
+}
+
 // 作业
 export interface Homework {
   id: string

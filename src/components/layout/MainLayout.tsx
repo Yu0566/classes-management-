@@ -1,14 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { Reorder } from 'framer-motion'
-import type { LucideIcon } from 'lucide-react'
+import { Reorder, useDragControls } from 'framer-motion'
 import {
   LayoutDashboard, Star, Users,
   ClipboardCheck, CalendarCheck, Utensils, Pencil, Coins,
-  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone, TrendingUp, CalendarDays
+  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone, TrendingUp, CalendarDays, GripVertical, MessageSquare, Monitor
 } from 'lucide-react'
+import { getNewMessageCount } from '@/lib/message-board'
 
 const STORAGE_KEY = 'nav-item-order'
+const MSG_LAST_VIEWED_KEY = 'message_board_last_viewed'
 
 const defaultNavItems = [
   { path: '/', label: '班级看板', icon: LayoutDashboard, exact: true },
@@ -25,6 +26,7 @@ const defaultNavItems = [
   { path: '/coins', label: '宝龙币', icon: Coins },
   { path: '/math-homework', label: '数学作业等级', icon: Calculator },
   { path: '/notify', label: '班级通知', icon: Megaphone },
+  { path: '/message-board', label: '留言板', icon: MessageSquare },
 ]
 
 function loadNavOrder() {
@@ -46,12 +48,131 @@ function saveNavOrder(items: typeof defaultNavItems) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(i => i.path)))
 }
 
+/** 单项导航，自带拖拽手柄 */
+function NavButton({
+  item,
+  active,
+  collapsed,
+  badge,
+  onClick,
+}: {
+  item: (typeof defaultNavItems)[number]
+  active: boolean
+  collapsed: boolean
+  badge?: number
+  onClick: () => void
+}) {
+  const dragControls = useDragControls()
+  const Icon = item.icon
+
+  return (
+    <Reorder.Item
+      value={item.path}
+      dragControls={dragControls}
+      dragListener={false}
+      whileDrag={{
+        scale: 1.03,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+        borderRadius: '8px',
+        backgroundColor: '#fff',
+        zIndex: 50,
+      }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      className="relative group rounded-lg list-none"
+    >
+      <div className="flex items-center">
+        {/* 拖拽手柄 */}
+        {!collapsed && (
+          <span
+            className="flex-shrink-0 pl-1 cursor-grab text-transparent group-hover:text-stone-300 hover:!text-stone-500 active:cursor-grabbing transition-colors"
+            style={{ touchAction: 'none' }}
+            onPointerDown={(e) => dragControls.start(e)}
+          >
+            <GripVertical size={14} />
+          </span>
+        )}
+        {/* 导航按钮 */}
+        <button
+          onClick={onClick}
+          className={`flex-1 flex items-center gap-3 px-2 py-2 rounded-lg transition-colors duration-150 text-left relative ${
+            active
+              ? 'bg-primary-100 text-primary-700 font-medium'
+              : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
+          }`}
+        >
+          <span className="relative inline-flex">
+            <Icon size={20} />
+            {badge != null && badge > 0 && (
+              <span className="absolute -top-1.5 -right-2 flex items-center justify-center min-w-[16px] h-4 px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none">
+                {badge > 99 ? '99+' : badge}
+              </span>
+            )}
+          </span>
+          {!collapsed && <span className="text-sm whitespace-nowrap">{item.label}</span>}
+        </button>
+      </div>
+    </Reorder.Item>
+  )
+}
+
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [navItems, setNavItems] = useState(loadNavOrder)
+  const [remoteHostname, setRemoteHostname] = useState('')
+  const [newMsgCount, setNewMsgCount] = useState(0)
+  const lastViewedRef = useRef(Number(localStorage.getItem(MSG_LAST_VIEWED_KEY)) || Date.now())
   const navigate = useNavigate()
   const location = useLocation()
   const [isElectron] = useState(() => !!(window as any).electronAPI)
+  const isLanHttp = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
+    && window.location.hostname !== 'localhost'
+    && !window.location.hostname.includes('127.0.0.1')
+
+  console.log('[MainLayout] mounted, isLanHttp:', isLanHttp, 'hostname:', window.location.hostname, 'protocol:', window.location.protocol)
+
+  // 是否正在留言板页面
+  const onMessageBoard = location.pathname === '/message-board'
+
+  // 进入留言板页面时清除角标
+  useEffect(() => {
+    if (onMessageBoard) {
+      const now = Date.now()
+      lastViewedRef.current = now
+      localStorage.setItem(MSG_LAST_VIEWED_KEY, String(now))
+      setNewMsgCount(0)
+    }
+  }, [onMessageBoard])
+
+  // 定期轮询新留言
+  const checkNewMessages = useCallback(async () => {
+    try {
+      const count = await getNewMessageCount(lastViewedRef.current)
+      setNewMsgCount(count)
+    } catch { /* 数据库未就绪时忽略 */ }
+  }, [])
+
+  useEffect(() => {
+    checkNewMessages()
+    const timer = setInterval(checkNewMessages, 10000)
+    return () => clearInterval(timer)
+  }, [checkNewMessages])
+
+  useEffect(() => {
+    if (!isLanHttp) return
+    const checkHealth = () => {
+      fetch('/api/health')
+        .then(r => r.json())
+        .then(d => {
+          const name = d.deviceName || d.hostname || ''
+          console.log('[MainLayout] health check:', { deviceName: d.deviceName, hostname: d.hostname, displayName: name })
+          setRemoteHostname(name)
+        })
+        .catch(err => console.log('[MainLayout] health check failed:', err))
+    }
+    checkHealth()
+    const timer = setInterval(checkHealth, 30000)
+    return () => clearInterval(timer)
+  }, [isLanHttp])
 
   const handleReorder = (paths: string[]) => {
     const reordered = paths
@@ -62,7 +183,7 @@ export default function MainLayout() {
   }
 
   const currentPath = location.pathname || '/'
-  const isActive = (item: typeof defaultNavItems[number]) => {
+  const isActive = (item: (typeof defaultNavItems)[number]) => {
     if (item.exact) return currentPath === item.path
     return currentPath === item.path || currentPath.startsWith(item.path + '/')
   }
@@ -95,37 +216,16 @@ export default function MainLayout() {
           >
             {navItems.map(item => {
               if (item.path === '/notify' && isElectron) return null
-              const active = isActive(item)
-              const Icon = item.icon
+              const badge = item.path === '/message-board' ? newMsgCount : undefined
               return (
-                <Reorder.Item
+                <NavButton
                   key={item.path}
-                  value={item.path}
-                  as="div"
-                  whileDrag={{
-                    scale: 1.05,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                    borderRadius: '8px',
-                    backgroundColor: '#fff',
-                    zIndex: 50,
-                  }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  className="relative group rounded-lg"
-                  style={{ touchAction: 'none' }}
-                >
-                  {/* 导航按钮 */}
-                  <button
-                    onClick={() => navigate(item.path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150 text-left ${
-                      active
-                        ? 'bg-primary-100 text-primary-700 font-medium'
-                        : 'text-stone-500 hover:bg-stone-100 hover:text-stone-800'
-                    }`}
-                  >
-                    <Icon size={20} />
-                    {!collapsed && <span className="text-sm whitespace-nowrap">{item.label}</span>}
-                  </button>
-                </Reorder.Item>
+                  item={item}
+                  active={isActive(item)}
+                  collapsed={collapsed}
+                  badge={badge}
+                  onClick={() => navigate(item.path)}
+                />
               )
             })}
           </Reorder.Group>
@@ -145,6 +245,16 @@ export default function MainLayout() {
             {!collapsed && <span className="text-sm whitespace-nowrap">系统设置</span>}
           </button>
         </div>
+
+        {/* 远程连接指示 */}
+        {isLanHttp && remoteHostname && (
+          <div className="border-t border-stone-200 px-2 py-1.5">
+            <div className="flex items-center gap-2 text-xs text-stone-400">
+              <Monitor size={12} />
+              {!collapsed && <span className="truncate" title={`已连接到 ${remoteHostname}`}>{remoteHostname}</span>}
+            </div>
+          </div>
+        )}
 
         {/* 折叠按钮 */}
         <button

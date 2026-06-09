@@ -60,25 +60,12 @@ export async function initCapacitorDB(): Promise<void> {
   database.run('PRAGMA foreign_keys = ON')
   runMigrations(database)
 
-  // 种子数据：检查小组数量，不足则清空重导
+  // 种子数据：只在数据库完全为空时导入（首次启动），绝不覆盖已有数据
   const groupResult = database.exec('SELECT COUNT(*) as cnt FROM groups')
   const dbGroupCount = (groupResult.length > 0 ? groupResult[0].values[0][0] : 0) as number
   const seed = getSeedData()
 
-  if (dbGroupCount < seed.groups.length) {
-    const childTables = [
-      'practice_score_awards', 'practice_signins', 'math_homework_grades',
-      'homework_records', 'homework_submissions', 'daily_practice_records',
-      'lunch_rest_records', 'attendance_records', 'attendance_window_records',
-      'duty_students', 'daily_statuses', 'deduction_records', 'manual_adjust_records',
-      'group_score_history', 'score_snapshots',
-    ]
-    for (const table of childTables) {
-      database.run(`DELETE FROM ${table}`)
-    }
-    database.run('DELETE FROM students')
-    database.run('DELETE FROM groups')
-
+  if (dbGroupCount === 0) {
     const now = Date.now()
     for (const g of seed.groups) {
       database.run(

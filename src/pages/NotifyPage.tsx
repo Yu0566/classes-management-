@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Megaphone, Send, Loader2, Image as ImageIcon, X, Trash2, Clock } from 'lucide-react'
-import { saveNotification, getRecentNotifications, deleteNotification, type NotificationRecord, type Urgency } from '../lib/notification-history'
+import { Megaphone, Send, Loader2, Image as ImageIcon, X, Trash2, Clock, CheckCheck, Users } from 'lucide-react'
+import { saveNotification, getRecentNotifications, deleteNotification, getNotificationReads, type NotificationRecord, type Urgency, type ConfirmMode } from '../lib/notification-history'
+import * as studentApi from '@/lib/students'
 
 export default function NotifyPage() {
   const [notifyMessage, setNotifyMessage] = useState('')
@@ -12,17 +13,43 @@ export default function NotifyPage() {
   const [notifySending, setNotifySending] = useState(false)
   const [notifyResult, setNotifyResult] = useState<{ success: boolean; message: string } | null>(null)
   const [notifyHistory, setNotifyHistory] = useState<NotificationRecord[]>([])
+  const [readStatuses, setReadStatuses] = useState<Record<string, string[]>>({})
+
+  // 确认模式
+  const [confirmMode, setConfirmMode] = useState<ConfirmMode>('none')
+  const [confirmStudents, setConfirmStudents] = useState<string[]>([])
+  const [allStudents, setAllStudents] = useState<{ id: string; name: string }[]>([])
 
   const loadNotifyHistory = useCallback(async () => {
     try {
       const records = await getRecentNotifications(100)
       setNotifyHistory(records)
+      // 加载确认状态
+      const statuses: Record<string, string[]> = {}
+      for (const r of records) {
+        if (r.confirm_mode !== 'none') {
+          const reads = await getNotificationReads(r.id)
+          statuses[r.id] = reads.map(r => r.student_name)
+        }
+      }
+      setReadStatuses(statuses)
     } catch (err) {
       console.error('加载通知历史失败:', err)
     }
   }, [])
 
-  useEffect(() => { loadNotifyHistory() }, [loadNotifyHistory])
+  useEffect(() => {
+    loadNotifyHistory()
+    studentApi.getAllStudents().then(list =>
+      setAllStudents(list.map(s => ({ id: s.id, name: s.name })))
+    )
+  }, [loadNotifyHistory])
+
+  const toggleStudent = (name: string) => {
+    setConfirmStudents(prev =>
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    )
+  }
 
   const handleSend = useCallback(async () => {
     if (!notifyMessage.trim()) return
@@ -35,7 +62,9 @@ export default function NotifyPage() {
         mode: notifyMode,
         duration: effectiveDuration,
         urgency: notifyUrgency,
+        confirmMode,
       }
+      if (confirmMode === 'specific') body.confirmStudents = confirmStudents
       if (notifyImages.length > 0) body.images = notifyImages
 
       const res = await fetch('/api/notify', {
@@ -45,12 +74,17 @@ export default function NotifyPage() {
       })
       const data = await res.json()
       if (data.success) {
-        setNotifyResult({ success: true, message: '通知已发送到教室电脑' })
-        await saveNotification(notifyMessage.trim(), notifyMode, effectiveDuration, notifyImages, notifyUrgency)
+        setNotifyResult({ success: true, message: '通知已发送' })
+        // 若服务器已保存（返回了 notificationId），则跳过客户端保存避免重复
+        if (!data.notificationId) {
+          await saveNotification(notifyMessage.trim(), notifyMode, effectiveDuration, notifyImages, notifyUrgency, confirmMode, confirmStudents)
+        }
         loadNotifyHistory()
         setNotifyMessage('')
         setNotifyImages([])
         setNotifyUrgency('普通')
+        setConfirmMode('none')
+        setConfirmStudents([])
         setNotifyPermanent(false)
       } else {
         setNotifyResult({ success: false, message: data.error || '发送失败' })
@@ -61,20 +95,45 @@ export default function NotifyPage() {
       setNotifySending(false)
       setTimeout(() => setNotifyResult(null), 4000)
     }
-  }, [notifyMessage, notifyMode, notifyDuration, notifyImages, notifyUrgency, notifyPermanent, loadNotifyHistory])
+  }, [notifyMessage, notifyMode, notifyDuration, notifyImages, notifyUrgency, notifyPermanent, confirmMode, confirmStudents, loadNotifyHistory])
 
-  const handleApplyHistory = (record: NotificationRecord) => {
+  const handleApplyHistory = async (record: NotificationRecord) => {
     setNotifyMessage(record.message)
     setNotifyMode(record.mode)
     setNotifyDuration(record.duration || 30)
     setNotifyPermanent(record.duration === 0)
-    setNotifyImages(record.images || [])
+    // 历史记录中的大图也做一次压缩
+    const images = record.images || []
+    const resized = await Promise.all(images.map(img => resizeImage(img)))
+    setNotifyImages(resized)
     setNotifyUrgency(record.urgency || '普通')
+    setConfirmMode(record.confirm_mode || 'none')
+    setConfirmStudents(record.confirm_students || [])
   }
 
   const handleDeleteHistory = async (id: string) => {
     await deleteNotification(id)
     setNotifyHistory(prev => prev.filter(r => r.id !== id))
+  }
+
+  const resizeImage = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 600
+        let { width, height } = img
+        if (width <= MAX && height <= MAX) { resolve(dataUrl); return }
+        if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+        else { width = Math.round(width * MAX / height); height = MAX }
+        const canvas = document.createElement('canvas')
+        canvas.width = width; canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL('image/jpeg', 0.8))
+      }
+      img.onerror = () => resolve(dataUrl)
+      img.src = dataUrl
+    })
   }
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -86,7 +145,10 @@ export default function NotifyPage() {
         const file = items[i].getAsFile()
         if (!file) continue
         const reader = new FileReader()
-        reader.onload = () => setNotifyImages(prev => [...prev, reader.result as string])
+        reader.onload = async () => {
+          const resized = await resizeImage(reader.result as string)
+          setNotifyImages(prev => [...prev, resized])
+        }
         reader.readAsDataURL(file)
       }
     }
@@ -97,9 +159,20 @@ export default function NotifyPage() {
     const remaining = 4 - notifyImages.length
     files.slice(0, remaining).forEach(file => {
       const reader = new FileReader()
-      reader.onload = () => setNotifyImages(prev => [...prev, reader.result as string])
+      reader.onload = async () => {
+        const resized = await resizeImage(reader.result as string)
+        setNotifyImages(prev => [...prev, resized])
+      }
       reader.readAsDataURL(file)
     })
+  }
+
+  const getConfirmLabel = (mode: ConfirmMode) => {
+    switch (mode) {
+      case 'none': return '';
+      case 'any': return '需要确认';
+      case 'specific': return '指定学生确认';
+    }
   }
 
   return (
@@ -248,6 +321,60 @@ export default function NotifyPage() {
               )}
             </div>
 
+            {/* 确认方式 */}
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">学生确认方式</label>
+              <div className="flex gap-2">
+                {([
+                  { key: 'none' as const, label: '不需要', desc: '仅推送通知' },
+                  { key: 'any' as const, label: '谁确认都行', desc: '统计确认人数' },
+                  { key: 'specific' as const, label: '指定学生', desc: '跟踪具体名单' },
+                ]).map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setConfirmMode(opt.key)}
+                    className={`flex-1 p-2.5 rounded-xl border-2 text-center transition-all ${
+                      confirmMode === opt.key
+                        ? 'border-primary-400 bg-primary-50'
+                        : 'border-stone-200 hover:border-stone-300'
+                    }`}
+                  >
+                    <div className="text-sm font-medium text-stone-700">{opt.label}</div>
+                    <div className="text-xs text-stone-400 mt-0.5">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+
+              {/* 指定学生选择 */}
+              {confirmMode === 'specific' && (
+                <div className="mt-3 p-3 bg-stone-50 rounded-lg">
+                  <p className="text-xs text-stone-500 mb-2">
+                    已选 {confirmStudents.length} 人
+                    {confirmStudents.length > 0 && (
+                      <span className="ml-2 text-primary-600">{confirmStudents.join('、')}</span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                    {allStudents.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleStudent(s.name)}
+                        className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                          confirmStudents.includes(s.name)
+                            ? 'bg-primary-500 text-white border-primary-500'
+                            : 'bg-white text-stone-500 border-stone-200 hover:border-primary-300'
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* 发送按钮 */}
             <div className="flex items-center gap-4">
               <button
@@ -267,7 +394,7 @@ export default function NotifyPage() {
 
             {notifyResult?.success && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">
-                通知已成功发送到教室电脑，桌面将弹出通知窗口。
+                通知已成功发送到教室电脑。
               </div>
             )}
             {notifyResult && !notifyResult.success && (
@@ -284,35 +411,63 @@ export default function NotifyPage() {
                 <Clock size={14} /> 最近发送记录
               </h4>
               <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                {notifyHistory.map(record => (
-                  <div
-                    key={record.id}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-stone-50 border border-transparent hover:border-stone-200 cursor-pointer group transition-colors"
-                    onClick={() => handleApplyHistory(record)}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${record.mode === 'fullscreen' ? 'bg-purple-400' : 'bg-amber-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-stone-700 truncate">{record.message}</div>
-                    </div>
-                    {record.images && record.images.length > 0 && (
-                      <div className="flex gap-0.5 flex-shrink-0">
-                        {record.images.slice(0, 3).map((img, i) => (
-                          <img key={i} src={img} className="w-7 h-7 rounded object-cover" alt="" />
-                        ))}
-                        {record.images.length > 3 && <span className="text-[10px] text-stone-400 self-center">+{record.images.length - 3}</span>}
-                      </div>
-                    )}
-                    <span className="text-[10px] text-stone-400 flex-shrink-0">
-                      {record.urgency === '紧急' ? '🔴' : record.urgency === '重要' ? '🟠' : ''} {record.mode === 'fullscreen' ? '全屏' : '顶部'} · {record.duration === 0 ? '长期' : `${record.duration}s`}
-                    </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); handleDeleteHistory(record.id) }}
-                      className="p-1 rounded hover:bg-red-100 text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                {notifyHistory.map(record => {
+                  const reads = readStatuses[record.id] || []
+                  return (
+                    <div
+                      key={record.id}
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-stone-50 border border-transparent hover:border-stone-200 cursor-pointer group transition-colors"
+                      onClick={() => handleApplyHistory(record)}
                     >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${record.mode === 'fullscreen' ? 'bg-purple-400' : 'bg-amber-400'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-stone-700 truncate">{record.message}</div>
+                        {record.confirm_mode !== 'none' && (
+                          <div className="mt-1">
+                            {record.confirm_mode === 'specific' ? (
+                              <div className="flex flex-wrap gap-1">
+                                {record.confirm_students.map(name => {
+                                  const ok = reads.includes(name)
+                                  return (
+                                    <span key={name} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium ${
+                                      ok ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'
+                                    }`}>
+                                      {ok ? <CheckCheck size={10} /> : <Clock size={10} />}
+                                      {name}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <CheckCheck size={10} className={reads.length > 0 ? 'text-green-500' : 'text-stone-300'} />
+                                <span className="text-[11px] text-stone-500">{reads.length > 0 ? `${reads.length} 人已确认` : '暂无确认'}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {record.images && record.images.length > 0 && (
+                        <div className="flex gap-0.5 flex-shrink-0">
+                          {record.images.slice(0, 3).map((img, i) => (
+                            <img key={i} src={img} className="w-7 h-7 rounded object-cover" alt="" />
+                          ))}
+                          {record.images.length > 3 && <span className="text-[10px] text-stone-400 self-center">+{record.images.length - 3}</span>}
+                        </div>
+                      )}
+                      <span className="text-[10px] text-stone-400 flex-shrink-0">
+                        {record.urgency === '紧急' ? '🔴' : record.urgency === '重要' ? '🟠' : ''} {record.mode === 'fullscreen' ? '全屏' : '顶部'} · {record.duration === 0 ? '长期' : `${record.duration}s`}
+                      </span>
+                      <span className="text-[10px] text-stone-400 flex-shrink-0">{getConfirmLabel(record.confirm_mode)}</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDeleteHistory(record.id) }}
+                        className="p-1 rounded hover:bg-red-100 text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -321,13 +476,12 @@ export default function NotifyPage() {
           <div className="border-t pt-4 mt-6">
             <h4 className="text-sm font-medium text-stone-600 mb-2">使用说明</h4>
             <ul className="text-sm text-stone-500 space-y-1.5 list-disc list-inside">
-              <li>办公室电脑通过浏览器访问本系统的 LAN 地址</li>
-              <li>填写标题、内容，选择显示方式和停留时长，可附带图片</li>
               <li>全屏显示：覆盖整个桌面，适合重要通知</li>
               <li>顶部通知：屏幕上方1/3区域，轻度提醒</li>
-              <li>多条全屏通知自动排队，依次显示；顶部模式新通知替换旧的</li>
               <li>重要通知为橙色背景，紧急通知为红色背景 + 脉冲动画</li>
               <li>支持发送多张图片（最多4张），粘贴或选择均可</li>
+              <li>需要确认：学生通过 LAN 网页选择姓名后点击"已收到"</li>
+              <li>指定学生：只有被选中的学生才可确认，教师可查看具体完成名单</li>
             </ul>
           </div>
         </div>

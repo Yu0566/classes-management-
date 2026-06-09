@@ -62,49 +62,17 @@ export function runSeed(db: SqlJsDatabase): boolean {
     return false
   }
 
-  // 检查数据库小组数
+  // 检查数据库是否已有数据
   const groupResult = db.exec('SELECT COUNT(*) as cnt FROM groups')
   const dbGroupCount = (groupResult.length > 0 ? groupResult[0].values[0][0] : 0) as number
 
-  // 空数据库不自动导入，保持空白供用户手动导入
-  if (dbGroupCount === 0) {
-    console.log('空数据库，跳过种子导入')
+  // 只在数据库完全为空时导入种子数据（首次启动），绝不覆盖已有数据
+  if (dbGroupCount > 0) {
+    console.log(`数据库已有 ${dbGroupCount} 个小组，跳过种子导入`)
     return false
   }
 
-  if (dbGroupCount >= seed.groups.length) {
-    console.log('数据库已有完整数据，跳过种子导入')
-    return false
-  }
-
-  console.log(`数据库不完整（${dbGroupCount}/${seed.groups.length}组），清空旧数据并重新导入...`)
-
-  // 先删子表（引用 students/groups 的表），再删主表
-  const childTables = [
-    'practice_score_awards',
-    'practice_signins',
-    'math_homework_grades',
-    'homework_records',
-    'homework_submissions',
-    'daily_practice_records',
-    'lunch_rest_records',
-    'attendance_records',
-    'attendance_window_records',
-    'duty_students',
-    'duty_records',
-    'duty_roster',
-    'daily_statuses',
-    'deduction_records',
-    'manual_adjust_records',
-    'group_score_history',
-    'score_snapshots',
-  ]
-
-  for (const table of childTables) {
-    db.run(`DELETE FROM ${table}`)
-  }
-  db.run('DELETE FROM students')
-  db.run('DELETE FROM groups')
+  console.log('空数据库，开始导入种子数据...')
 
   const now = Date.now()
 

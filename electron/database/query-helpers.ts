@@ -41,6 +41,12 @@ export function executeRun(sql: string, params: unknown[] = []): { changes: numb
   }
 }
 
+export function execSQL(sql: string): void {
+  const db = requireDatabase()
+  db.exec(sql)
+  saveDatabase()
+}
+
 export function executeTransaction(operations: { sql: string; params?: unknown[] }[]): void {
   const db = requireDatabase()
   try {

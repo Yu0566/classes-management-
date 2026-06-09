@@ -206,7 +206,7 @@ export async function autoAssignDutyStudents(
   return { added }
 }
 
-// 重置值日状态（删除记录、扣分、还原积分，回到idle状态）
+// 重置值日状态（回到idle，保留学生名单，还原扣分）
 export async function resetDutyRecord(date: string): Promise<void> {
   const record = await getDutyRecord(date)
   if (!record) return
@@ -229,7 +229,23 @@ export async function resetDutyRecord(date: string): Promise<void> {
     [date]
   )
 
-  // 3. 删除值日学生名单和值日记录
-  await executeRun('DELETE FROM duty_students WHERE duty_record_id = ?', [record.id])
-  await executeRun('DELETE FROM duty_records WHERE id = ?', [record.id])
+  // 3. 清空倒计时和签到状态，重置学生签到标记（保留学生名单和记录）
+  await executeRun(
+    `UPDATE duty_records SET countdown_started_at = NULL, sign_in_window_start = NULL, sign_in_window_end = NULL, sign_out_window_start = NULL, sign_out_window_end = NULL WHERE id = ?`,
+    [record.id]
+  )
+  await executeRun(
+    'UPDATE duty_students SET sign_in_time = NULL, sign_out_time = NULL, penalty_applied = 0 WHERE duty_record_id = ?',
+    [record.id]
+  )
+}
+
+// 轻量清理：仅清除倒计时/签到窗口时间戳，不还原扣分、不删除学生
+export async function clearDutyTimers(dutyRecordId: string): Promise<void> {
+  await executeRun(
+    `UPDATE duty_records
+     SET countdown_started_at = NULL, sign_in_window_start = NULL, sign_in_window_end = NULL
+     WHERE id = ?`,
+    [dutyRecordId]
+  )
 }

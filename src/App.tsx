@@ -16,6 +16,7 @@ import DashboardPage from './pages/DashboardPage'
 import CoinsPage from './pages/CoinsPage'
 import MathHomeworkPage from './pages/MathHomeworkPage'
 import NotifyPage from './pages/NotifyPage'
+import MessageBoardPage from './pages/MessageBoardPage'
 import GrowthRecordsPage from './pages/GrowthRecordsPage'
 import DutyRotationPage from './pages/DutyRotationPage'
 import DashboardWidgetPage from './pages/DashboardWidgetPage'
@@ -42,6 +43,7 @@ function App() {
         <Route path="duty-rotation" element={<DutyRotationPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="notify" element={<NotifyPage />} />
+        <Route path="message-board" element={<MessageBoardPage />} />
       </Route>
       {/* 桌面便签看板（无侧边栏） */}
       <Route path="/dashboard-widget" element={<DashboardWidgetPage />} />
