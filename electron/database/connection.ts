@@ -73,14 +73,31 @@ export async function initDatabase(_dbPath: string): Promise<void> {
     console.log('数据库已创建:', dbPath)
   }
 
-  // 启用外键约束
-  db.run('PRAGMA foreign_keys = ON')
+  try {
+    // 启用外键约束
+    db.run('PRAGMA foreign_keys = ON')
 
-  // 运行迁移
-  runMigrations(db)
+    // 运行迁移
+    runMigrations(db)
 
-  // 导入种子数据（仅首次）
-  const seeded = runSeed(db)
+    // 导入种子数据（仅首次）
+    runSeed(db)
+  } catch (err: any) {
+    // 数据库损坏时自动备份并重建
+    if (err.message && (err.message.includes('not a database') || err.message.includes('file is not a database'))) {
+      console.error('数据库文件损坏，自动备份并重建:', dbPath)
+      const bakPath = dbPath + '.corrupted-' + Date.now() + '.bak'
+      fs.copyFileSync(dbPath, bakPath)
+      db.close()
+      db = new SQL.Database()
+      db.run('PRAGMA foreign_keys = ON')
+      runMigrations(db)
+      runSeed(db)
+      console.log('数据库已重建，损坏文件备份到:', bakPath)
+    } else {
+      throw err
+    }
+  }
 
   // 立即持久化
   saveDatabase()

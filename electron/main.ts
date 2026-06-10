@@ -41,26 +41,13 @@ function createWindow() {
     minHeight: 680,
     title: '课堂管理系统',
     autoHideMenuBar: true,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
-
-  if (isDev) {
-    // 从 .vite-tmp/port 读取 Vite 实际端口
-    let port = 5173
-    try {
-      const portFile = path.join(process.cwd(), '.vite-tmp', 'port')
-      if (fs.existsSync(portFile)) {
-        port = parseInt(fs.readFileSync(portFile, 'utf-8').trim(), 10) || 5173
-      }
-    } catch { /* fallback to default */ }
-    mainWindow.loadURL(`http://localhost:${port}`)
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
-  }
 
   // 主窗口关闭时退出应用
   mainWindow.on('closed', () => {
@@ -77,11 +64,30 @@ function createWindow() {
   })
 }
 
+function loadApp() {
+  if (!mainWindow) return
+  if (isDev) {
+    let port = 5173
+    try {
+      const portFile = path.join(process.cwd(), '.vite-tmp', 'port')
+      if (fs.existsSync(portFile)) {
+        port = parseInt(fs.readFileSync(portFile, 'utf-8').trim(), 10) || 5173
+      }
+    } catch { /* fallback */ }
+    mainWindow.loadURL(`http://localhost:${port}`)
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+  }
+  mainWindow.show()
+}
+
 // 重新导出供 ipc-handlers 使用
 export { showNotificationWindow }
 
 app.whenReady().then(async () => {
-  // 初始化数据库（开发模式使用独立数据库，避免测试数据污染正式版）
+  // 先创建窗口（空白），确保窗口始终可见，再初始化数据库
+  createWindow()
+
   const dbFileName = app.isPackaged ? 'class-management.db' : 'class-management-dev.db'
   const dbPath = path.join(app.getPath('userData'), dbFileName)
 
@@ -115,8 +121,8 @@ app.whenReady().then(async () => {
   // 注册 IPC 处理器
   registerIpcHandlers()
 
-  // 创建窗口
-  createWindow()
+  // 数据库就绪后加载前端应用
+  loadApp()
 
   // 创建桌面看板便签（右侧停靠）
   createDashboardWidget(isDev)
@@ -144,6 +150,10 @@ app.whenReady().then(async () => {
       createWindow()
     }
   })
+}).catch(async (err) => {
+  console.error('[Main] 启动失败:', err)
+  await dialog.showErrorBox('启动失败', err.message || '未知错误')
+  app.quit()
 })
 
 app.on('window-all-closed', () => {
