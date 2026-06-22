@@ -285,7 +285,10 @@ let dragStartX = 0, dragStartY = 0
 let hasMoved = false
 
 const ball = document.getElementById('ball')
+
+// Pointer Events（鼠标）
 ball.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch') return // 触摸走 touch 事件
   dragging = true
   hasMoved = false
   dragStartX = e.screenX
@@ -293,6 +296,7 @@ ball.addEventListener('pointerdown', (e) => {
   ball.setPointerCapture(e.pointerId)
 })
 ball.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'touch') return
   if (!dragging) return
   const dx = e.screenX - dragStartX
   const dy = e.screenY - dragStartY
@@ -304,10 +308,39 @@ ball.addEventListener('pointermove', (e) => {
   }
 })
 ball.addEventListener('pointerup', (e) => {
+  if (e.pointerType === 'touch') return
   dragging = false
   ball.releasePointerCapture(e.pointerId)
   if (!hasMoved) togglePanel()
 })
+
+// Touch Events（触摸屏兜底，解决希沃等触摸屏 pointerCapture 不工作的问题）
+ball.addEventListener('touchstart', (e) => {
+  e.preventDefault()
+  dragging = true
+  hasMoved = false
+  const t = e.touches[0]
+  dragStartX = t.screenX
+  dragStartY = t.screenY
+}, { passive: false })
+ball.addEventListener('touchmove', (e) => {
+  if (!dragging) return
+  e.preventDefault()
+  const t = e.touches[0]
+  const dx = t.screenX - dragStartX
+  const dy = t.screenY - dragStartY
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true
+  if (hasMoved) {
+    api.float.move(dx, dy)
+    dragStartX = t.screenX
+    dragStartY = t.screenY
+  }
+}, { passive: false })
+ball.addEventListener('touchend', (e) => {
+  e.preventDefault()
+  dragging = false
+  if (!hasMoved) togglePanel()
+}, { passive: false })
 
 // 展开/收起
 async function togglePanel() {

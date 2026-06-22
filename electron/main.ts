@@ -83,10 +83,14 @@ function loadApp() {
   mainWindow.show()
 
   // 自动适配高 DPI 大屏（如希沃 4K 触摸屏 300% 缩放，有效分辨率仅 1280×720）
+  // 每次页面加载完成后都设置，防止被 LAN 服务器 loadURL 重置
   const display = screen.getPrimaryDisplay()
   const { width, height } = display.workAreaSize
   if (display.scaleFactor >= 2 && width < 1600) {
     const zoom = Math.min(width / 1920, height / 1080)
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow?.webContents.setZoomFactor(zoom)
+    })
     mainWindow.webContents.setZoomFactor(zoom)
     console.log(`[Main] 高DPI适配: ${width}x${height} @${display.scaleFactor}x → zoomFactor=${zoom.toFixed(3)}`)
   }
