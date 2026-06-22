@@ -125,10 +125,12 @@ export default function StudentScoresPage() {
   const manualCount = personalLedger.filter(e => e.type === 'manual').length
   const manualTotal = personalLedger.filter(e => e.type === 'manual').reduce((s, e) => s + e.points, 0)
 
-  const ADJUST_REASONS = [
-    { group: '科目', items: ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '道德与法治'] },
-    { group: '班级管理', items: ['违反纪律', '未完成任务', '课堂表现优秀', '积极发言', '帮助同学', '卫生问题'] },
+  const DEDUCT_REASONS = [
+    { group: '科目', items: ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '道法'] },
     { group: '其他', items: ['其他'] },
+  ]
+  const ADD_REASONS = [
+    { group: '加分原因', items: ['扣错了补分', '老师主动加分', '班长加分'] },
   ]
 
   const openAdjustModal = (studentId: string, studentName: string, delta: number) => {
@@ -517,7 +519,7 @@ export default function StudentScoresPage() {
 
             {/* 选择原因（点击即确认） */}
             <p className="text-sm text-stone-500 mb-3">选择原因（点击即提交）</p>
-            {ADJUST_REASONS.map(group => (
+            {(adjustModal.delta > 0 ? ADD_REASONS : DEDUCT_REASONS).map(group => (
               <div key={group.group} className="mb-3">
                 <div className="text-xs text-stone-400 mb-1.5">{group.group}</div>
                 <div className="flex flex-wrap gap-2">
