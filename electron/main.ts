@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog } from 'electron'
+import { app, BrowserWindow, Menu, dialog, screen } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { initDatabase, getDatabase, closeDatabase, checkOldData } from './database/connection'
@@ -81,6 +81,15 @@ function loadApp() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
   mainWindow.show()
+
+  // 自动适配高 DPI 大屏（如希沃 4K 触摸屏 300% 缩放，有效分辨率仅 1280×720）
+  const display = screen.getPrimaryDisplay()
+  const { width, height } = display.workAreaSize
+  if (display.scaleFactor >= 2 && width < 1600) {
+    const zoom = Math.min(width / 1920, height / 1080)
+    mainWindow.webContents.setZoomFactor(zoom)
+    console.log(`[Main] 高DPI适配: ${width}x${height} @${display.scaleFactor}x → zoomFactor=${zoom.toFixed(3)}`)
+  }
 }
 
 // 重新导出供 ipc-handlers 使用
