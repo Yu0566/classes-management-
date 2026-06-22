@@ -4,16 +4,21 @@ import { Reorder, useDragControls } from 'framer-motion'
 import {
   LayoutDashboard, Star, Users,
   ClipboardCheck, CalendarCheck, Utensils, Pencil, Coins,
-  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone, TrendingUp, CalendarDays, GripVertical, MessageSquare, Monitor
+  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone, TrendingUp, CalendarDays, GripVertical, MessageSquare, Monitor, Clock, Lock, Unlock, TreePine, BookOpen
 } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import { getNewMessageCount } from '@/lib/message-board'
+import { getUncompletedCount } from '@/lib/copy-punishment'
 
 const STORAGE_KEY = 'nav-item-order'
+const NAV_VERSION_KEY = 'nav-item-version'
+const NAV_VERSION = 4 // bump this when defaultNavItems changes
 const MSG_LAST_VIEWED_KEY = 'message_board_last_viewed'
 
 const defaultNavItems = [
   { path: '/', label: '班级看板', icon: LayoutDashboard, exact: true },
   { path: '/groups', label: '小组积分', icon: Star },
+  { path: '/tree', label: '小组植树', icon: TreePine },
   { path: '/students', label: '学生管理', icon: Contact },
   { path: '/student-scores', label: '个人积分', icon: Users },
   { path: '/growth-records', label: '成长记录', icon: TrendingUp },
@@ -25,12 +30,20 @@ const defaultNavItems = [
   { path: '/daily-practice', label: '每日一练', icon: Pencil },
   { path: '/coins', label: '宝龙币', icon: Coins },
   { path: '/math-homework', label: '数学作业等级', icon: Calculator },
+  { path: '/chinese-class', label: '课堂加分', icon: BookOpen },
   { path: '/notify', label: '班级通知', icon: Megaphone },
   { path: '/message-board', label: '留言板', icon: MessageSquare },
+  { path: '/after-school', label: '课后管理', icon: Clock },
 ]
 
 function loadNavOrder() {
   try {
+    const storedVersion = Number(localStorage.getItem(NAV_VERSION_KEY)) || 0
+    if (storedVersion < NAV_VERSION) {
+      localStorage.removeItem(STORAGE_KEY)
+      localStorage.setItem(NAV_VERSION_KEY, String(NAV_VERSION))
+      return defaultNavItems
+    }
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const order: string[] = JSON.parse(saved)
@@ -38,9 +51,21 @@ function loadNavOrder() {
         .map(p => defaultNavItems.find(item => item.path === p))
         .filter(Boolean) as typeof defaultNavItems
       const missing = defaultNavItems.filter(item => !order.includes(item.path))
-      return [...ordered, ...missing]
+      if (missing.length > 0) {
+        const result = [...ordered]
+        for (const item of missing) {
+          const defaultIdx = defaultNavItems.indexOf(item)
+          const prevItem = defaultNavItems[defaultIdx - 1]
+          const insertAfter = prevItem ? result.findIndex(i => i.path === prevItem.path) : -1
+          result.splice(insertAfter + 1, 0, item)
+        }
+        saveNavOrder(result)
+        return result
+      }
+      return ordered
     }
   } catch { /* ignore */ }
+  localStorage.setItem(NAV_VERSION_KEY, String(NAV_VERSION))
   return defaultNavItems
 }
 
@@ -55,12 +80,14 @@ function NavButton({
   collapsed,
   badge,
   onClick,
+  onLock,
 }: {
   item: (typeof defaultNavItems)[number]
   active: boolean
   collapsed: boolean
   badge?: number
   onClick: () => void
+  onLock?: () => void
 }) {
   const dragControls = useDragControls()
   const Icon = item.icon
@@ -110,20 +137,69 @@ function NavButton({
           </span>
           {!collapsed && <span className="text-sm whitespace-nowrap">{item.label}</span>}
         </button>
+        {/* 锁定按钮 */}
+        {onLock && !collapsed && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onLock() }}
+            className="flex-shrink-0 p-1 text-transparent group-hover:text-stone-300 hover:!text-stone-500 transition-colors"
+            title="锁定此功能"
+          >
+            <Unlock size={12} />
+          </button>
+        )}
       </div>
     </Reorder.Item>
   )
 }
+
+const LOCKED_KEY = 'locked-nav-items'
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [navItems, setNavItems] = useState(loadNavOrder)
   const [remoteHostname, setRemoteHostname] = useState('')
   const [newMsgCount, setNewMsgCount] = useState(0)
+  const [punishmentBadge, setPunishmentBadge] = useState(0)
   const lastViewedRef = useRef(Number(localStorage.getItem(MSG_LAST_VIEWED_KEY)) || Date.now())
   const navigate = useNavigate()
   const location = useLocation()
   const [isElectron] = useState(() => !!(window as any).electronAPI)
+
+  // 锁定功能
+  const [lockedPaths, setLockedPaths] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(LOCKED_KEY) || '[]') } catch { return [] }
+  })
+  const [unlockTarget, setUnlockTarget] = useState<string | null>(null)
+  const [unlockPwInput, setUnlockPwInput] = useState('')
+  const [unlockPwError, setUnlockPwError] = useState(false)
+
+  const lockPath = (path: string) => {
+    setLockedPaths(prev => {
+      const next = [...prev, path]
+      localStorage.setItem(LOCKED_KEY, JSON.stringify(next))
+      return next
+    })
+  }
+
+  const unlockPath = (path: string) => {
+    setLockedPaths(prev => {
+      const next = prev.filter(p => p !== path)
+      localStorage.setItem(LOCKED_KEY, JSON.stringify(next))
+      return next
+    })
+  }
+
+  const handleUnlockSubmit = () => {
+    const pw = localStorage.getItem('duty_password') || 'admin'
+    if (unlockPwInput !== pw) { setUnlockPwError(true); return }
+    if (unlockTarget) {
+      unlockPath(unlockTarget)
+      navigate(unlockTarget)
+    }
+    setUnlockTarget(null)
+    setUnlockPwInput('')
+    setUnlockPwError(false)
+  }
   const isLanHttp = (window.location.protocol === 'http:' || window.location.protocol === 'https:')
     && window.location.hostname !== 'localhost'
     && !window.location.hostname.includes('127.0.0.1')
@@ -156,6 +232,20 @@ export default function MainLayout() {
     const timer = setInterval(checkNewMessages, 10000)
     return () => clearInterval(timer)
   }, [checkNewMessages])
+
+  // 罚抄未完成角标轮询
+  const checkPunishmentBadge = useCallback(async () => {
+    try {
+      const count = await getUncompletedCount()
+      setPunishmentBadge(count)
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => {
+    checkPunishmentBadge()
+    const timer = setInterval(checkPunishmentBadge, 30000)
+    return () => clearInterval(timer)
+  }, [checkPunishmentBadge])
 
   useEffect(() => {
     if (!isLanHttp) return
@@ -207,16 +297,24 @@ export default function MainLayout() {
 
         {/* 导航 */}
         <nav className="flex-1 overflow-y-auto py-3 px-2">
+          {/* 未锁定项（可拖拽排序） */}
           <Reorder.Group
             axis="y"
-            values={navItems.map(i => i.path)}
-            onReorder={handleReorder}
+            values={navItems.filter(i => !lockedPaths.includes(i.path) && !(i.path === '/notify' && isElectron)).map(i => i.path)}
+            onReorder={(paths) => {
+              const unlocked = paths.map(p => navItems.find(i => i.path === p)).filter(Boolean) as typeof navItems
+              const locked = navItems.filter(i => lockedPaths.includes(i.path))
+              const reordered = [...unlocked, ...locked]
+              setNavItems(reordered)
+              saveNavOrder(reordered)
+            }}
             as="div"
             className="space-y-1"
           >
-            {navItems.map(item => {
-              if (item.path === '/notify' && isElectron) return null
-              const badge = item.path === '/message-board' ? newMsgCount : undefined
+            {navItems.filter(i => !lockedPaths.includes(i.path) && !(i.path === '/notify' && isElectron)).map(item => {
+              const badge = item.path === '/message-board' ? newMsgCount
+                : item.path === '/after-school' ? punishmentBadge
+                : undefined
               return (
                 <NavButton
                   key={item.path}
@@ -225,10 +323,37 @@ export default function MainLayout() {
                   collapsed={collapsed}
                   badge={badge}
                   onClick={() => navigate(item.path)}
+                  onLock={() => lockPath(item.path)}
                 />
               )
             })}
           </Reorder.Group>
+
+          {/* 锁定项 */}
+          {lockedPaths.length > 0 && (
+            <>
+              <div className="my-2 border-t border-dashed border-stone-200" />
+              <div className="space-y-1">
+                {navItems.filter(i => lockedPaths.includes(i.path)).map(item => {
+                  const Icon = item.icon
+                  return (
+                    <div key={item.path} className="relative group rounded-lg">
+                      <button
+                        onClick={() => { setUnlockPwInput(''); setUnlockPwError(false); setUnlockTarget(item.path) }}
+                        className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-stone-300 hover:bg-stone-50 transition-colors text-left"
+                      >
+                        <span className="relative inline-flex">
+                          <Icon size={20} />
+                        </span>
+                        {!collapsed && <span className="text-sm whitespace-nowrap">{item.label}</span>}
+                        {!collapsed && <Lock size={12} className="ml-auto text-stone-300" />}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </nav>
 
         {/* 底部设置 */}
@@ -269,6 +394,29 @@ export default function MainLayout() {
       <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
+
+      {/* 解锁密码弹窗 */}
+      <Modal open={unlockTarget !== null} onClose={() => setUnlockTarget(null)} title="解锁功能" width="sm">
+        <div className="space-y-3">
+          <p className="text-sm text-stone-500">
+            输入密码以解锁「{navItems.find(i => i.path === unlockTarget)?.label}」
+          </p>
+          <input
+            type="password"
+            value={unlockPwInput}
+            onChange={e => { setUnlockPwInput(e.target.value); setUnlockPwError(false) }}
+            onKeyDown={e => e.key === 'Enter' && handleUnlockSubmit()}
+            placeholder="请输入密码"
+            autoFocus
+            className={`w-full px-3 py-2 border rounded-lg text-sm ${unlockPwError ? 'border-red-400' : 'border-stone-300'} focus:outline-none focus:ring-2 focus:ring-primary-200`}
+          />
+          {unlockPwError && <p className="text-xs text-red-500">密码错误</p>}
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setUnlockTarget(null)} className="px-3 py-1.5 text-sm text-stone-500 hover:text-stone-700">取消</button>
+            <button onClick={handleUnlockSubmit} className="px-4 py-1.5 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">解锁</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

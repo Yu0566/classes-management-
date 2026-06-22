@@ -5,12 +5,18 @@ import App from './App'
 import './index.css'
 
 function isLanHttpMode(): boolean {
-  return (window.location.protocol === 'http:' || window.location.protocol === 'https:')
-    && window.location.hostname !== 'localhost'
-    && !window.location.hostname.includes('127.0.0.1')
+  if (window.electronAPI?.db) return false
+  return window.location.protocol === 'http:' || window.location.protocol === 'https:'
 }
 
+const STANDALONE_PATHS = ['/punishment-signin', '/reflection-signin', '/dashboard-widget']
+
 async function init() {
+  if (STANDALONE_PATHS.includes(window.location.pathname)) {
+    window.location.replace(`${window.location.origin}/#${window.location.pathname}`)
+    return
+  }
+
   if (window.electronAPI?.db) {
     // Electron IPC 模式（桌面端）
   } else if (isLanHttpMode()) {

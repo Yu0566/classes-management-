@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Trash2, Edit3, Camera, Shield, Users, Crown, CalendarDays } from 'lucide-react'
 import Modal from '../components/ui/Modal'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import * as rosterApi from '../lib/duty-roster'
-import { queryAll } from '../lib/db'
-import type { DutyRosterEntry, DutyRole, Student } from '../types'
+import * as studentApi from '../lib/students'
+import type { DutyRosterEntry, DutyRole, StudentWithGroup } from '../types'
 import { WEEKDAY_NAMES, DUTY_ROLE_LABELS } from '../types'
 
 const ROLE_SORT: Record<DutyRole, number> = {
@@ -15,11 +16,13 @@ const ROLE_SORT: Record<DutyRole, number> = {
 }
 
 export default function DutyRotationPage() {
+  const { confirm } = useConfirm()
   const [entries, setEntries] = useState<DutyRosterEntry[]>([])
-  const [students, setStudents] = useState<Student[]>([])
+  const [students, setStudents] = useState<StudentWithGroup[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DutyRosterEntry | null>(null)
   const [formRole, setFormRole] = useState<DutyRole>('rotation')
+  const [formGroupFilter, setFormGroupFilter] = useState('')
   const [formStudentId, setFormStudentId] = useState('')
   const [formWeekday, setFormWeekday] = useState(1)
   const [formPosition, setFormPosition] = useState(1)
@@ -28,13 +31,17 @@ export default function DutyRotationPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
-    const data = await rosterApi.getAll()
-    setEntries(data)
+    try {
+      const data = await rosterApi.getAll()
+      setEntries(data)
+    } catch (err) {
+      console.error('[DutyRotation] 加载轮值数据失败:', err)
+    }
   }, [])
 
   const loadStudents = useCallback(async () => {
     try {
-      const list = await queryAll<Student>('SELECT id, name FROM students ORDER BY name')
+      const list = await studentApi.getAllStudents()
       setStudents(list)
     } catch { /* ignore */ }
   }, [])
@@ -101,7 +108,7 @@ export default function DutyRotationPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除该成员吗？')) return
+    if (!await confirm({ message: '确定要删除该成员吗？' })) return
     await rosterApi.remove(id)
     load()
   }
@@ -109,9 +116,25 @@ export default function DutyRotationPage() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setFormPhoto(reader.result as string)
-    reader.readAsDataURL(file)
+    // 压缩图片到合理尺寸，避免 base64 数据过大导致浏览器端 API 响应超时
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const MAX = 400
+      let { width, height } = img
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+        else { width = Math.round(width * MAX / height); height = MAX }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      setFormPhoto(canvas.toDataURL('image/jpeg', 0.8))
+    }
+    img.onerror = () => URL.revokeObjectURL(url)
+    img.src = url
   }
 
   const monitor = byRole('monitor')[0]
@@ -336,10 +359,23 @@ export default function DutyRotationPage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-stone-600 mb-1">小组</label>
+              <select
+                value={formGroupFilter}
+                onChange={e => { setFormGroupFilter(e.target.value); setFormStudentId('') }}
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="">请先选择小组</option>
+                {[...new Set(students.map(s => s.group_name).filter(Boolean))].map(gn => (
+                  <option key={gn} value={gn}>{gn}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-stone-600 mb-1">学生</label>
               <select value={formStudentId} onChange={e => setFormStudentId(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm">
                 <option value="">请选择学生</option>
-                {students.map(s => (
+                {students.filter(s => !formGroupFilter || s.group_name === formGroupFilter).map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>

@@ -77,6 +77,24 @@ async function getNextOrder(date: string, label: PracticeLabel): Promise<number>
   return (rows[0]?.max_order ?? 0) + 1
 }
 
+// 初始化当天所有有 practice_label 的学生的 daily_statuses（设为 unsigned）
+// 确保未签到学生也有记录，积分系统能正确扣分
+export async function initPracticeDailyStatuses(date: string): Promise<void> {
+  const students = await queryAll<{ id: string }>(
+    "SELECT id FROM students WHERE practice_label IS NOT NULL AND practice_label != ''"
+  )
+  const existing = await queryAll<{ student_id: string }>(
+    "SELECT student_id FROM daily_statuses WHERE date = ? AND daily_practice != ''",
+    [date]
+  )
+  const existingSet = new Set(existing.map(e => e.student_id))
+  for (const s of students) {
+    if (!existingSet.has(s.id)) {
+      await upsertDailyStatus(s.id, date, 'daily_practice', 'unsigned')
+    }
+  }
+}
+
 // 签到
 export async function signInStudent(
   studentId: string,

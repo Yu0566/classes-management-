@@ -95,8 +95,8 @@ export async function adjustGroupScore(
   const now = Date.now()
   await executeTransaction([
     {
-      sql: 'UPDATE groups SET study_score = ?, updated_at = ? WHERE id = ?',
-      params: [newStudyScore, now, groupId],
+      sql: 'UPDATE groups SET study_score = ?, cumulative_study_score = cumulative_study_score + ?, updated_at = ? WHERE id = ?',
+      params: [newStudyScore, realDelta, now, groupId],
     },
     {
       sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at)
@@ -121,14 +121,15 @@ export async function setGroupScore(
 
   if (studyScore !== undefined && studyScore !== group.study_score) {
     const clamped = Math.max(-10000, Math.min(10000, studyScore))
+    const delta = clamped - group.study_score
     operations.push({
       sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at)
             VALUES (?, ?, ?, ?, ?)`,
-      params: [uuid(), groupId, clamped - group.study_score, reason || '手动编辑学习积分', now],
+      params: [uuid(), groupId, delta, reason || '手动编辑学习积分', now],
     })
     operations.push({
-      sql: 'UPDATE groups SET study_score = ?, updated_at = ? WHERE id = ?',
-      params: [clamped, now, groupId],
+      sql: 'UPDATE groups SET study_score = ?, cumulative_study_score = cumulative_study_score + ?, updated_at = ? WHERE id = ?',
+      params: [clamped, delta, now, groupId],
     })
   }
 
@@ -160,16 +161,27 @@ export async function undoLastScoreChange(): Promise<boolean> {
   const group = await getGroup(last.group_id)
   if (!group) return false
 
-  // 根据原因判断影响的积分类型：总积分相关只撤销总积分，其余撤销学习积分
+  // 根据原因判断影响的积分类型：总积分相关只撤销总积分，其余撤销学习积分（+累计）
   const isTotalScore = last.reason.includes('排名第') || last.reason.includes('总积分')
   const field = isTotalScore ? 'total_score' : 'study_score'
 
   const now = Date.now()
-  await executeTransaction([
+  const undoOperations: { sql: string; params: unknown[] }[] = [
     {
       sql: `UPDATE groups SET ${field} = ${field} - ?, updated_at = ? WHERE id = ?`,
       params: [last.delta, now, last.group_id],
     },
+  ]
+
+  // 撤销学习积分时同时撤销累计学习积分
+  if (!isTotalScore) {
+    undoOperations.push({
+      sql: 'UPDATE groups SET cumulative_study_score = cumulative_study_score - ?, updated_at = ? WHERE id = ?',
+      params: [last.delta, now, last.group_id],
+    })
+  }
+
+  undoOperations.push(
     {
       sql: 'DELETE FROM group_score_history WHERE id = ?',
       params: [last.id],
@@ -179,7 +191,9 @@ export async function undoLastScoreChange(): Promise<boolean> {
             VALUES (?, ?, ?, ?, ?)`,
       params: [uuid(), last.group_id, -last.delta, `撤销：${last.reason}`, now],
     },
-  ])
+  )
+
+  await executeTransaction(undoOperations)
 
   return true
 }
@@ -307,9 +321,10 @@ export async function resetAllScores(): Promise<void> {
   const operations: { sql: string; params: unknown[] }[] = []
 
   for (const group of groups) {
-    if (group.study_score !== 0) {
+    if (group.study_score !== 0 || group.cumulative_study_score !== 0) {
+      const oldCumulative = group.cumulative_study_score
       operations.push({
-        sql: 'UPDATE groups SET study_score = 0, updated_at = ? WHERE id = ?',
+        sql: 'UPDATE groups SET study_score = 0, cumulative_study_score = 0, updated_at = ? WHERE id = ?',
         params: [now, group.id],
       })
       operations.push({
@@ -317,10 +332,17 @@ export async function resetAllScores(): Promise<void> {
               VALUES (?, ?, ?, ?, ?)`,
         params: [uuid(), group.id, -group.study_score, '手动全部清零', now],
       })
+      if (oldCumulative !== 0) {
+        operations.push({
+          sql: `INSERT INTO group_score_history (id, group_id, delta, reason, created_at)
+                VALUES (?, ?, ?, ?, ?)`,
+          params: [uuid(), group.id, -oldCumulative, '手动全部清零（累计学习积分）', now],
+        })
+      }
     }
-    if (group.total_score !== 0) {
+    if (group.total_score !== 0 || (group as any).tree_spent) {
       operations.push({
-        sql: 'UPDATE groups SET total_score = 0, updated_at = ? WHERE id = ?',
+        sql: 'UPDATE groups SET total_score = 0, tree_spent = 0, updated_at = ? WHERE id = ?',
         params: [now, group.id],
       })
       operations.push({
@@ -330,6 +352,21 @@ export async function resetAllScores(): Promise<void> {
       })
     }
   }
+
+  // 植物全部重置：生长、果实、装扮全部清零
+  operations.push({
+    sql: 'DELETE FROM tree_actions',
+    params: [],
+  })
+  operations.push({
+    sql: `UPDATE group_trees SET
+      level = 0, growth = 0, gold_progress = 0,
+      fruits = 0, fruits_t1 = 0, fruits_t2 = 0, fruits_t3 = 0,
+      fruits_redeemed = 0, redeemed_t1 = 0, redeemed_t2 = 0, redeemed_t3 = 0,
+      decorations = NULL,
+      updated_at = ?`,
+    params: [Date.now()],
+  })
 
   if (operations.length > 0) {
     await executeTransaction(operations)

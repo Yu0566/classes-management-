@@ -19,3 +19,100 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
+
+/* 植树页面动画 */
+@keyframes tree-sway {
+  0%, 100% { transform: rotate(0deg); }
+  33% { transform: rotate(0.5deg); }
+  66% { transform: rotate(-0.5deg); }
+}
+@keyframes bokeh-float {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.2; }
+  50% { transform: translateY(-10px) scale(1.15); opacity: 0.5; }
+}
+@keyframes fruit-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(255,180,0,0.5)); }
+  50% { filter: drop-shadow(0 0 10px rgba(255,180,0,0.8)); }
+}
+@keyframes gentle-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes firefly {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.8); }
+  15% { opacity: 1; }
+  85% { opacity: 0.7; }
+  100% { opacity: 0; transform: translate(var(--dx, 20px), var(--dy, -30px)) scale(1.2); }
+}
+@keyframes god-ray {
+  0%, 100% { opacity: 0.025; }
+  50% { opacity: 0.07; }
+}
+@keyframes sway-slow {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  50% { transform: rotate(1.2deg) translateX(2px); }
+}
+@keyframes leaf-drift {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 0.7; }
+  100% { transform: translate(30px, 60px) rotate(45deg); opacity: 0; }
+}
+.tree-sway { animation: tree-sway 6s ease-in-out infinite; transform-origin: bottom center; }
+.bokeh-float { animation: bokeh-float 5s ease-in-out infinite; }
+.fruit-glow { animation: fruit-glow 2.5s ease-in-out infinite; }
+.gentle-pulse { animation: gentle-pulse 3s ease-in-out infinite; }
+.sway-slow { animation: sway-slow 8s ease-in-out infinite; transform-origin: bottom center; }
+.firefly { animation: firefly 6s ease-in-out infinite; }
+.god-ray { animation: god-ray 6s ease-in-out infinite; }
+.leaf-drift { animation: leaf-drift 8s linear infinite; }
+
+/* 太阳旋转脉冲 */
+@keyframes sun-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.sun-spin { animation: sun-spin 30s linear infinite; }
+
+/* 云飘动 */
+@keyframes cloud-drift {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(120px); }
+  100% { transform: translateX(0); }
+}
+.cloud-drift { animation: cloud-drift 35s ease-in-out infinite; }
+
+/* 飞鸟 */
+@keyframes bird-fly {
+  0% { transform: translate(0, 0) scaleY(1); }
+  25% { transform: translate(80px, -12px) scaleY(0.6); }
+  50% { transform: translate(180px, -5px) scaleY(1); }
+  75% { transform: translate(300px, -15px) scaleY(0.6); }
+  100% { transform: translate(420px, -8px) scaleY(1); opacity: 0; }
+}
+.bird-fly { animation: bird-fly 12s linear infinite; }
+
+/* 溪流反光 */
+@keyframes stream-shimmer {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -48; }
+}
+.stream-shimmer { animation: stream-shimmer 3s linear infinite; }
+
+/* 蝴蝶浮动 */
+@keyframes butterfly-float {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(8px, -6px) rotate(3deg); }
+  40% { transform: translate(-4px, -10px) rotate(-2deg); }
+  60% { transform: translate(12px, -4px) rotate(4deg); }
+  80% { transform: translate(-2px, -8px) rotate(-1deg); }
+}
+.butterfly-float { animation: butterfly-float 6s ease-in-out infinite; }
+
+/* 蜻蜓浮动 */
+@keyframes dragonfly-float {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(15px, -5px); }
+  50% { transform: translate(5px, -12px); }
+  75% { transform: translate(-10px, -3px); }
+}
+.dragonfly-float { animation: dragonfly-float 8s ease-in-out infinite; }

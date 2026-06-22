@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { History, RefreshCw, CheckCheck, Crown, Edit3 } from 'lucide-react'
+import { History, CheckCheck, Crown, Edit3 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as homeworkApi from '@/lib/homework'
@@ -95,8 +95,7 @@ export default function HomeworkPage() {
     })
   }
 
-  const resetStudentAllIncomplete = async (studentId: string, studentName: string) => {
-    if (!await confirm({ message: `确认将"${studentName}"所有科目设为未交？` })) return
+  const resetStudentAllIncomplete = async (studentId: string) => {
     for (const subj of subjects) {
       await homeworkApi.setHomeworkStatus(studentId, date, subj, 'incomplete')
     }
@@ -254,6 +253,9 @@ export default function HomeworkPage() {
                                 {subj}
                               </th>
                             ))}
+                            <th className="text-center px-3 py-2 text-sm font-medium text-stone-400">
+                              操作
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -265,13 +267,6 @@ export default function HomeworkPage() {
                                   {group?.leader_name === s.name && (
                                     <Crown size={13} className="text-yellow-500" />
                                   )}
-                                  <button
-                                    onClick={() => resetStudentAllIncomplete(s.id, s.name)}
-                                    className="p-0.5 text-stone-300 hover:text-red-500 transition-colors"
-                                    title="全科设为未交"
-                                  >
-                                    <RefreshCw size={12} />
-                                  </button>
                                 </div>
                               </td>
                               {subjects.map(subj => {
@@ -288,6 +283,14 @@ export default function HomeworkPage() {
                                   </td>
                                 )
                               })}
+                              <td className="px-2 py-1.5 text-center">
+                                <button
+                                  onClick={() => resetStudentAllIncomplete(s.id)}
+                                  className="px-2.5 py-1 text-xs rounded-lg border border-red-200 text-red-500 hover:bg-red-50 active:scale-95 transition-all whitespace-nowrap"
+                                >
+                                  一键未交
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>

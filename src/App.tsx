@@ -17,9 +17,14 @@ import CoinsPage from './pages/CoinsPage'
 import MathHomeworkPage from './pages/MathHomeworkPage'
 import NotifyPage from './pages/NotifyPage'
 import MessageBoardPage from './pages/MessageBoardPage'
+import AfterSchoolPage from './pages/AfterSchoolPage'
+import ReflectionSignInPage from './pages/ReflectionSignInPage'
+import CopyPunishmentSignInPage from './pages/CopyPunishmentSignInPage'
 import GrowthRecordsPage from './pages/GrowthRecordsPage'
 import DutyRotationPage from './pages/DutyRotationPage'
 import DashboardWidgetPage from './pages/DashboardWidgetPage'
+import TreePage from './pages/TreePage'
+import ChineseClassPage from './pages/ChineseClassPage'
 
 function App() {
   return (
@@ -44,9 +49,15 @@ function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="notify" element={<NotifyPage />} />
         <Route path="message-board" element={<MessageBoardPage />} />
+        <Route path="after-school" element={<AfterSchoolPage />} />
+        <Route path="tree" element={<TreePage />} />
+        <Route path="chinese-class" element={<ChineseClassPage />} />
       </Route>
       {/* 桌面便签看板（无侧边栏） */}
       <Route path="/dashboard-widget" element={<DashboardWidgetPage />} />
+      {/* 小组团建学生签到（无侧边栏，LAN 端访问） */}
+      <Route path="/reflection-signin" element={<ReflectionSignInPage />} />
+      <Route path="/punishment-signin" element={<CopyPunishmentSignInPage />} />
     </Routes>
     </ConfirmProvider>
     </NotificationProvider>

@@ -5,7 +5,7 @@ import type { Student, StudentWithGroup, ManualAdjustRecord } from '@/types'
 // 获取所有学生
 export async function getAllStudents(): Promise<StudentWithGroup[]> {
   return queryAll<StudentWithGroup>(
-    `SELECT s.*, g.name as group_name
+    `SELECT s.*, g.name as group_name, g.leader_name
      FROM students s
      LEFT JOIN groups g ON g.id = s.group_id
      ORDER BY s.group_id, s.sort_order, s.created_at`

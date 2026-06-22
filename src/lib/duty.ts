@@ -36,17 +36,41 @@ export async function getDutyStudents(dutyRecordId: string): Promise<DutyStudent
 }
 
 export async function addDutyStudent(
-  dutyRecordId: string, studentId: string, studentName: string
+  dutyRecordId: string, studentId: string, studentName: string,
+  source: string = '手动添加'
 ): Promise<void> {
-  await executeRun(
-    `INSERT OR IGNORE INTO duty_students (id, duty_record_id, student_id, student_name)
-     VALUES (?, ?, ?, ?)`,
-    [uuid(), dutyRecordId, studentId, studentName]
-  )
+  try {
+    await executeRun(
+      `INSERT OR IGNORE INTO duty_students (id, duty_record_id, student_id, student_name, source)
+       VALUES (?, ?, ?, ?, ?)`,
+      [uuid(), dutyRecordId, studentId, studentName, source]
+    )
+  } catch {
+    // source 列可能不存在（迁移未执行），动态添加后重试
+    try { await executeRun("ALTER TABLE duty_students ADD COLUMN source TEXT DEFAULT ''") } catch { /* ignore */ }
+    await executeRun(
+      `INSERT OR IGNORE INTO duty_students (id, duty_record_id, student_id, student_name, source)
+       VALUES (?, ?, ?, ?, ?)`,
+      [uuid(), dutyRecordId, studentId, studentName, source]
+    )
+  }
 }
 
 export async function removeDutyStudent(dutyStudentId: string): Promise<void> {
   await executeRun('DELETE FROM duty_students WHERE id = ?', [dutyStudentId])
+}
+
+// 标记前一天的值日记录为"已免除"，防止昨日未签到学生被反复加回
+export async function dismissPreviousDutyCarry(studentId: string, currentDate: string): Promise<void> {
+  const prevDate = getPreviousDate(currentDate)
+  const prevRecord = await queryOne<{ id: string }>(
+    'SELECT id FROM duty_records WHERE date = ?', [prevDate]
+  )
+  if (!prevRecord) return
+  await executeRun(
+    'UPDATE duty_students SET sign_in_time = ? WHERE duty_record_id = ? AND student_id = ? AND sign_in_time IS NULL',
+    [Date.now(), prevRecord.id, studentId]
+  )
 }
 
 export async function clearDutyStudents(dutyRecordId: string): Promise<void> {
@@ -109,12 +133,24 @@ export async function closeSignInWindow(date: string): Promise<DutyRecord> {
 }
 
 // 学生签到（立即写入数据库，数据不丢失）
-export async function studentSignIn(dutyStudentId: string): Promise<void> {
+// 返回实际更新行数，调用方应检查是否成功
+export async function studentSignIn(dutyStudentId: string): Promise<{ changes: number }> {
   const now = Date.now()
-  await executeRun(
-    'UPDATE duty_students SET sign_in_time = ? WHERE id = ?',
+  const result = await executeRun(
+    'UPDATE duty_students SET sign_in_time = ? WHERE id = ? AND sign_in_time IS NULL',
     [now, dutyStudentId]
   )
+  return result
+}
+
+// 通过 student_id 签到（当 duty_student.id 失效时的兜底）
+export async function studentSignInByStudentId(dutyRecordId: string, studentId: string): Promise<{ changes: number }> {
+  const now = Date.now()
+  const result = await executeRun(
+    'UPDATE duty_students SET sign_in_time = ? WHERE duty_record_id = ? AND student_id = ? AND sign_in_time IS NULL',
+    [now, dutyRecordId, studentId]
+  )
+  return result
 }
 
 // 执行未签到扣分（防重复：原子抢占 penalty_applied 标记）
@@ -167,6 +203,7 @@ export async function autoAssignDutyStudents(
   excludedStudentIds?: Set<string>
 ): Promise<{
   added: { name: string; reason: string }[]
+  removed: { name: string; reason: string }[]
 }> {
   const record = await getOrCreateDutyRecord(date)
   const existingStudents = await getDutyStudents(record.id)
@@ -198,12 +235,79 @@ export async function autoAssignDutyStudents(
     }
 
     if (reason) {
-      await addDutyStudent(record.id, row.id, row.name)
+      await addDutyStudent(record.id, row.id, row.name, reason)
       added.push({ name: row.name, reason })
+      existingIds.add(row.id)
     }
   }
 
-  return { added }
+  // 清理违规条件已解除的学生（手动添加、昨日未签到的除外）
+  const statusMap = new Map<string, { attendance: string; homework: string }>()
+  for (const row of rows) {
+    statusMap.set(row.id, { attendance: row.attendance, homework: row.homework })
+  }
+
+  const removed: { name: string; reason: string }[] = []
+
+  for (const ds of existingStudents) {
+    if (ds.source === '手动添加' || ds.source === '昨日值日未签到') continue
+    if (!ds.source) continue // 旧数据无 source，保守不删
+
+    const status = statusMap.get(ds.student_id)
+    if (!status) {
+      // 学生已被删除，清理孤立记录
+      await removeDutyStudent(ds.id)
+      removed.push({ name: ds.student_name, reason: '学生已删除' })
+      continue
+    }
+
+    let shouldRemove = false
+    if (ds.source === '考勤迟到') {
+      shouldRemove = status.attendance !== 'late'
+    } else if (ds.source === '作业未交' || ds.source === '作业未交齐') {
+      shouldRemove = status.homework === 'complete'
+    }
+
+    if (shouldRemove) {
+      await removeDutyStudent(ds.id)
+      removed.push({ name: ds.student_name, reason: ds.source })
+    }
+  }
+
+  // 自动加入前一天值日未签到的学生
+  const prevDate = getPreviousDate(date)
+  const prevRecord = await queryOne<DutyRecord>(
+    'SELECT * FROM duty_records WHERE date = ?', [prevDate]
+  )
+  if (prevRecord) {
+    const prevStudents = await queryAll<DutyStudent>(
+      'SELECT * FROM duty_students WHERE duty_record_id = ? AND sign_in_time IS NULL',
+      [prevRecord.id]
+    )
+    for (const ps of prevStudents) {
+      if (existingIds.has(ps.student_id)) continue
+      if (excludedStudentIds?.has(ps.student_id)) continue
+
+      // 排除前一天请假的同学
+      const prevDailyStatus = await queryOne<{ attendance: string }>(
+        'SELECT attendance FROM daily_statuses WHERE student_id = ? AND date = ?',
+        [ps.student_id, prevDate]
+      )
+      if (prevDailyStatus?.attendance === 'leave') continue
+
+      await addDutyStudent(record.id, ps.student_id, ps.student_name, '昨日值日未签到')
+      added.push({ name: ps.student_name, reason: '昨日值日未签到' })
+      existingIds.add(ps.student_id)
+    }
+  }
+
+  return { added, removed }
+}
+
+function getPreviousDate(date: string): string {
+  const d = new Date(date)
+  d.setDate(d.getDate() - 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 // 重置值日状态（回到idle，保留学生名单，还原扣分）

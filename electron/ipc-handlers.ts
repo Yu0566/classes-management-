@@ -2,9 +2,10 @@ import { ipcMain, app, shell } from 'electron'
 import { queryAll, queryOne, executeRun, executeTransaction } from './database/query-helpers'
 import { startServer, stopServer, getServerStatus, setDeviceName } from './lan-server'
 import { checkForUpdates, downloadUpdate, quitAndInstall } from './updater'
+import { listBackups, restoreBackup, createBackup } from './database/connection'
 import { mainWindow } from './main'
 import { showNotificationWindow } from './notify-window'
-import { closeWidget, openWidget, isWidgetOpen, refreshWidget } from './dashboard-widget'
+// import { closeWidget, openWidget, isWidgetOpen, refreshWidget } from './dashboard-widget'
 import { startTunnel, stopTunnel, getTunnelStatus, onTunnelStatusChange } from './tunnel'
 
 
@@ -77,8 +78,9 @@ export function registerIpcHandlers(): void {
   })
 
   // Cloudflare Tunnel 控制
-  ipcMain.handle('tunnel:start', async (_event, port: number) => {
+  ipcMain.handle('tunnel:start', async (_event, port: number, deviceName?: string) => {
     try {
+      if (deviceName) setDeviceName(deviceName)
       await startTunnel(port)
       return { success: true }
     } catch (error: unknown) {
@@ -169,21 +171,10 @@ export function registerIpcHandlers(): void {
     return shell.openExternal(url)
   })
 
-  // 桌面看板便签
-  ipcMain.handle('widget:close', () => {
-    closeWidget()
-    return { success: true }
-  })
-
-  ipcMain.handle('widget:open', () => {
-    openWidget()
-    return { success: true }
-  })
-
-  ipcMain.handle('widget:isOpen', () => {
-    return { open: isWidgetOpen() }
-  })
-
+  // 桌面看板便签（已移除）
+  ipcMain.handle('widget:close', () => ({ success: true }))
+  ipcMain.handle('widget:open', () => ({ success: true }))
+  ipcMain.handle('widget:isOpen', () => ({ open: false }))
   ipcMain.handle('widget:openMain', () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
@@ -192,11 +183,24 @@ export function registerIpcHandlers(): void {
     return { success: true }
   })
 
-  // 数据变更时通知便签和主窗口刷新
   ipcMain.handle('data:changed', () => {
-    refreshWidget()
     mainWindow?.webContents.send('main:refresh')
     return { success: true }
+  })
+
+  // 备份管理
+  ipcMain.handle('backup:list', () => {
+    return listBackups()
+  })
+
+  ipcMain.handle('backup:create', () => {
+    const name = createBackup()
+    return { success: !!name, name }
+  })
+
+  ipcMain.handle('backup:restore', (_event, name: string) => {
+    const ok = restoreBackup(name)
+    return { success: ok }
   })
 
 }

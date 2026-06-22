@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Send, Loader2, X, Clock, MessageSquare, Sparkles, ImageIcon } from 'lucide-react'
-import { getMessages, addMessage, deleteMessage, type MessageRecord, type MessageTag } from '../lib/message-board'
+import { getMessages, addMessage, deleteMessage, getImages, type MessageRecord, type MessageTag } from '../lib/message-board'
 
 function isLanHttpMode(): boolean {
   return (window.location.protocol === 'http:' || window.location.protocol === 'https:')
@@ -26,6 +26,28 @@ const PALETTE = [
   { bg: '#cffafe', line: '#06b6d4' },
   { bg: '#ede9fe', line: '#8b5cf6' },
   { bg: '#fef3c7', line: '#eab308' },
+]
+
+const FONT_COLORS = [
+  { hex: '#e03131', name: '红色' },
+  { hex: '#f08c00', name: '橙色' },
+  { hex: '#e6a800', name: '金色' },
+  { hex: '#2f9e44', name: '绿色' },
+  { hex: '#1971c2', name: '蓝色' },
+  { hex: '#7048e8', name: '紫色' },
+  { hex: '#c2255c', name: '粉色' },
+  { hex: '#0c8599', name: '青色' },
+  { hex: '#9c36b5', name: '紫罗兰' },
+  { hex: '#e8590c', name: '橘红' },
+  { hex: '#2b8a3e', name: '翠绿' },
+  { hex: '#364fc7', name: '靛蓝' },
+]
+
+const FONT_SIZES = [
+  { size: '14px', label: '小号' },
+  { size: '16px', label: '标准' },
+  { size: '20px', label: '大号' },
+  { size: '24px', label: '特大' },
 ]
 
 function hashId(id: string): number {
@@ -65,9 +87,11 @@ export default function MessageBoardPage() {
   const [content, setContent] = useState('')
   const [tag, setTag] = useState<MessageTag>('其他')
   const [expiresIn, setExpiresIn] = useState('never')
+  const [fontColor, setFontColor] = useState<string | null>(null)
+  const [fontSize, setFontSize] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isTeacher = isLanHttpMode()
 
@@ -91,12 +115,14 @@ export default function MessageBoardPage() {
       if (expiresIn !== 'never') {
         expiresAt = Date.now() + parseInt(expiresIn) * 3600 * 1000
       }
-      await addMessage(studentName.trim(), content.trim(), tag, expiresAt, imagePreview)
+      await addMessage(studentName.trim(), content.trim(), tag, expiresAt, imagePreviews, fontColor, fontSize)
       setStudentName('')
       setContent('')
       setTag('其他')
       setExpiresIn('never')
-      setImagePreview(null)
+      setImagePreviews([])
+      setFontColor(null)
+      setFontSize(null)
       loadMessages()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -202,29 +228,111 @@ export default function MessageBoardPage() {
               </div>
             </div>
 
+            {/* 字体颜色 */}
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-stone-400 mb-2">字体颜色</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFontColor(null)}
+                  className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all ${
+                    fontColor === null ? 'border-amber-400 scale-110' : 'border-transparent hover:scale-105'
+                  }`}
+                  style={{ background: '#3d3d3d' }}
+                  title="默认"
+                >
+                  <span className="text-white text-[10px] font-bold">A</span>
+                </button>
+                {FONT_COLORS.map(c => (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    onClick={() => setFontColor(c.hex)}
+                    className={`w-9 h-9 rounded-full border-2 transition-all hover:scale-110 ${
+                      fontColor === c.hex ? 'border-amber-400 scale-110 shadow-md' : 'border-stone-200'
+                    }`}
+                    style={{ background: c.hex }}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 字号 */}
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-stone-400 mb-2">字号</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFontSize(null)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                    fontSize === null
+                      ? 'border-amber-300 bg-amber-50 text-amber-700'
+                      : 'border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300'
+                  }`}
+                >
+                  默认
+                </button>
+                {FONT_SIZES.map(s => (
+                  <button
+                    key={s.size}
+                    type="button"
+                    onClick={() => setFontSize(s.size)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      fontSize === s.size
+                        ? 'border-amber-300 bg-amber-50 text-amber-700'
+                        : 'border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* 第二行：内容 + 图片 + 发送 */}
             <div className="flex items-end gap-3">
               <textarea
                 value={content}
                 onChange={e => setContent(e.target.value)}
-                placeholder="写下留言内容..."
+                placeholder="写下留言内容...（可直接粘贴图片）"
                 rows={2}
                 maxLength={300}
+                onPaste={async (e) => {
+                  const items = e.clipboardData?.items
+                  if (!items) return
+                  for (const item of Array.from(items)) {
+                    if (item.type.startsWith('image/')) {
+                      e.preventDefault()
+                      const file = item.getAsFile()
+                      if (!file) continue
+                      try {
+                        const dataUrl = await compressImage(file)
+                        setImagePreviews(prev => [...prev, dataUrl])
+                      } catch (err) {
+                        console.error('粘贴图片失败:', err)
+                      }
+                    }
+                  }
+                }}
                 className="flex-1 px-4 py-3 bg-stone-50 rounded-xl text-base outline-none border border-stone-200 focus:border-amber-300 focus:ring-2 focus:ring-amber-50 transition-all resize-none"
               />
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/gif,image/webp"
+                multiple
                 className="hidden"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  try {
-                    const dataUrl = await compressImage(file)
-                    setImagePreview(dataUrl)
-                  } catch (err) {
-                    console.error('图片压缩失败:', err)
+                  const files = e.target.files
+                  if (!files || files.length === 0) return
+                  for (const file of Array.from(files)) {
+                    try {
+                      const dataUrl = await compressImage(file)
+                      setImagePreviews(prev => [...prev, dataUrl])
+                    } catch (err) {
+                      console.error('图片压缩失败:', err)
+                    }
                   }
                   e.target.value = ''
                 }}
@@ -249,15 +357,19 @@ export default function MessageBoardPage() {
             </div>
 
             {/* 图片预览 */}
-            {imagePreview && (
-              <div className="mt-3 inline-block relative">
-                <img src={imagePreview} alt="预览" className="h-20 rounded-lg border border-stone-200" />
-                <button
-                  onClick={() => setImagePreview(null)}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-white border-2 border-red-200 text-red-400 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-300"
-                >
-                  <X size={12} />
-                </button>
+            {imagePreviews.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {imagePreviews.map((img, idx) => (
+                  <div key={idx} className="inline-block relative">
+                    <img src={img} alt={`预览${idx + 1}`} className="h-20 rounded-lg border border-stone-200" />
+                    <button
+                      onClick={() => setImagePreviews(prev => prev.filter((_, i) => i !== idx))}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-white border-2 border-red-200 text-red-400 rounded-full flex items-center justify-center shadow-sm hover:bg-red-50 hover:border-red-300"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -333,7 +445,7 @@ export default function MessageBoardPage() {
 
                     {/* 姓名 + 标签 */}
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="font-bold text-stone-700 text-base">{msg.student_name}</span>
+                      <span className="font-bold text-stone-700 text-base tracking-wide" style={{ fontFamily: "'ZCOOL KuaiLe', 'KaiTi', serif", color: msg.font_color || undefined }}>{msg.student_name}</span>
                       <span className="flex items-center gap-1.5 text-sm text-stone-400">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: tagCfg.dot }} />
                         {tagCfg.label}
@@ -346,19 +458,34 @@ export default function MessageBoardPage() {
                     </div>
 
                     {/* 图片 */}
-                    {msg.image && (
-                      <div className="mb-3 -mx-1">
-                        <img
-                          src={msg.image}
-                          alt="留言图片"
-                          className="w-full max-h-40 object-contain rounded-lg"
-                          style={{ background: 'rgba(0,0,0,0.03)' }}
-                        />
-                      </div>
-                    )}
+                    {(() => {
+                      const imgs = getImages(msg)
+                      if (imgs.length === 0) return null
+                      return (
+                        <div className="mb-3 -mx-1 flex flex-wrap gap-1">
+                          {imgs.map((src, idx) => (
+                            <img
+                              key={idx}
+                              src={src}
+                              alt={`图片${idx + 1}`}
+                              className="max-w-full max-h-32 rounded-lg object-contain"
+                              style={{ background: 'rgba(0,0,0,0.03)' }}
+                            />
+                          ))}
+                        </div>
+                      )
+                    })()}
 
                     {/* 内容 */}
-                    <p className="text-base leading-relaxed whitespace-pre-wrap flex-1 text-stone-600">
+                    <p
+                      className="whitespace-pre-wrap flex-1 tracking-wide"
+                      style={{
+                        fontFamily: "'Ma Shan Zheng', 'KaiTi', cursive",
+                        lineHeight: msg.font_size ? 1.8 : 1.9,
+                        color: msg.font_color || undefined,
+                        fontSize: msg.font_size || undefined,
+                      }}
+                    >
                       {msg.content}
                     </p>
 

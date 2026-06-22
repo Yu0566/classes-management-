@@ -1,6 +1,6 @@
 {
   "name": "class-management",
-  "version": "3.0.0",
+  "version": "3.3.0",
   "description": "课堂管理系统 - 桌面端班级管理应用",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -21,21 +21,15 @@
     "android:open": "npx cap open android"
   },
   "dependencies": {
-    "@capacitor/android": "^8.3.4",
-    "@capacitor/cli": "^8.3.4",
-    "@capacitor/core": "^8.3.4",
-    "@capacitor/filesystem": "^8.1.2",
     "electron-updater": "^6.8.3",
-    "framer-motion": "^11.0.0",
-    "lucide-react": "^0.400.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "react-router-dom": "^6.23.0",
-    "recharts": "^2.12.0",
     "sql.js": "^1.10.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/filesystem": "^8.1.2",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/sql.js": "^1.4.11",
@@ -43,9 +37,16 @@
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.0",
     "concurrently": "^8.2.0",
+    "docx": "^9.7.1",
     "electron": "^30.0.0",
     "electron-builder": "^24.13.0",
+    "framer-motion": "^11.0.0",
+    "lucide-react": "^0.400.0",
     "postcss": "^8.4.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "react-router-dom": "^6.23.0",
+    "recharts": "^2.12.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.4.0",
@@ -55,6 +56,10 @@
   "build": {
     "appId": "com.classmanagement.app",
     "productName": "课堂管理系统",
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
     "directories": {
       "output": "release"
     },
@@ -71,10 +76,6 @@
       {
         "from": "seed.json",
         "to": "seed.json"
-      },
-      {
-        "from": "cloudflared.exe",
-        "to": "cloudflared.exe"
       },
       {
         "from": "tunnel/cert.pem",

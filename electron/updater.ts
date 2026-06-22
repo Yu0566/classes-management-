@@ -1,6 +1,10 @@
 import { autoUpdater } from 'electron-updater'
 import { BrowserWindow, app } from 'electron'
 import https from 'https'
+import { closeWidget } from './dashboard-widget'
+import { stopServer } from './lan-server'
+import { stopTunnel } from './tunnel'
+import { closeDatabase } from './database/connection'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -138,5 +142,11 @@ export async function downloadUpdate(): Promise<void> {
 }
 
 export function quitAndInstall(): void {
-  autoUpdater.quitAndInstall()
+  // 先主动清理资源，确保进程能快速退出，避免 NSIS 安装程序弹出"关闭进程"提示
+  try { closeWidget() } catch { /* ignore */ }
+  try { stopTunnel() } catch { /* ignore */ }
+  try { stopServer() } catch { /* ignore */ }
+  try { closeDatabase() } catch { /* ignore */ }
+  // isSilent=true: 静默安装不弹窗 / isForceRunAfter=true: 安装后自动启动新版本
+  autoUpdater.quitAndInstall(true, true)
 }

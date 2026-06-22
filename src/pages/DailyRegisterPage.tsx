@@ -458,7 +458,7 @@ export default function DailyRegisterPage() {
                   const cfg = CARD_COLORS[status]
                   const clickableForSignin = anyActive && status === 'unsigned'
                   const clickableForCancel = anyActive && status === 'signed'
-                  const clickableForAdmin = (!anyActive || !activeWin) && (status === 'unsigned' || status === 'late' || status === 'leave')
+                  const clickableForAdmin = !anyActive && displayWin?.status === 'closed' && (status === 'unsigned' || status === 'late' || status === 'leave')
 
                   return (
                     <div key={s.id} className="relative">
@@ -527,7 +527,7 @@ export default function DailyRegisterPage() {
                   const cfg = CARD_COLORS[status]
                   const clickableForSignin = anyActive && status === 'unsigned'
                   const clickableForCancel = anyActive && status === 'signed'
-                  const clickableForAdmin = (!anyActive || !activeWin) && (status === 'unsigned' || status === 'late' || status === 'leave')
+                  const clickableForAdmin = !anyActive && displayWin?.status === 'closed' && (status === 'unsigned' || status === 'late' || status === 'leave')
 
                   return (
                     <div key={s.id} className="relative">

@@ -70,7 +70,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Cloudflare Tunnel 控制
   tunnel: {
-    start: (port: number) => ipcRenderer.invoke('tunnel:start', port),
+    start: (port: number, deviceName?: string) => ipcRenderer.invoke('tunnel:start', port, deviceName),
     stop: () => ipcRenderer.invoke('tunnel:stop'),
     getStatus: () => ipcRenderer.invoke('tunnel:status'),
     onStatusChange: (callback: (state: { status: string; url: string; error?: string }) => void) => {
@@ -84,6 +84,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   notify: {
     send: (title: string, message: string, mode?: string, duration?: number, imagesJson?: string, urgency?: string) =>
       ipcRenderer.invoke('notify:send', title, message, mode, duration, imagesJson, urgency),
+  },
+
+  // 备份管理
+  backup: {
+    list: () => ipcRenderer.invoke('backup:list'),
+    create: () => ipcRenderer.invoke('backup:create'),
+    restore: (name: string) => ipcRenderer.invoke('backup:restore', name),
+  },
+
+  // 悬浮球控制
+  float: {
+    expand: () => ipcRenderer.invoke('float:expand'),
+    collapse: () => ipcRenderer.invoke('float:collapse'),
+    move: (dx: number, dy: number) => ipcRenderer.invoke('float:move', dx, dy),
   },
 
   // 应用功能

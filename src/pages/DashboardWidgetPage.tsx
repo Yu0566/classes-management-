@@ -265,8 +265,8 @@ export default function DashboardWidgetPage() {
 
   const noWindowUsed = attendanceWindows.length === 0 || attendanceWindows.every(w => (windowRecordsMap.get(w.id) || []).length === 0)
   const hasAttendanceIssues = !noWindowUsed && (lateStudentNames.length > 0 || leaveStudentNames.length > 0 || unsignedStudents.length > 0)
-  const rankedGroups = [...groups].sort((a, b) => b.total_score - a.total_score)
-  const maxTotalScore = rankedGroups.length > 0 ? rankedGroups[0].total_score : 1
+  const rankedGroups = [...groups].sort((a, b) => (b.total_score + (b.tree_spent || 0)) - (a.total_score + (a.tree_spent || 0)))
+  const maxTotalScore = rankedGroups.length > 0 ? (rankedGroups[0].total_score + (rankedGroups[0].tree_spent || 0)) : 1
   const monitor = dutyRoster.find(e => e.role === 'monitor')
   const todayDow = new Date().getDay()
   const todayRotation = (todayDow >= 1 && todayDow <= 5)
@@ -477,7 +477,8 @@ export default function DashboardWidgetPage() {
               ) : (
                 <div className="space-y-1">
                   {rankedGroups.slice(0, 3).map((g, i) => {
-                    const pct = maxTotalScore > 0 ? Math.round((g.total_score / maxTotalScore) * 100) : 0
+                    const earned = g.total_score + (g.tree_spent || 0)
+                    const pct = maxTotalScore > 0 ? Math.round((earned / maxTotalScore) * 100) : 0
                     const barGrad = i === 0 ? 'from-amber-400 to-amber-300' : i === 1 ? 'from-slate-300 to-slate-200' : i === 2 ? 'from-orange-400 to-orange-300' : 'from-indigo-300 to-indigo-200'
                     return (
                       <div key={g.id} className="flex items-center gap-2">
@@ -489,7 +490,7 @@ export default function DashboardWidgetPage() {
                         </span>
                         <div className="flex-1 h-4 bg-stone-100 rounded-full overflow-hidden relative">
                           <div className={`h-full bg-gradient-to-r ${barGrad} rounded-full transition-[width] duration-700`} style={{ width: `${Math.max(pct, 8)}%` }} />
-                          <span className="absolute inset-0 flex items-center px-2 text-[10px] font-mono font-bold text-stone-600">{g.total_score}</span>
+                          <span className="absolute inset-0 flex items-center px-2 text-[10px] font-mono font-bold text-stone-600">{earned}</span>
                         </div>
                       </div>
                     )

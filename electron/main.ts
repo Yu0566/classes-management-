@@ -3,11 +3,11 @@ import path from 'path'
 import fs from 'fs'
 import { initDatabase, getDatabase, closeDatabase, checkOldData } from './database/connection'
 import { registerIpcHandlers } from './ipc-handlers'
-import { stopServer, setNotifier } from './lan-server'
-import { stopTunnel } from './tunnel'
+import { startServer, stopServer, setNotifier } from './lan-server'
+import { startTunnel, stopTunnel, ensureCloudflared } from './tunnel'
 import { initUpdater } from './updater'
 import { showNotificationWindow } from './notify-window'
-import { createDashboardWidget, closeWidget } from './dashboard-widget'
+import { createFloatBall, closeFloatBall } from './float-ball'
 
 
 // 防止未捕获异常导致进程崩溃
@@ -67,14 +67,16 @@ function createWindow() {
 function loadApp() {
   if (!mainWindow) return
   if (isDev) {
-    let port = 5173
-    try {
-      const portFile = path.join(process.cwd(), '.vite-tmp', 'port')
-      if (fs.existsSync(portFile)) {
+    const portFile = path.join(process.cwd(), '.vite-tmp', 'port')
+    if (fs.existsSync(portFile)) {
+      let port = 5173
+      try {
         port = parseInt(fs.readFileSync(portFile, 'utf-8').trim(), 10) || 5173
-      }
-    } catch { /* fallback */ }
-    mainWindow.loadURL(`http://localhost:${port}`)
+      } catch { /* fallback */ }
+      mainWindow.loadURL(`http://localhost:${port}`)
+    } else {
+      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
@@ -124,8 +126,33 @@ app.whenReady().then(async () => {
   // 数据库就绪后加载前端应用
   loadApp()
 
-  // 创建桌面看板便签（右侧停靠）
-  createDashboardWidget(isDev)
+  // 悬浮球（课堂加分快捷入口）
+  createFloatBall()
+
+  // 后台预下载 cloudflared（不阻塞启动）
+  if (app.isPackaged) {
+    ensureCloudflared().catch(() => {})
+  }
+
+  // 自动启动 LAN + 隧道（不阻塞主流程）
+  const DEFAULT_PORT = 3456
+  startServer(DEFAULT_PORT, isDev).then(({ port }) => {
+    console.log(`[Main] LAN 服务器已自动启动，端口 ${port}`)
+    // 若页面从 file:// 加载，切换到 LAN 服务器，确保 /api/ 请求可达
+    if (mainWindow && mainWindow.webContents.getURL().startsWith('file:')) {
+      mainWindow.loadURL(`http://localhost:${port}`)
+    }
+    // LAN 启动成功后，延迟启动隧道（仅打包版，开发模式不连避免跟生产环境冲突）
+    if (app.isPackaged) {
+      setTimeout(() => {
+        startTunnel(port).catch(err => {
+          console.error('[Main] 隧道自动启动失败:', err?.message || err)
+        })
+      }, 3000)
+    }
+  }).catch(err => {
+    console.error('[Main] LAN 自动启动失败:', err?.message || err)
+  })
 
   // 确保主窗口获取焦点，widget 不抢在最前
   if (mainWindow) {
@@ -136,6 +163,7 @@ app.whenReady().then(async () => {
   // 移除菜单栏（Windows下需窗口创建后再移除）
   Menu.setApplicationMenu(null)
   mainWindow?.setMenu(null)
+
 
   // 当用户尝试启动第二个实例时，聚焦现有窗口
   app.on('second-instance', () => {
@@ -163,7 +191,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  closeWidget()
+  closeFloatBall()
   stopTunnel()
   stopServer()
   closeDatabase()

@@ -57,13 +57,21 @@ export default function MathHomeworkPage() {
   const handleMark = async (studentId: string) => {
     const reason = reasons[studentId]?.trim()
     if (!reason) return
-    await mathHomeworkApi.markFail(studentId, date, reason)
-    await loadAll()
+    try {
+      await mathHomeworkApi.markFail(studentId, date, reason)
+      await loadAll()
+    } catch (err) {
+      console.error('[MathHomework] 标记失败:', err)
+    }
   }
 
   const handleUnmark = async (gradeId: string) => {
-    await mathHomeworkApi.removeFail(gradeId)
-    await loadAll()
+    try {
+      await mathHomeworkApi.removeFail(gradeId)
+      await loadAll()
+    } catch (err) {
+      console.error('[MathHomework] 取消标记失败:', err)
+    }
   }
 
   const handleReasonChange = (studentId: string, value: string) => {
@@ -218,6 +226,7 @@ export default function MathHomeworkPage() {
                           <td className="px-4 py-2.5 text-center">
                             {isFailing ? (
                               <button
+                                type="button"
                                 onClick={() => handleUnmark(record.id)}
                                 className="text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                               >
@@ -225,6 +234,7 @@ export default function MathHomeworkPage() {
                               </button>
                             ) : (
                               <button
+                                type="button"
                                 onClick={() => handleMark(s.id)}
                                 disabled={!reasons[s.id]?.trim()}
                                 className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

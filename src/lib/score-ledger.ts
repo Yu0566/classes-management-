@@ -23,7 +23,7 @@ export interface LedgerEntry {
   date: string | null
 }
 
-const LIMIT = 500
+const LIMIT = 2000
 
 export async function getUnifiedLedger(): Promise<LedgerEntry[]> {
   const [deductions, manuals, groupHistory] = await Promise.all([

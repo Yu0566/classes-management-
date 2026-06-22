@@ -18,7 +18,8 @@ export default function NotifyPage() {
   // 确认模式
   const [confirmMode, setConfirmMode] = useState<ConfirmMode>('none')
   const [confirmStudents, setConfirmStudents] = useState<string[]>([])
-  const [allStudents, setAllStudents] = useState<{ id: string; name: string }[]>([])
+  const [allStudents, setAllStudents] = useState<{ id: string; name: string; group_name: string }[]>([])
+  const [filterGroup, setFilterGroup] = useState('')
 
   const loadNotifyHistory = useCallback(async () => {
     try {
@@ -41,7 +42,7 @@ export default function NotifyPage() {
   useEffect(() => {
     loadNotifyHistory()
     studentApi.getAllStudents().then(list =>
-      setAllStudents(list.map(s => ({ id: s.id, name: s.name })))
+      setAllStudents(list.map(s => ({ id: s.id, name: s.name, group_name: s.group_name || '' })))
     )
   }, [loadNotifyHistory])
 
@@ -355,8 +356,28 @@ export default function NotifyPage() {
                       <span className="ml-2 text-primary-600">{confirmStudents.join('、')}</span>
                     )}
                   </p>
+                  {/* 小组筛选 */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setFilterGroup('')}
+                      className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
+                        filterGroup === '' ? 'bg-stone-700 text-white' : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
+                      }`}
+                    >全部</button>
+                    {[...new Set(allStudents.map(s => s.group_name).filter(Boolean))].map(gn => (
+                      <button
+                        key={gn}
+                        type="button"
+                        onClick={() => setFilterGroup(gn)}
+                        className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
+                          filterGroup === gn ? 'bg-stone-700 text-white' : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
+                        }`}
+                      >{gn}</button>
+                    ))}
+                  </div>
                   <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                    {allStudents.map(s => (
+                    {allStudents.filter(s => !filterGroup || s.group_name === filterGroup).map(s => (
                       <button
                         key={s.id}
                         type="button"

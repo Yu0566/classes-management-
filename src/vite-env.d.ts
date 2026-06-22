@@ -37,10 +37,15 @@ interface Window {
       setDeviceName: (name: string) => Promise<{ success: boolean }>
     }
     tunnel: {
-      start: (port: number) => Promise<{ success: boolean; error?: string }>
+      start: (port: number, deviceName?: string) => Promise<{ success: boolean; error?: string }>
       stop: () => Promise<{ success: boolean }>
       getStatus: () => Promise<{ status: string; url: string; error?: string }>
       onStatusChange: (callback: (state: { status: string; url: string; error?: string }) => void) => () => void
+    }
+    backup: {
+      list: () => Promise<{ name: string; size: number; mtime: number }[]>
+      create: () => Promise<{ success: boolean; name?: string }>
+      restore: (name: string) => Promise<{ success: boolean }>
     }
     notify: {
       send: (title: string, message: string, mode?: 'fullscreen' | 'top', duration?: number, imagesJson?: string, urgency?: '普通' | '重要' | '紧急') => Promise<{ success: boolean; error?: string }>

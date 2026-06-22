@@ -4,6 +4,8 @@ export interface Group {
   name: string
   study_score: number
   total_score: number
+  cumulative_study_score: number
+  tree_spent: number
   snapshot_diff: number
   color: string
   icon: string
@@ -30,6 +32,7 @@ export interface Student {
 // 带小组信息的学生
 export interface StudentWithGroup extends Student {
   group_name: string
+  leader_name?: string
 }
 
 // 每日状态
@@ -95,6 +98,7 @@ export interface DutyStudent {
   sign_in_time: number | null
   sign_out_time: number | null
   penalty_applied: number
+  source?: string
 }
 
 // 值日记录
@@ -127,6 +131,47 @@ export interface DetentionStudent {
   student_name: string
   sign_in_time: number | null
   penalty_applied: number
+}
+
+// 小组团建
+export interface ReflectionRecord {
+  id: string
+  date: string
+  group_id: string
+  group_name: string
+  countdown_started_at: number | null
+  sign_in_window_start: number | null
+  sign_in_window_end: number | null
+  created_at: number
+}
+
+export interface ReflectionStudent {
+  id: string
+  reflection_record_id: string
+  student_id: string
+  student_name: string
+  sign_in_time: number | null
+  penalty_applied: number
+  group_id: string | null
+}
+
+// 罚抄管理
+export interface CopyPunishmentWeek {
+  id: string
+  start_date: string
+  end_date: string | null
+  status: string
+  created_at: number
+}
+
+export interface CopyPunishmentStudent {
+  id: string
+  week_id: string
+  student_id: string
+  student_name: string
+  deduction_count: number
+  completed: number
+  completed_at: number | null
 }
 
 // 作业
@@ -301,4 +346,40 @@ export const DUTY_ROLE_LABELS: Record<DutyRole, string> = {
   vice_captain: '副队长',
   duty_monitor: '值日班长',
   rotation: '轮值',
+}
+
+// 小组植树
+export type TreeActionType = 'water' | 'sunlight' | 'fertilize' | 'pesticide'
+
+export interface TreeDecorations {
+  nameplate?: string
+  style?: string
+}
+
+export interface GroupTree {
+  id: string
+  group_id: string
+  level: number
+  growth: number
+  fruits: number
+  fruits_redeemed: number
+  fruits_t1: number
+  fruits_t2: number
+  fruits_t3: number
+  redeemed_t1: number
+  redeemed_t2: number
+  redeemed_t3: number
+  gold_progress: number
+  decorations: string
+  created_at: number
+  updated_at: number
+}
+
+export interface TreeAction {
+  id: string
+  tree_id: string
+  action_type: TreeActionType
+  cost: number
+  growth_value: number
+  created_at: number
 }

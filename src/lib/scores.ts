@@ -61,6 +61,8 @@ export interface StudentScore {
   dailyPractice: number
   attendance: number
   homework: number
+  deductionPenalty: number
+  manualAdjust: number
   manualOffset: number
   statusCount: number
 }
@@ -69,16 +71,21 @@ export function calculateAllScores(
   students: StudentWithGroup[],
   statusMap: Map<string, DailyStatus[]>,
   enabledCategories?: Set<string>,
-  categoryPoints?: Map<string, number>
+  categoryPoints?: Map<string, number>,
+  deductionMap?: Map<string, number>
 ): StudentScore[] {
   return students.map(student => {
     const statuses = statusMap.get(student.id) || []
     const detail = calculateStudentScore(student, statuses, enabledCategories, categoryPoints)
+    const deductionPenalty = -(deductionMap?.get(student.id) || 0)
+    const manualAdjust = detail.manualOffset - deductionPenalty
     return {
       studentId: student.id,
       studentName: student.name,
       groupName: student.group_name || '未分组',
       ...detail,
+      deductionPenalty,
+      manualAdjust,
       statusCount: new Set(statuses.map(s => s.date)).size,
     }
   })

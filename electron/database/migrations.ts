@@ -1,8 +1,20 @@
 import { Database as SqlJsDatabase } from 'sql.js'
+import fs from 'fs'
+import path from 'path'
 
 export const SCHEMA_VERSION = 1
 
+function debugLog(msg: string): void {
+  try {
+    const logPath = path.join(process.env.APPDATA || process.env.HOME || '.', 'class-management-dev', 'migration-debug.log')
+    const dir = path.dirname(logPath)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`)
+  } catch (_) { /* ignore */ }
+}
+
 export function runMigrations(db: SqlJsDatabase): void {
+  debugLog('=== runMigrations START ===')
   db.exec(`
     -- 元数据表（schema version 等）
     CREATE TABLE IF NOT EXISTS _meta (
@@ -354,6 +366,10 @@ export function runMigrations(db: SqlJsDatabase): void {
   // 兼容已有数据库：尝试添加 leader_name 列
   try { db.exec("ALTER TABLE groups ADD COLUMN leader_name TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
 
+  // 累计学习积分（唯一用途：总积分相同时的决胜条件）
+  try { db.exec("ALTER TABLE groups ADD COLUMN cumulative_study_score INTEGER DEFAULT 0") } catch (_) { /* 列已存在 */ }
+  try { db.exec("UPDATE groups SET cumulative_study_score = study_score WHERE cumulative_study_score = 0 AND study_score != 0") } catch (_) { /* ignore */ }
+
   // 兼容已有数据库：尝试添加 practice_label 列
   try { db.exec("ALTER TABLE students ADD COLUMN practice_label TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
 
@@ -382,6 +398,9 @@ export function runMigrations(db: SqlJsDatabase): void {
   try {
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_duty_students_unique ON duty_students(duty_record_id, student_id)")
   } catch (_) { /* 唯一索引已存在 */ }
+
+  // duty_students 添加 source 列用于标注学生来历（自动/手动）
+  try { db.exec("ALTER TABLE duty_students ADD COLUMN source TEXT DEFAULT ''") } catch (_) { /* 列已存在 */ }
 
   // 通知历史记录
   try {
@@ -417,6 +436,80 @@ export function runMigrations(db: SqlJsDatabase): void {
     db.exec("UPDATE daily_statuses SET daily_practice = '' WHERE daily_practice = 'unsigned' AND student_id IN (SELECT id FROM students WHERE COALESCE(practice_label, '') = '')")
   } catch (_) { /* ignore */ }
 
+  // 小组团建 — v2：每个组一条独立 record
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS reflection_records (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL,
+      group_id TEXT NOT NULL,
+      group_name TEXT NOT NULL DEFAULT '',
+      countdown_started_at INTEGER,
+      sign_in_window_start INTEGER,
+      sign_in_window_end INTEGER,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS reflection_students (
+      id TEXT PRIMARY KEY,
+      reflection_record_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      sign_in_time INTEGER,
+      penalty_applied INTEGER DEFAULT 0,
+      group_id TEXT,
+      FOREIGN KEY (reflection_record_id) REFERENCES reflection_records(id)
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_reflection_students_record ON reflection_students(reflection_record_id)") } catch (_) { /* ignore */ }
+
+  // 清理 reflection 重复数据 + 唯一约束
+  // 注意：必须先删 students（外键引用 records），再删 records
+  try {
+    debugLog('reflection dedup starting...')
+    // 先删掉属于重复 record 的 students（否则外键约束会阻止删除 record）
+    db.exec("DELETE FROM reflection_students WHERE reflection_record_id IN (SELECT id FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id))")
+    // 再删重复 record
+    db.exec("DELETE FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id)")
+    // 清理孤儿学生
+    db.exec("DELETE FROM reflection_students WHERE reflection_record_id NOT IN (SELECT id FROM reflection_records)")
+    // 清理 reflection_students 重复
+    db.exec("DELETE FROM reflection_students WHERE id NOT IN (SELECT MIN(id) FROM reflection_students GROUP BY reflection_record_id, student_id)")
+    debugLog('reflection dedup done, now creating indexes...')
+  } catch (e: any) { debugLog(`reflection dedup ERROR: ${e?.message || e}`) }
+  try {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_records_date_group ON reflection_records(date, group_id)")
+    debugLog('idx_reflection_records_date_group created OK')
+  } catch (e: any) { debugLog(`idx_reflection_records_date_group FAILED: ${e?.message || e}`) }
+  try {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_students_unique ON reflection_students(reflection_record_id, student_id)")
+    debugLog('idx_reflection_students_unique created OK')
+  } catch (e: any) { debugLog(`idx_reflection_students_unique FAILED: ${e?.message || e}`) }
+
+  // 罚抄管理
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS copy_punishment_weeks (
+      id TEXT PRIMARY KEY,
+      start_date TEXT NOT NULL,
+      end_date TEXT,
+      status TEXT DEFAULT 'active',
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS copy_punishment_students (
+      id TEXT PRIMARY KEY,
+      week_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      deduction_count INTEGER DEFAULT 0,
+      completed INTEGER DEFAULT 0,
+      completed_at INTEGER,
+      FOREIGN KEY (week_id) REFERENCES copy_punishment_weeks(id)
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_copy_punishment_week ON copy_punishment_students(week_id)") } catch (_) { /* ignore */ }
+
   // 留言板
   try {
     db.exec(`CREATE TABLE IF NOT EXISTS message_board (
@@ -426,11 +519,127 @@ export function runMigrations(db: SqlJsDatabase): void {
       tag TEXT DEFAULT '其他',
       expires_at INTEGER,
       created_at INTEGER NOT NULL,
-      image TEXT
+      image TEXT,
+      font_color TEXT,
+      font_size TEXT
     )`)
   } catch (_) { /* 表已存在 */ }
   try { db.exec("ALTER TABLE message_board ADD COLUMN image TEXT") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE message_board ADD COLUMN font_color TEXT") } catch (_) { /* 列已存在 */ }
+  try { db.exec("ALTER TABLE message_board ADD COLUMN font_size TEXT") } catch (_) { /* 列已存在 */ }
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_message_board_created ON message_board(created_at)") } catch (_) { /* ignore */ }
+
+  // 小组植树
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS group_trees (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL UNIQUE,
+      level INTEGER DEFAULT 0,
+      growth INTEGER DEFAULT 0,
+      fruits INTEGER DEFAULT 0,
+      fruits_redeemed INTEGER DEFAULT 0,
+      fruits_t1 INTEGER DEFAULT 0,
+      fruits_t2 INTEGER DEFAULT 0,
+      fruits_t3 INTEGER DEFAULT 0,
+      redeemed_t1 INTEGER DEFAULT 0,
+      redeemed_t2 INTEGER DEFAULT 0,
+      redeemed_t3 INTEGER DEFAULT 0,
+      gold_progress INTEGER DEFAULT 0,
+      decorations TEXT DEFAULT '{}',
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      updated_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY (group_id) REFERENCES groups(id)
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS tree_actions (
+      id TEXT PRIMARY KEY,
+      tree_id TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      cost INTEGER NOT NULL,
+      growth_value INTEGER NOT NULL,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY (tree_id) REFERENCES group_trees(id)
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_tree_actions_tree ON tree_actions(tree_id)") } catch (_) { /* ignore */ }
+
+  // 果实分级（铜/银/金）— 为已存在的 group_trees 表添加新列
+  const fruitCols = ['fruits_t1', 'fruits_t2', 'fruits_t3', 'redeemed_t1', 'redeemed_t2', 'redeemed_t3', 'gold_progress']
+  for (const col of fruitCols) {
+    try {
+      db.exec(`ALTER TABLE group_trees ADD COLUMN ${col} INTEGER DEFAULT 0`)
+      debugLog(`ALTER TABLE group_trees ADD COLUMN ${col} — OK`)
+    } catch (e: any) {
+      debugLog(`ALTER TABLE group_trees ADD COLUMN ${col} — ${e?.message || e}`)
+    }
+  }
+  // 验证列是否存在
+  try {
+    const info = db.exec("PRAGMA table_info(group_trees)")
+    const cols = info[0]?.values?.map((r: any) => r[1]) || []
+    debugLog(`group_trees columns: ${cols.join(', ')}`)
+    if (!cols.includes('gold_progress')) {
+      debugLog('WARNING: gold_progress column missing after ALTER TABLE! Rebuilding table...')
+      db.exec('PRAGMA foreign_keys = OFF')
+      db.exec(`
+        CREATE TABLE group_trees_new (
+          id TEXT PRIMARY KEY,
+          group_id TEXT NOT NULL UNIQUE,
+          level INTEGER DEFAULT 0,
+          growth INTEGER DEFAULT 0,
+          fruits INTEGER DEFAULT 0,
+          fruits_redeemed INTEGER DEFAULT 0,
+          fruits_t1 INTEGER DEFAULT 0,
+          fruits_t2 INTEGER DEFAULT 0,
+          fruits_t3 INTEGER DEFAULT 0,
+          redeemed_t1 INTEGER DEFAULT 0,
+          redeemed_t2 INTEGER DEFAULT 0,
+          redeemed_t3 INTEGER DEFAULT 0,
+          gold_progress INTEGER DEFAULT 0,
+          created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+          updated_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+          FOREIGN KEY (group_id) REFERENCES groups(id)
+        )
+      `)
+      db.exec(`INSERT INTO group_trees_new (id, group_id, level, growth, fruits, fruits_redeemed, created_at, updated_at)
+               SELECT id, group_id, level, growth, fruits, fruits_redeemed, created_at, updated_at FROM group_trees`)
+      db.exec(`DROP TABLE group_trees`)
+      db.exec(`ALTER TABLE group_trees_new RENAME TO group_trees`)
+      db.exec('PRAGMA foreign_keys = ON')
+      debugLog('Rebuilt group_trees with new columns via temp table — OK')
+    }
+  } catch (e: any) {
+    debugLog(`PRAGMA table_info check failed: ${e?.message || e}`)
+  }
+  // 迁移旧数据：将旧 fruits/fruits_redeemed 视为铜果
+  try {
+    db.exec(`UPDATE group_trees SET fruits_t1 = fruits, redeemed_t1 = fruits_redeemed WHERE fruits_t1 = 0 AND fruits > 0`)
+  } catch (_) { /* ignore */ }
+
+  // 树木装饰（个性化）
+  try { db.exec(`ALTER TABLE group_trees ADD COLUMN decorations TEXT DEFAULT '{}'`) } catch (_) { /* 已存在 */ }
+
+  // 种树花费累计（用于排名时补偿，排名 = total_score + tree_spent）
+  try { db.exec("ALTER TABLE groups ADD COLUMN tree_spent INTEGER DEFAULT 0") } catch (_) { /* 列已存在 */ }
+  try {
+    db.exec(`UPDATE groups SET tree_spent = COALESCE(
+      (SELECT ABS(SUM(delta)) FROM group_score_history
+       WHERE group_id = groups.id AND reason LIKE '植树%' AND delta < 0), 0
+    ) WHERE tree_spent = 0`)
+  } catch (_) { /* ignore */ }
+
+  // 语文课堂加分（独立积分系统）
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS chinese_class_history (
+      id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL,
+      delta INTEGER NOT NULL,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      FOREIGN KEY (group_id) REFERENCES groups(id)
+    )`)
+  } catch (_) { /* 表已存在 */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_chinese_class_group ON chinese_class_history(group_id)") } catch (_) { /* ignore */ }
 
   // 更新 schema version
   db.run(
@@ -439,4 +648,5 @@ export function runMigrations(db: SqlJsDatabase): void {
   )
 
   console.log('数据库迁移完成')
+  debugLog('=== runMigrations END ===')
 }

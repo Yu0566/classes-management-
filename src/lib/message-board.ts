@@ -10,16 +10,37 @@ export interface MessageRecord {
   tag: MessageTag
   expires_at: number | null
   created_at: number
-  image: string | null
+  image: string | null  // JSON array string in DB, parsed to string[] via getImages()
+  font_color: string | null
+  font_size: string | null
+}
+
+function parseImages(raw: string | null): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed.filter((u: unknown) => typeof u === 'string')
+  } catch { /* not JSON, old single-image format */ }
+  return [raw]
+}
+
+export function getImages(msg: MessageRecord): string[] {
+  return parseImages(msg.image)
+}
+
+function packImages(images: string[]): string | null {
+  if (images.length === 0) return null
+  return JSON.stringify(images)
 }
 
 export async function getMessages(): Promise<MessageRecord[]> {
-  return queryAll<MessageRecord>(
+  const rows = await queryAll<MessageRecord>(
     `SELECT * FROM message_board
      WHERE expires_at IS NULL OR expires_at > ?
      ORDER BY created_at DESC`,
     [Date.now()]
   )
+  return rows
 }
 
 export async function addMessage(
@@ -27,13 +48,15 @@ export async function addMessage(
   content: string,
   tag: MessageTag = '其他',
   expiresAt: number | null = null,
-  image: string | null = null,
+  images: string[] = [],
+  fontColor: string | null = null,
+  fontSize: string | null = null,
 ): Promise<string> {
   const id = uuid()
   await executeRun(
-    `INSERT INTO message_board (id, student_name, content, tag, expires_at, created_at, image)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, studentName.trim(), content.trim(), tag, expiresAt, Date.now(), image]
+    `INSERT INTO message_board (id, student_name, content, tag, expires_at, created_at, image, font_color, font_size)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, studentName.trim(), content.trim(), tag, expiresAt, Date.now(), packImages(images), fontColor, fontSize]
   )
   return id
 }

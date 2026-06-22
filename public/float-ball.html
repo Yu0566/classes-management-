@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>课堂加分</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  overflow: hidden;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  user-select: none;
+}
+
+/* ===== 悬浮球 ===== */
+.ball {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  position: fixed;
+  top: 2px;
+  left: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #dc2626 100%);
+  box-shadow:
+    0 4px 15px rgba(249, 115, 22, 0.4),
+    0 2px 6px rgba(0,0,0,0.15),
+    inset 0 1px 2px rgba(255,255,255,0.3);
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+  animation: breathe 3s ease-in-out infinite;
+  z-index: 9999;
+  opacity: 0.35;
+}
+.ball:hover {
+  opacity: 0.9;
+  transform: scale(1.1);
+  box-shadow:
+    0 6px 20px rgba(249, 115, 22, 0.55),
+    0 3px 8px rgba(0,0,0,0.2),
+    inset 0 1px 2px rgba(255,255,255,0.3);
+}
+.ball:active { transform: scale(0.95); }
+.ball.hidden { display: none; }
+
+.ball-icon {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: white;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 4px 15px rgba(249, 115, 22, 0.4), 0 2px 6px rgba(0,0,0,0.15), inset 0 1px 2px rgba(255,255,255,0.3); }
+  50% { box-shadow: 0 4px 22px rgba(249, 115, 22, 0.6), 0 2px 8px rgba(0,0,0,0.18), inset 0 1px 2px rgba(255,255,255,0.3); }
+}
+
+/* ===== 展开面板 ===== */
+.panel {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #fdfaf3;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel.open { display: flex; }
+
+/* 面板头部 */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white;
+}
+.panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.panel-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.panel-close:hover { background: rgba(255,255,255,0.35); }
+
+/* 小组列表 */
+.groups {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  margin-bottom: 4px;
+  background: white;
+  border: 1px solid #f5f0e8;
+  transition: box-shadow 0.15s;
+}
+.group-row:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+.group-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.group-info {
+  flex: 1;
+  min-width: 0;
+}
+.group-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #44403c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.group-leader {
+  font-size: 11px;
+  color: #a8a29e;
+}
+.group-score {
+  font-size: 20px;
+  font-weight: 800;
+  min-width: 36px;
+  text-align: center;
+  margin: 0 4px;
+}
+.score-pos { color: #16a34a; }
+.score-neg { color: #dc2626; }
+.score-zero { color: #d6d3d1; }
+
+.group-btns {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.btn-minus, .btn-plus {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+}
+.btn-minus {
+  border-color: #fecaca;
+  color: #ef4444;
+}
+.btn-minus:hover { background: #fef2f2; }
+.btn-minus:active { transform: scale(0.9); }
+.btn-plus {
+  border-color: #bbf7d0;
+  color: #16a34a;
+}
+.btn-plus:hover { background: #f0fdf4; }
+.btn-plus:active { transform: scale(0.9); }
+
+/* 快捷按钮区 */
+.quick-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid #f5f0e8;
+  background: #fffdf7;
+  flex-wrap: wrap;
+}
+.quick-label {
+  font-size: 11px;
+  color: #a8a29e;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 2px;
+}
+.quick-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+}
+.quick-btn:active { transform: scale(0.92); }
+.quick-btn.pos { border-color: #bbf7d0; color: #16a34a; }
+.quick-btn.pos:hover { background: #f0fdf4; }
+.quick-btn.neg { border-color: #fecaca; color: #ef4444; }
+.quick-btn.neg:hover { background: #fef2f2; }
+
+/* 选中小组高亮 */
+.group-row.selected {
+  background: #fffbeb;
+  border-color: #fed7aa;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.1);
+}
+
+/* 滚动条 */
+.groups::-webkit-scrollbar { width: 4px; }
+.groups::-webkit-scrollbar-track { background: transparent; }
+.groups::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- 悬浮球 -->
+<div class="ball" id="ball">
+  <svg class="ball-icon" viewBox="0 0 24 24">
+    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+  </svg>
+</div>
+
+<!-- 展开面板 -->
+<div class="panel" id="panel">
+  <div class="panel-header">
+    <span class="panel-title">课堂加分</span>
+    <button class="panel-close" id="closeBtn">&times;</button>
+  </div>
+  <div class="groups" id="groupList"></div>
+  <div class="quick-bar" id="quickBar">
+    <div class="quick-label" id="quickLabel">点击小组后使用快捷加分</div>
+    <button class="quick-btn pos" data-d="2">+2</button>
+    <button class="quick-btn pos" data-d="3">+3</button>
+    <button class="quick-btn pos" data-d="5">+5</button>
+    <button class="quick-btn neg" data-d="-2">−2</button>
+    <button class="quick-btn neg" data-d="-3">−3</button>
+    <button class="quick-btn neg" data-d="-5">−5</button>
+  </div>
+</div>
+
+<script>
+const COLOR_MAP = {
+  'bg-blue-500': '#3b82f6',
+  'bg-red-500': '#ef4444',
+  'bg-green-500': '#22c55e',
+  'bg-yellow-500': '#eab308',
+  'bg-purple-500': '#a855f7',
+  'bg-pink-500': '#ec4899',
+  'bg-orange-500': '#f97316',
+  'bg-teal-500': '#14b8a6',
+  'bg-indigo-500': '#6366f1',
+  'bg-cyan-500': '#06b6d4',
+}
+
+const api = window.electronAPI
+let groups = []
+let selectedGroupId = null
+let expanded = false
+
+// 拖拽逻辑
+let dragging = false
+let dragStartX = 0, dragStartY = 0
+let hasMoved = false
+
+const ball = document.getElementById('ball')
+ball.addEventListener('pointerdown', (e) => {
+  dragging = true
+  hasMoved = false
+  dragStartX = e.screenX
+  dragStartY = e.screenY
+  ball.setPointerCapture(e.pointerId)
+})
+ball.addEventListener('pointermove', (e) => {
+  if (!dragging) return
+  const dx = e.screenX - dragStartX
+  const dy = e.screenY - dragStartY
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true
+  if (hasMoved) {
+    api.float.move(dx, dy)
+    dragStartX = e.screenX
+    dragStartY = e.screenY
+  }
+})
+ball.addEventListener('pointerup', (e) => {
+  dragging = false
+  ball.releasePointerCapture(e.pointerId)
+  if (!hasMoved) togglePanel()
+})
+
+// 展开/收起
+async function togglePanel() {
+  if (expanded) {
+    collapse()
+  } else {
+    await expand()
+  }
+}
+
+async function expand() {
+  expanded = true
+  await api.float.expand()
+  ball.classList.add('hidden')
+  document.getElementById('panel').classList.add('open')
+  await loadGroups()
+}
+
+function collapse() {
+  expanded = false
+  api.float.collapse()
+  ball.classList.remove('hidden')
+  document.getElementById('panel').classList.remove('open')
+}
+
+document.getElementById('closeBtn').addEventListener('click', collapse)
+
+// 点击窗口外（失去焦点）时自动收起
+window.addEventListener('blur', () => {
+  if (expanded) collapse()
+})
+
+// 加载小组数据
+async function loadGroups() {
+  const res = await api.db.query(
+    `SELECT g.id as group_id, g.name as group_name, g.color as group_color,
+            COALESCE(g.leader_name, '') as leader_name,
+            COALESCE(SUM(h.delta), 0) as score
+     FROM groups g
+     LEFT JOIN chinese_class_history h ON h.group_id = g.id
+     GROUP BY g.id
+     ORDER BY g.sort_order, g.created_at`
+  )
+  if (res.success) {
+    groups = res.data
+    renderGroups()
+  }
+}
+
+function renderGroups() {
+  const list = document.getElementById('groupList')
+  list.innerHTML = groups.map(g => {
+    const color = COLOR_MAP[g.group_color] || '#78716c'
+    const scoreCls = g.score > 0 ? 'score-pos' : g.score < 0 ? 'score-neg' : 'score-zero'
+    const selected = g.group_id === selectedGroupId ? ' selected' : ''
+    return `
+      <div class="group-row${selected}" data-id="${g.group_id}" onclick="selectGroup('${g.group_id}')">
+        <div class="group-dot" style="background:${color}"></div>
+        <div class="group-info">
+          <div class="group-name">${g.group_name}</div>
+          ${g.leader_name ? `<div class="group-leader">${g.leader_name}</div>` : ''}
+        </div>
+        <div class="group-score ${scoreCls}">${g.score}</div>
+        <div class="group-btns">
+          <button class="btn-minus" onclick="event.stopPropagation();addScore('${g.group_id}',-1)">−</button>
+          <button class="btn-plus" onclick="event.stopPropagation();addScore('${g.group_id}',1)">+</button>
+        </div>
+      </div>
+    `
+  }).join('')
+}
+
+function selectGroup(id) {
+  selectedGroupId = id
+  const g = groups.find(x => x.group_id === id)
+  if (g) {
+    document.getElementById('quickLabel').textContent = g.group_name + ' — 快捷加分'
+  }
+  renderGroups()
+}
+
+// 加分
+async function addScore(groupId, delta) {
+  const uuid = crypto.randomUUID()
+  await api.db.run(
+    'INSERT INTO chinese_class_history (id, group_id, delta, created_at) VALUES (?, ?, ?, ?)',
+    [uuid, groupId, delta, Date.now()]
+  )
+  // 通知主窗口刷新
+  api.widget.refresh()
+  await loadGroups()
+}
+
+// 快捷按钮
+document.querySelectorAll('.quick-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!selectedGroupId) return
+    const delta = parseInt(btn.dataset.d)
+    addScore(selectedGroupId, delta)
+  })
+})
+</script>
+</body>
+</html>

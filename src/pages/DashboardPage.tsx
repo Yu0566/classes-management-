@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
-  Users, Coins, Medal, AlertTriangle, CheckCircle, Calculator, Pin, Shield, CalendarDays, GripVertical
+  Users, Coins, Medal, AlertTriangle, CheckCircle, Calculator, Shield, CalendarDays, GripVertical
 } from 'lucide-react'
 import * as groupApi from '@/lib/groups'
 import * as studentApi from '@/lib/students'
@@ -315,8 +315,8 @@ export default function DashboardPage() {
       : null
   const todayCaptainLabel = (todayDow >= 1 && todayDow <= 3) ? '队长' : '副队长'
 
-  const rankedGroups = [...groups].sort((a, b) => b.total_score - a.total_score)
-  const maxTotalScore = rankedGroups.length > 0 ? rankedGroups[0].total_score : 1
+  const rankedGroups = [...groups].sort((a, b) => (b.total_score + (b.tree_spent || 0)) - (a.total_score + (a.tree_spent || 0)))
+  const maxTotalScore = rankedGroups.length > 0 ? (rankedGroups[0].total_score + (rankedGroups[0].tree_spent || 0)) : 1
   const totalCoins = coinGroups.reduce((s, cg) => s + (cg.coins || 0), 0)
 
   const rankMedals = ['🥇', '🥈', '🥉']
@@ -346,15 +346,6 @@ export default function DashboardPage() {
                 <Coins size={13} className="text-amber-500" /> <span className="tabular-nums font-mono font-semibold text-amber-600">{totalCoins}</span>
               </span>
             </div>
-            {!!window.electronAPI?.widget && (
-              <button
-                onClick={() => window.electronAPI!.widget!.open()}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs transition-colors border border-amber-200/60"
-                title="打开桌面便签"
-              >
-                <Pin size={12} /> 桌面便签
-              </button>
-            )}
             <button
               onClick={handleResetOrder}
               className="px-2 py-1 rounded text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors"
@@ -626,7 +617,8 @@ export default function DashboardPage() {
                       ) : (
                         <div className="space-y-1.5">
                           {rankedGroups.slice(0, 3).map((g, i) => {
-                            const pct = maxTotalScore > 0 ? Math.round((g.total_score / maxTotalScore) * 100) : 0
+                            const earned = g.total_score + (g.tree_spent || 0)
+                            const pct = maxTotalScore > 0 ? Math.round((earned / maxTotalScore) * 100) : 0
                             const barGrad = i === 0
                               ? 'from-amber-400 to-amber-300'
                               : i === 1
@@ -650,7 +642,7 @@ export default function DashboardPage() {
                                     style={{ width: `${Math.max(pct, 5)}%` }}
                                   />
                                   <span className="absolute inset-0 flex items-center px-3 text-sm font-mono font-bold text-stone-600 tabular-nums">
-                                    {g.total_score}
+                                    {earned}
                                   </span>
                                 </div>
                               </div>

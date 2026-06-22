@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>班级看板</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f8f5f0;
+  min-height: 100vh;
+  color: #44403c;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  padding: 16px 20px;
+  color: white;
+  box-shadow: 0 2px 12px rgba(249, 115, 22, 0.3);
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header h1 {
+  font-size: 20px;
+  font-weight: 700;
+}
+.header .date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.header .date-nav button {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.header .date-nav button:active { background: rgba(255,255,255,0.35); }
+.header .date-text {
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 90px;
+  text-align: center;
+}
+.refresh-hint {
+  font-size: 11px;
+  opacity: 0.7;
+  text-align: center;
+  margin-top: 6px;
+}
+
+.tabs {
+  display: flex;
+  background: white;
+  border-bottom: 1px solid #f0ebe3;
+  position: sticky;
+  top: 76px;
+  z-index: 99;
+}
+.tab {
+  flex: 1;
+  padding: 12px 0;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #a8a29e;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab.active {
+  color: #ea580c;
+  border-bottom-color: #ea580c;
+}
+.tab .badge {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 4px;
+  vertical-align: top;
+}
+
+.content {
+  padding: 16px;
+}
+
+.section { display: none; }
+.section.active { display: block; }
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  border: 1px solid #f5f0e8;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #78716c;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-title .icon { font-size: 15px; }
+
+.student-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  margin: 2px 4px 2px 0;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.student-tag.late {
+  background: #fffbeb;
+  color: #d97706;
+  border-color: #fde68a;
+}
+.student-tag.leave {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+.student-tag .group-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rank-list { list-style: none; }
+.rank-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f4;
+}
+.rank-item:last-child { border-bottom: none; }
+.rank-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 10px;
+  background: #f5f5f4;
+  color: #78716c;
+}
+.rank-num.top1 { background: #ffd700; color: #7c2d12; }
+.rank-num.top2 { background: #e5e7eb; color: #374151; }
+.rank-num.top3 { background: #fcd5b0; color: #7c2d12; }
+.rank-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+.rank-group {
+  font-size: 12px;
+  color: #a8a29e;
+  margin-right: 10px;
+}
+.rank-score {
+  font-size: 16px;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #a8a29e;
+  font-size: 14px;
+}
+.empty-state .emoji { font-size: 32px; margin-bottom: 8px; }
+
+.subject-group {
+  margin-bottom: 12px;
+}
+.subject-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f97316;
+  padding: 2px 8px;
+  background: #fff7ed;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 6px;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  font-size: 11px;
+  color: #a8a29e;
+  background: white;
+  border-top: 1px solid #f5f0e8;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.COLOR_MAP {}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1>班级看板</h1>
+    <div class="date-nav">
+      <button id="prevDay">&lt;</button>
+      <span class="date-text" id="dateText"></span>
+      <button id="nextDay">&gt;</button>
+    </div>
+  </div>
+  <div class="refresh-hint" id="refreshHint">每30秒自动刷新</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="homework">作业<span class="badge" id="hwBadge" style="display:none"></span></div>
+  <div class="tab" data-tab="deductions">扣分<span class="badge" id="dedBadge" style="display:none"></span></div>
+  <div class="tab" data-tab="attendance">考勤<span class="badge" id="attBadge" style="display:none"></span></div>
+</div>
+
+<div class="content">
+  <div class="section active" id="sec-homework"></div>
+  <div class="section" id="sec-deductions"></div>
+  <div class="section" id="sec-attendance"></div>
+</div>
+
+<div class="status-bar">
+  <span class="status-dot"></span>
+  <span id="statusText">实时连接中</span>
+</div>
+
+<script>
+const COLOR_MAP = {
+  'bg-blue-500': '#3b82f6', 'bg-red-500': '#ef4444', 'bg-green-500': '#22c55e',
+  'bg-yellow-500': '#eab308', 'bg-purple-500': '#a855f7', 'bg-pink-500': '#ec4899',
+  'bg-orange-500': '#f97316', 'bg-teal-500': '#14b8a6', 'bg-indigo-500': '#6366f1',
+  'bg-cyan-500': '#06b6d4',
+}
+
+let currentDate = new Date().toISOString().slice(0, 10)
+let activeTab = 'homework'
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  const today = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  if (dateStr === today) return '今天'
+  if (dateStr === yesterday) return '昨天'
+  return `${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+function updateDateDisplay() {
+  document.getElementById('dateText').textContent = formatDate(currentDate)
+}
+
+function changeDate(delta) {
+  const d = new Date(currentDate + 'T00:00:00')
+  d.setDate(d.getDate() + delta)
+  currentDate = d.toISOString().slice(0, 10)
+  updateDateDisplay()
+  loadAll()
+}
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
+    tab.classList.add('active')
+    activeTab = tab.dataset.tab
+    document.getElementById('sec-' + activeTab).classList.add('active')
+  })
+})
+
+document.getElementById('prevDay').addEventListener('click', () => changeDate(-1))
+document.getElementById('nextDay').addEventListener('click', () => changeDate(1))
+
+// Load homework
+async function loadHomework() {
+  try {
+    const r = await fetch(`/api/mobile/homework?date=${currentDate}`)
+    const j = await r.json()
+    if (!j.success) throw new Error(j.error)
+
+    const sec = document.getElementById('sec-homework')
+    const records = j.data || []
+    const subjects = j.subjects || []
+
+    const badge = document.getElementById('hwBadge')
+    if (records.length > 0) {
+      badge.textContent = records.length
+      badge.style.display = ''
+    } else {
+      badge.style.display = 'none'
+    }
+
+    if (records.length === 0) {
+      sec.innerHTML = `<div class="empty-state"><div class="emoji">&#127881;</div>${subjects.length > 0 ? '今日作业全部完成' : '今日未设置作业科目'}</div>`
+      return
+    }
+
+    // Group by subject
+    const bySubject = {}
+    records.forEach(r => {
+      if (!bySubject[r.subject]) bySubject[r.subject] = []
+      bySubject[r.subject].push(r)
+    })
+
+    let html = ''
+    for (const [subject, students] of Object.entries(bySubject)) {
+      html += `<div class="card"><div class="card-title"><span class="icon">&#128218;</span>${subject} <span style="color:#dc2626;font-size:12px">(${students.length}人)</span></div><div>`
+      students.forEach(s => {
+        const color = COLOR_MAP[s.group_color] || '#78716c'
+        const statusLabel = s.status === 'incomplete' ? '未交' : '部分'
+        html += `<span class="student-tag"><span class="group-dot" style="background:${color}"></span>${s.student_name}</span>`
+      })
+      html += '</div></div>'
+    }
+    sec.innerHTML = html
+  } catch (e) {
+    document.getElementById('sec-homework').innerHTML = `<div class="empty-state">加载失败: ${e.message}</div>`
+  }
+}
+
+// Load deductions
+async function loadDeductions() {
+  try {
+    const r = await fetch(`/api/mobile/deductions?days=7`)
+    const j = await r.json()
+    if (!j.success) throw new Error(j.error)
+
+    const sec = document.getElementById('sec-deductions')
+    const records = j.data || []
+
+    const badge = document.getElementById('dedBadge')
+    if (records.length > 0) {
+      badge.textContent = records.length
+      badge.style.display = ''
+    } else {
+      badge.style.display = 'none'
+    }
+
+    if (records.length === 0) {
+      sec.innerHTML = '<div class="empty-state"><div class="emoji">&#127775;</div>近7天无扣分记录</div>'
+      return
+    }
+
+    let html = '<div class="card"><div class="card-title"><span class="icon">&#128202;</span>近7天扣分排行</div><ul class="rank-list">'
+    records.forEach((r, i) => {
+      const numCls = i === 0 ? ' top1' : i === 1 ? ' top2' : i === 2 ? ' top3' : ''
+      const name = r.current_name || r.student_name
+      html += `<li class="rank-item">
+        <span class="rank-num${numCls}">${i + 1}</span>
+        <span class="rank-name">${name}</span>
+        <span class="rank-group">${r.group_name || ''}</span>
+        <span class="rank-score">-${r.total_points}</span>
+      </li>`
+    })
+    html += '</ul></div>'
+    sec.innerHTML = html
+  } catch (e) {
+    document.getElementById('sec-deductions').innerHTML = `<div class="empty-state">加载失败: ${e.message}</div>`
+  }
+}
+
+// Load attendance
+async function loadAttendance() {
+  try {
+    const r = await fetch(`/api/mobile/attendance?date=${currentDate}`)
+    const j = await r.json()
+    if (!j.success) throw new Error(j.error)
+
+    const sec = document.getElementById('sec-attendance')
+    const windows = j.data || []
+
+    let totalAbnormal = 0
+    windows.forEach(w => totalAbnormal += w.students.length)
+
+    const badge = document.getElementById('attBadge')
+    if (totalAbnormal > 0) {
+      badge.textContent = totalAbnormal
+      badge.style.display = ''
+    } else {
+      badge.style.display = 'none'
+    }
+
+    if (windows.length === 0) {
+      sec.innerHTML = '<div class="empty-state"><div class="emoji">&#9989;</div>今日考勤全部正常</div>'
+      return
+    }
+
+    let html = ''
+    windows.forEach(w => {
+      html += `<div class="card"><div class="card-title"><span class="icon">&#128197;</span>${w.window_label || '考勤'} ${w.window_time}</div><div>`
+      w.students.forEach(s => {
+        const color = COLOR_MAP[s.group_color] || '#78716c'
+        const cls = s.status === 'late' ? ' late' : s.status === 'leave' ? ' leave' : ''
+        const label = s.status === 'late' ? '迟到' : s.status === 'leave' ? '请假' : '未到'
+        html += `<span class="student-tag${cls}"><span class="group-dot" style="background:${color}"></span>${s.student_name} · ${label}</span>`
+      })
+      html += '</div></div>'
+    })
+    sec.innerHTML = html
+  } catch (e) {
+    document.getElementById('sec-attendance').innerHTML = `<div class="empty-state">加载失败: ${e.message}</div>`
+  }
+}
+
+async function loadAll() {
+  await Promise.all([loadHomework(), loadDeductions(), loadAttendance()])
+  document.getElementById('refreshHint').textContent = '上次刷新：' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+updateDateDisplay()
+loadAll()
+setInterval(loadAll, 30000)
+</script>
+</body>
+</html>

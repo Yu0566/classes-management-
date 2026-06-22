@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Check, X, History } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as groupApi from '@/lib/groups'
-import { getRosterStudents, getSignIns, getScoreAwards, signInStudent, unSignStudent, LABEL_NAMES, type PracticeLabel } from '@/lib/practice-roster'
+import { getRosterStudents, getSignIns, getScoreAwards, signInStudent, unSignStudent, initPracticeDailyStatuses, LABEL_NAMES, type PracticeLabel } from '@/lib/practice-roster'
 import type { StudentWithGroup, Group, PracticeSignIn, PracticeScoreAward } from '@/types'
 
 function todayStr(): string {
@@ -55,6 +55,11 @@ export default function DailyPracticePage() {
       getRosterStudents('tisheng'),
     ])
     setGroupMap(new Map(groups.map(g => [g.id, g])))
+
+    // 当天初始化：为所有有 practice_label 的学生创建 daily_statuses（unsigned）
+    if (date === todayStr()) {
+      await initPracticeDailyStatuses(date)
+    }
 
     // 加载签到记录
     const [qSignIns, tSignIns, qAwards, tAwards] = await Promise.all([

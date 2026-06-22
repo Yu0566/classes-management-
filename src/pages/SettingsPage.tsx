@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Database, Download, HardDrive, Wifi, Copy, Check, ExternalLink, Loader2, DownloadCloud, FileDown, Globe, RefreshCw, Upload } from 'lucide-react'
+import { Database, Download, HardDrive, Wifi, Copy, Check, ExternalLink, Loader2, DownloadCloud, FileDown, Globe, RefreshCw, Upload, Save, History, AlertTriangle, Lock } from 'lucide-react'
 import DataImportPage from './DataImportPage'
+import { useConfirm } from '../components/ui/ConfirmDialog'
 import { queryAll, executeTransaction } from '../lib/db'
 
 
@@ -20,6 +21,7 @@ interface DownloadProgress {
 }
 
 export default function SettingsPage() {
+  const { notify } = useConfirm()
   const [tab, setTab] = useState<'import' | 'lan' | 'about'>('import')
 
   // LAN 访问状态
@@ -39,12 +41,33 @@ export default function SettingsPage() {
   const [tunnelError, setTunnelError] = useState('')
   const [tunnelLoading, setTunnelLoading] = useState(false)
   const [tunnelUrlCopied, setTunnelUrlCopied] = useState(false)
-  const [tunnelAutoStart, setTunnelAutoStart] = useState(() => {
-    return localStorage.getItem('tunnel_auto_start') !== 'false'
-  })
   const [deviceName, setDeviceNameState] = useState(() => {
     return localStorage.getItem('device_name') || ''
   })
+
+  // 管理密码
+  const [adminPassword, setAdminPassword] = useState(() => localStorage.getItem('duty_password') || 'admin')
+  const [showChangePwd, setShowChangePwd] = useState(false)
+  const [oldPwd, setOldPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdError, setPwdError] = useState('')
+
+  const handleChangePassword = () => {
+    setPwdError('')
+    if (!oldPwd) { setPwdError('请输入旧密码'); return }
+    if (oldPwd !== adminPassword) { setPwdError('旧密码错误'); return }
+    if (!newPwd) { setPwdError('请输入新密码'); return }
+    if (newPwd.length < 3) { setPwdError('新密码至少3位'); return }
+    if (newPwd !== confirmPwd) { setPwdError('两次新密码不一致'); return }
+    localStorage.setItem('duty_password', newPwd)
+    setAdminPassword(newPwd)
+    setOldPwd('')
+    setNewPwd('')
+    setConfirmPwd('')
+    setShowChangePwd(false)
+    notify('密码修改成功')
+  }
 
   const isElectron = !!window.electronAPI
   const hasLanAPI = !!(window.electronAPI?.lan)
@@ -66,6 +89,13 @@ export default function SettingsPage() {
   const [importingInfo, setImportingInfo] = useState(false)
   const [importingHistory, setImportingHistory] = useState(false)
   const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  // 系统备份
+  const [backups, setBackups] = useState<{ name: string; size: number; mtime: number }[]>([])
+  const [backingUp, setBackingUp] = useState(false)
+  const [restoringBackup, setRestoringBackup] = useState<string | null>(null)
+  const [confirmRestore, setConfirmRestore] = useState<string | null>(null)
+  const hasBackupAPI = !!(window.electronAPI?.backup)
 
   useEffect(() => {
     if (isElectron && hasLanAPI) {
@@ -122,31 +152,36 @@ export default function SettingsPage() {
     localStorage.setItem('lan_auto_start', String(autoStart))
   }, [autoStart])
 
-  useEffect(() => {
-    localStorage.setItem('tunnel_auto_start', String(tunnelAutoStart))
-  }, [tunnelAutoStart])
 
   // 设备名称同步到 localStorage + LAN 服务器
   useEffect(() => {
     localStorage.setItem('device_name', deviceName)
-    const port = lanPort || DEFAULT_LAN_PORT
-    const url = `http://localhost:${port}/api/device-name`
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceName }),
-    }).catch(() => {})
-  }, [deviceName, lanPort, lanRunning])
-
-  // 启动时把已存储的设备名称同步到 LAN 服务器
-  useEffect(() => {
-    if (lanRunning && deviceName) {
+    if (!deviceName) return
+    if (window.electronAPI?.lan?.setDeviceName) {
+      window.electronAPI.lan.setDeviceName(deviceName).catch(() => {})
+    } else {
       const port = lanPort || DEFAULT_LAN_PORT
       fetch(`http://localhost:${port}/api/device-name`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceName }),
       }).catch(() => {})
+    }
+  }, [deviceName, lanPort, lanRunning])
+
+  // 启动时把已存储的设备名称同步到 LAN 服务器
+  useEffect(() => {
+    if (lanRunning && deviceName) {
+      if (window.electronAPI?.lan?.setDeviceName) {
+        window.electronAPI.lan.setDeviceName(deviceName).catch(() => {})
+      } else {
+        const port = lanPort || DEFAULT_LAN_PORT
+        fetch(`http://localhost:${port}/api/device-name`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceName }),
+        }).catch(() => {})
+      }
     }
   }, [lanRunning]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -165,15 +200,6 @@ export default function SettingsPage() {
     return unsubscribe
   }, [isElectron, hasTunnelAPI])
 
-  // Tunnel 自动启动：检测到 LAN 启动且 tunnel 未运行且开启自启
-  useEffect(() => {
-    if (!isElectron || !hasTunnelAPI || !lanRunning) return
-    if (tunnelStatus === 'stopped' && tunnelAutoStart) {
-      window.electronAPI!.tunnel.start(lanPort).then(r => {
-        if (!r.success) setTunnelError(r.error || '启动失败')
-      }).catch(() => {}).finally(() => setTunnelLoading(false))
-    }
-  }, [lanRunning, tunnelAutoStart])
 
   const handleLanToggle = useCallback(async () => {
     if (!window.electronAPI?.lan) {
@@ -221,7 +247,7 @@ export default function SettingsPage() {
       if (tunnelStatus === 'connected' || tunnelStatus === 'connecting') {
         await window.electronAPI.tunnel.stop()
       } else {
-        const result = await window.electronAPI.tunnel.start(lanPort)
+        const result = await window.electronAPI.tunnel.start(lanPort, deviceName || undefined)
         if (!result.success) setTunnelError(result.error || '启动失败')
       }
     } catch (err) {
@@ -262,6 +288,39 @@ export default function SettingsPage() {
   const handleQuitAndInstall = useCallback(() => {
     if (!window.electronAPI?.app) return
     window.electronAPI.app.quitAndInstall()
+  }, [])
+
+  // 加载备份列表
+  useEffect(() => {
+    if (hasBackupAPI) {
+      window.electronAPI!.backup!.list().then(setBackups).catch(() => {})
+    }
+  }, [hasBackupAPI])
+
+  // 手动备份
+  const handleCreateBackup = useCallback(async () => {
+    if (!window.electronAPI?.backup) return
+    setBackingUp(true)
+    try {
+      await window.electronAPI.backup.create()
+      const list = await window.electronAPI.backup.list()
+      setBackups(list)
+    } catch { /* ignore */ }
+    finally { setBackingUp(false) }
+  }, [])
+
+  // 恢复备份（需二次确认）
+  const handleRestoreBackup = useCallback(async (name: string) => {
+    if (!window.electronAPI?.backup) return
+    setRestoringBackup(name)
+    try {
+      await window.electronAPI.backup.restore(name)
+      setConfirmRestore(null)
+      notify({ message: '备份已恢复，应用将重新加载数据。建议重启应用以确保数据完整。' })
+      // 触发主窗口刷新
+      window.electronAPI?.widget?.refresh()
+    } catch { /* ignore */ }
+    finally { setRestoringBackup(null) }
   }, [])
 
   const handleExportData = useCallback(async () => {
@@ -709,6 +768,87 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* ── 系统自动备份 ── */}
+            {hasBackupAPI && (
+              <div className="bg-white rounded-xl shadow-sm border p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <History size={24} className="text-indigo-400" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-stone-700">系统自动备份</h3>
+                    <p className="text-sm text-stone-500">
+                      每次启动自动备份数据库，保留最近 20 份。可随时手动创建或恢复备份。
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 mb-4">
+                  <button
+                    onClick={handleCreateBackup}
+                    disabled={backingUp}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {backingUp ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                    {backingUp ? '备份中...' : '立即备份'}
+                  </button>
+                  <span className="text-xs text-stone-400">
+                    备份位置：%APPDATA%\class-management\backups\
+                  </span>
+                </div>
+
+                {backups.length === 0 ? (
+                  <p className="text-sm text-stone-400 text-center py-4">
+                    暂无备份记录，启动应用后将自动创建
+                  </p>
+                ) : (
+                  <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+                    {backups.map(b => {
+                      const date = new Date(b.mtime)
+                      const dateStr = date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+                      const sizeKB = (b.size / 1024).toFixed(1)
+                      return (
+                        <div key={b.name} className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-stone-50">
+                          <div className="flex items-center gap-3">
+                            <Save size={14} className="text-stone-400" />
+                            <span className="text-stone-700 font-mono text-xs">{dateStr}</span>
+                            <span className="text-stone-400 text-xs">{sizeKB} KB</span>
+                          </div>
+                          <div>
+                            {confirmRestore === b.name ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-red-500 flex items-center gap-1">
+                                  <AlertTriangle size={12} /> 确认恢复？
+                                </span>
+                                <button
+                                  onClick={() => handleRestoreBackup(b.name)}
+                                  disabled={restoringBackup === b.name}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 disabled:opacity-50"
+                                >
+                                  {restoringBackup === b.name ? '恢复中...' : '确认'}
+                                </button>
+                                <button
+                                  onClick={() => setConfirmRestore(null)}
+                                  className="px-2 py-1 text-xs border rounded hover:bg-stone-100"
+                                >
+                                  取消
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmRestore(b.name)}
+                                className="px-2 py-1 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50 transition-colors"
+                              >
+                                恢复此备份
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── 旧版全量备份恢复 ── */}
             <div className="bg-white rounded-xl shadow-sm border p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -853,16 +993,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* 开机自启 */}
-              <label className="flex items-center gap-2 mb-4 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={tunnelAutoStart}
-                  onChange={e => setTunnelAutoStart(e.target.checked)}
-                  className="w-4 h-4 rounded border-stone-300 text-primary-500 focus:ring-primary-400"
-                />
-                <span className="text-sm text-stone-600">LAN 服务器启动时自动连接隧道</span>
-              </label>
 
               {/* 开关 */}
               <div className="flex items-center gap-4 mb-4">
@@ -933,6 +1063,58 @@ export default function SettingsPage() {
         )}
 
         {tab === 'about' && (
+          <div className="space-y-6">
+          {/* 管理密码 */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Lock size={20} className="text-primary-400" />
+              <h3 className="text-sm font-semibold text-stone-700">管理密码</h3>
+            </div>
+            <p className="text-xs text-stone-500 mb-3">用于值日重置、强制结束倒计时、延时续费重置、积分清零、成长记录清空等需要验证的操作</p>
+            {showChangePwd ? (
+              <div className="bg-stone-50 rounded-lg p-4 space-y-2 max-w-sm">
+                <input
+                  type="password" placeholder="旧密码"
+                  value={oldPwd} onChange={e => setOldPwd(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+                <input
+                  type="password" placeholder="新密码（至少3位）"
+                  value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+                <input
+                  type="password" placeholder="确认新密码"
+                  value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleChangePassword()}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+                {pwdError && <p className="text-xs text-red-500">{pwdError}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleChangePassword}
+                    className="px-4 py-2 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600"
+                  >
+                    确认修改
+                  </button>
+                  <button
+                    onClick={() => { setShowChangePwd(false); setOldPwd(''); setNewPwd(''); setConfirmPwd(''); setPwdError('') }}
+                    className="px-4 py-2 text-sm border rounded-lg hover:bg-stone-100"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowChangePwd(true)}
+                className="px-4 py-2 text-sm border rounded-lg hover:bg-stone-50 text-stone-600"
+              >
+                修改密码
+              </button>
+            )}
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <div className="text-center mb-6">
               <Database size={48} className="mx-auto mb-3 text-primary-400" />
@@ -1040,6 +1222,7 @@ export default function SettingsPage() {
             )}
 
             <p className="text-xs text-stone-400 mt-6 text-center">桌面端一体化班级管理解决方案</p>
+          </div>
           </div>
         )}
       </div>
