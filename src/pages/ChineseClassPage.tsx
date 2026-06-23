@@ -79,121 +79,112 @@ export default function ChineseClassPage() {
   }
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-stone-800">课堂加分</h1>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSettle}
-              disabled={!groups.some(g => g.score !== 0)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-green-200 text-green-600 hover:bg-green-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <CheckCircle size={14} /> 结算到学习积分
-            </button>
-            <button
-              onClick={handleReset}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
-            >
-              <RotateCcw size={14} /> 清零
-            </button>
-          </div>
+    <div className="h-full flex flex-col overflow-hidden p-4">
+      <div className="flex items-center justify-between mb-3 shrink-0">
+        <h1 className="text-2xl font-bold text-stone-800">课堂加分</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSettle}
+            disabled={!groups.some(g => g.score !== 0)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-green-200 text-green-600 hover:bg-green-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <CheckCircle size={14} /> 结算到学习积分
+          </button>
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-red-200 text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <RotateCcw size={14} /> 清零
+          </button>
         </div>
+      </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm shrink-0">
+          {error}
+        </div>
+      )}
 
-        <div className="grid grid-cols-4 gap-5">
-          {groups.map(g => (
-            <div
-              key={g.group_id}
-              className="rounded-2xl overflow-hidden shadow-sm border flex flex-col"
-            >
-              {/* 彩色头部 */}
-              <div className="px-4 py-3 text-center" style={{ backgroundColor: getHexColor(g.group_color) }}>
-                <div className="text-lg font-bold text-white drop-shadow-sm">{g.group_name}</div>
-                {g.leader_name && (
-                  <div className="text-xs text-white/80 mt-0.5">组长：{g.leader_name}</div>
-                )}
+      <div className="flex-1 min-h-0 grid grid-cols-4 auto-rows-fr gap-3 xl:gap-4">
+        {groups.map(g => (
+          <div
+            key={g.group_id}
+            className="rounded-2xl overflow-hidden shadow-sm border flex flex-col min-h-0"
+          >
+            {/* 彩色头部 */}
+            <div className="px-3 py-2 xl:py-2.5 text-center shrink-0" style={{ backgroundColor: getHexColor(g.group_color) }}>
+              <div className="text-lg xl:text-xl 2xl:text-2xl font-bold text-white drop-shadow-sm leading-tight">{g.group_name}</div>
+              {g.leader_name && (
+                <div className="text-xs xl:text-sm text-white/80">组长：{g.leader_name}</div>
+              )}
+            </div>
+
+            {/* 内容区：纵向均匀铺满 */}
+            <div className="flex-1 min-h-0 flex flex-col items-center justify-evenly bg-white px-3 py-2">
+              {/* 分数（点击可编辑） */}
+              {customInput?.groupId === g.group_id ? (
+                <input
+                  type="number"
+                  autoFocus
+                  value={customInput.value}
+                  onChange={e => setCustomInput({ groupId: g.group_id, value: e.target.value })}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleScoreEdit(g.group_id, g.score)
+                    if (e.key === 'Escape') setCustomInput(null)
+                  }}
+                  onBlur={() => handleScoreEdit(g.group_id, g.score)}
+                  className="w-28 text-5xl xl:text-6xl 2xl:text-7xl font-black text-center border-b-2 border-primary-400 outline-none bg-transparent"
+                />
+              ) : (
+                <div
+                  onClick={() => setCustomInput({ groupId: g.group_id, value: String(g.score) })}
+                  className={`text-5xl xl:text-6xl 2xl:text-7xl font-black cursor-pointer hover:opacity-70 transition-opacity leading-none ${g.score > 0 ? 'text-green-600' : g.score < 0 ? 'text-red-500' : 'text-stone-300'}`}
+                  title="点击编辑分数"
+                >
+                  {g.score}
+                </div>
+              )}
+
+              {/* 大号加减按钮 */}
+              <div className="flex items-center gap-4 2xl:gap-6">
+                <button
+                  onClick={() => handleAdd(g.group_id, -1)}
+                  className="w-12 h-12 xl:w-14 xl:h-14 2xl:w-16 2xl:h-16 rounded-full flex items-center justify-center bg-red-50 border-2 border-red-200 text-red-500 hover:bg-red-100 active:scale-90 transition-all"
+                >
+                  <Minus className="w-6 h-6 2xl:w-8 2xl:h-8" strokeWidth={3} />
+                </button>
+                <button
+                  onClick={() => handleAdd(g.group_id, 1)}
+                  className="w-12 h-12 xl:w-14 xl:h-14 2xl:w-16 2xl:h-16 rounded-full flex items-center justify-center bg-green-50 border-2 border-green-200 text-green-600 hover:bg-green-100 active:scale-90 transition-all"
+                >
+                  <Plus className="w-6 h-6 2xl:w-8 2xl:h-8" strokeWidth={3} />
+                </button>
               </div>
 
-              {/* 内容区 */}
-              <div className="flex flex-col items-center px-4 py-5 bg-white flex-1">
-                {/* 分数（点击可编辑） */}
-                {customInput?.groupId === g.group_id ? (
-                  <input
-                    type="number"
-                    autoFocus
-                    value={customInput.value}
-                    onChange={e => setCustomInput({ groupId: g.group_id, value: e.target.value })}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleScoreEdit(g.group_id, g.score)
-                      if (e.key === 'Escape') setCustomInput(null)
-                    }}
-                    onBlur={() => handleScoreEdit(g.group_id, g.score)}
-                    className="w-24 text-5xl font-black text-center mb-5 border-b-2 border-primary-400 outline-none bg-transparent"
-                  />
-                ) : (
-                  <div
-                    onClick={() => setCustomInput({ groupId: g.group_id, value: String(g.score) })}
-                    className={`text-5xl font-black mb-5 cursor-pointer hover:opacity-70 transition-opacity ${g.score > 0 ? 'text-green-600' : g.score < 0 ? 'text-red-500' : 'text-stone-300'}`}
-                    title="点击编辑分数"
-                  >
-                    {g.score}
-                  </div>
-                )}
-
-                {/* 大号加减按钮 */}
-                <div className="flex items-center gap-3 mb-4">
-                  <button
-                    onClick={() => handleAdd(g.group_id, -1)}
-                    className="w-12 h-12 rounded-full flex items-center justify-center bg-red-50 border-2 border-red-200 text-red-500 hover:bg-red-100 active:scale-90 transition-all"
-                  >
-                    <Minus size={22} strokeWidth={3} />
-                  </button>
-                  <button
-                    onClick={() => handleAdd(g.group_id, 1)}
-                    className="w-12 h-12 rounded-full flex items-center justify-center bg-green-50 border-2 border-green-200 text-green-600 hover:bg-green-100 active:scale-90 transition-all"
-                  >
-                    <Plus size={22} strokeWidth={3} />
-                  </button>
+              {/* 快捷加分：上下各三个，横向拉满 */}
+              <div className="w-full flex flex-col gap-1.5 2xl:gap-2">
+                <div className="grid grid-cols-3 gap-1.5 2xl:gap-2">
+                  {[2, 3, 5].map(v => (
+                    <button
+                      key={v}
+                      onClick={() => handleAdd(g.group_id, v)}
+                      className="py-2 xl:py-2.5 2xl:py-3 rounded-lg text-base xl:text-lg 2xl:text-xl font-bold border border-green-200 text-green-600 hover:bg-green-50 active:scale-95 transition-all"
+                    >+{v}</button>
+                  ))}
                 </div>
-
-                {/* 快捷加分 */}
-                <div className="flex flex-wrap items-center justify-center gap-1.5 mb-3">
-                  <button
-                    onClick={() => handleAdd(g.group_id, 2)}
-                    className="px-4 py-2 rounded-lg text-base font-bold border border-green-200 text-green-600 hover:bg-green-50 active:scale-95 transition-all"
-                  >+2</button>
-                  <button
-                    onClick={() => handleAdd(g.group_id, 3)}
-                    className="px-4 py-2 rounded-lg text-base font-bold border border-green-200 text-green-600 hover:bg-green-50 active:scale-95 transition-all"
-                  >+3</button>
-                  <button
-                    onClick={() => handleAdd(g.group_id, 5)}
-                    className="px-4 py-2 rounded-lg text-base font-bold border border-green-200 text-green-600 hover:bg-green-50 active:scale-95 transition-all"
-                  >+5</button>
-                  <button
-                    onClick={() => handleAdd(g.group_id, -2)}
-                    className="px-4 py-2 rounded-lg text-base font-bold border border-red-200 text-red-500 hover:bg-red-50 active:scale-95 transition-all"
-                  >−2</button>
-                  <button
-                    onClick={() => handleAdd(g.group_id, -3)}
-                    className="px-4 py-2 rounded-lg text-base font-bold border border-red-200 text-red-500 hover:bg-red-50 active:scale-95 transition-all"
-                  >−3</button>
-                  <button
-                    onClick={() => handleAdd(g.group_id, -5)}
-                    className="px-4 py-2 rounded-lg text-base font-bold border border-red-200 text-red-500 hover:bg-red-50 active:scale-95 transition-all"
-                  >−5</button>
+                <div className="grid grid-cols-3 gap-1.5 2xl:gap-2">
+                  {[2, 3, 5].map(v => (
+                    <button
+                      key={v}
+                      onClick={() => handleAdd(g.group_id, -v)}
+                      className="py-2 xl:py-2.5 2xl:py-3 rounded-lg text-base xl:text-lg 2xl:text-xl font-bold border border-red-200 text-red-500 hover:bg-red-50 active:scale-95 transition-all"
+                    >−{v}</button>
+                  ))}
                 </div>
-
               </div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   )

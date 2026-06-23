@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { ArrowUpDown, Lock, Search } from 'lucide-react'
+import { ArrowUpDown, Lock, Search, Settings2, Trash2, Plus } from 'lucide-react'
 import * as studentApi from '@/lib/students'
 import { adjustStudentScore } from '@/lib/students'
 import { queryAll } from '@/lib/db'
@@ -9,6 +9,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { DUTY_PASSWORD } from '@/lib/duty'
 import type { StudentWithGroup, DailyStatus } from '@/types'
 import { getUnifiedLedger, type LedgerEntry } from '@/lib/score-ledger'
+import { getScoreReasons, saveScoreReasons, type ScoreReasonsConfig, DEFAULT_ADD_REASONS, DEFAULT_DEDUCT_REASONS } from '@/lib/score-reasons'
 
 type SortKey = keyof StudentScore
 
@@ -31,6 +32,11 @@ export default function StudentScoresPage() {
 
   // 手动调整弹窗（先调数量再选原因）
   const [adjustModal, setAdjustModal] = useState<{ studentId: string; studentName: string; delta: number } | null>(null)
+
+  // 可编辑的加分/扣分原因（持久化在 _meta 表）
+  const [reasonsConfig, setReasonsConfig] = useState<ScoreReasonsConfig>({ add: [...DEFAULT_ADD_REASONS], deduct: [...DEFAULT_DEDUCT_REASONS] })
+  const [reasonManager, setReasonManager] = useState<{ tab: 'add' | 'deduct'; add: string[]; deduct: string[] } | null>(null)
+  const [newReasonText, setNewReasonText] = useState('')
 
   // 积分流水
   const [ledger, setLedger] = useState<LedgerEntry[]>([])
@@ -74,6 +80,7 @@ export default function StudentScoresPage() {
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { getScoreReasons().then(setReasonsConfig).catch(err => console.error('[getScoreReasons]', err)) }, [])
 
   const sorted = [...scores].sort((a, b) => {
     const va = a[sortKey] as number
@@ -125,13 +132,28 @@ export default function StudentScoresPage() {
   const manualCount = personalLedger.filter(e => e.type === 'manual').length
   const manualTotal = personalLedger.filter(e => e.type === 'manual').reduce((s, e) => s + e.points, 0)
 
-  const DEDUCT_REASONS = [
-    { group: '科目', items: ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '道法'] },
-    { group: '其他', items: ['其他'] },
-  ]
-  const ADD_REASONS = [
-    { group: '加分原因', items: ['扣错了补分', '老师主动加分', '班长加分'] },
-  ]
+  const addReason = () => {
+    const text = newReasonText.trim()
+    if (!text) return
+    setReasonManager(m => {
+      if (!m) return m
+      if (m[m.tab].includes(text)) return m
+      const list = [...m[m.tab], text]
+      return m.tab === 'add' ? { ...m, add: list } : { ...m, deduct: list }
+    })
+    setNewReasonText('')
+  }
+
+  const saveReasons = async () => {
+    if (!reasonManager) return
+    const config: ScoreReasonsConfig = {
+      add: reasonManager.add.map(s => s.trim()).filter(Boolean),
+      deduct: reasonManager.deduct.map(s => s.trim()).filter(Boolean),
+    }
+    await saveScoreReasons(config)
+    setReasonsConfig(config)
+    setReasonManager(null)
+  }
 
   const openAdjustModal = (studentId: string, studentName: string, delta: number) => {
     setAdjustModal({ studentId, studentName, delta })
@@ -517,34 +539,116 @@ export default function StudentScoresPage() {
               >+</button>
             </div>
 
-            {/* 选择原因（点击即确认） */}
-            <p className="text-sm text-stone-500 mb-3">选择原因（点击即提交）</p>
-            {(adjustModal.delta > 0 ? ADD_REASONS : DEDUCT_REASONS).map(group => (
-              <div key={group.group} className="mb-3">
-                <div className="text-xs text-stone-400 mb-1.5">{group.group}</div>
-                <div className="flex flex-wrap gap-2">
-                  {group.items.map(reason => (
-                    <button
-                      key={reason}
-                      disabled={adjustModal.delta === 0}
-                      onClick={() => {
-                        if (reason === '其他') {
-                          const custom = prompt('请输入原因：')
-                          if (custom && custom.trim()) applyAdjust(custom.trim())
-                        } else {
-                          applyAdjust(reason)
-                        }
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-sm border border-stone-200 text-stone-600 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      {reason}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+            {/* 选择原因（点击即提交） */}
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-stone-500">选择原因（点击即提交）</p>
+              <button
+                onClick={() => { setReasonManager({ tab: adjustModal.delta > 0 ? 'add' : 'deduct', add: [...reasonsConfig.add], deduct: [...reasonsConfig.deduct] }); setNewReasonText('') }}
+                className="flex items-center gap-1 text-xs text-stone-400 hover:text-primary-600 transition-colors"
+              >
+                <Settings2 size={13} /> 管理
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(adjustModal.delta > 0 ? reasonsConfig.add : reasonsConfig.deduct).map(reason => (
+                <button
+                  key={reason}
+                  disabled={adjustModal.delta === 0}
+                  onClick={() => applyAdjust(reason)}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-stone-200 text-stone-600 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {reason}
+                </button>
+              ))}
+              {/* 扣分时固定保留「其他」：弹框输入一次性原因，不留存 */}
+              {adjustModal.delta < 0 && (
+                <button
+                  onClick={() => {
+                    const custom = prompt('请输入原因：')
+                    if (custom && custom.trim()) applyAdjust(custom.trim())
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-sm border border-dashed border-stone-300 text-stone-500 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-all"
+                >
+                  其他
+                </button>
+              )}
+            </div>
             <div className="flex justify-end mt-3">
               <button onClick={() => setAdjustModal(null)} className="px-4 py-2 text-sm text-stone-500 hover:bg-stone-100 rounded-lg transition-colors">取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 管理原因弹层：增 / 删 / 改加分、扣分原因，保存即留存 */}
+      {reasonManager && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30" onClick={() => setReasonManager(null)}>
+          <div className="bg-white rounded-2xl shadow-xl p-5 w-[460px] mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-stone-800 mb-3">管理原因</h3>
+
+            {/* 切换加分 / 扣分 */}
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setReasonManager(m => m && { ...m, tab: 'add' })}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${reasonManager.tab === 'add' ? 'bg-green-100 text-green-700' : 'bg-stone-50 text-stone-500 hover:bg-stone-100'}`}
+              >加分原因</button>
+              <button
+                onClick={() => setReasonManager(m => m && { ...m, tab: 'deduct' })}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${reasonManager.tab === 'deduct' ? 'bg-red-100 text-red-600' : 'bg-stone-50 text-stone-500 hover:bg-stone-100'}`}
+              >扣分原因</button>
+            </div>
+
+            {/* 当前类别原因列表 */}
+            <div className="space-y-2 max-h-[280px] overflow-y-auto mb-3">
+              {reasonManager[reasonManager.tab].map((reason, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    value={reason}
+                    onChange={e => setReasonManager(m => {
+                      if (!m) return m
+                      const list = [...m[m.tab]]
+                      list[idx] = e.target.value
+                      return m.tab === 'add' ? { ...m, add: list } : { ...m, deduct: list }
+                    })}
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-primary-300"
+                  />
+                  <button
+                    onClick={() => setReasonManager(m => {
+                      if (!m) return m
+                      const list = m[m.tab].filter((_, i) => i !== idx)
+                      return m.tab === 'add' ? { ...m, add: list } : { ...m, deduct: list }
+                    })}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+              {reasonManager[reasonManager.tab].length === 0 && (
+                <p className="text-sm text-stone-400 text-center py-3">暂无原因，请在下方添加</p>
+              )}
+            </div>
+
+            {/* 新增原因 */}
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                value={newReasonText}
+                onChange={e => setNewReasonText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addReason() }}
+                placeholder="输入新原因，回车或点添加"
+                className="flex-1 px-3 py-1.5 rounded-lg border border-stone-200 text-sm focus:outline-none focus:border-primary-300"
+              />
+              <button
+                onClick={addReason}
+                className="px-3 py-1.5 rounded-lg text-sm bg-primary-100 text-primary-700 hover:bg-primary-200 transition-colors flex items-center gap-1"
+              >
+                <Plus size={14} />添加
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setReasonManager(null)} className="px-4 py-2 text-sm text-stone-500 hover:bg-stone-100 rounded-lg transition-colors">取消</button>
+              <button onClick={saveReasons} className="px-4 py-2 text-sm bg-primary-600 text-white hover:bg-primary-700 rounded-lg transition-colors">保存</button>
             </div>
           </div>
         </div>

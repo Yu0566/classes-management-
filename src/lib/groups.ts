@@ -229,10 +229,17 @@ export async function calculateRankingBonus(): Promise<void> {
   const now = Date.now()
   const operations: { sql: string; params: unknown[] }[] = []
 
+  let rank = 0
+  let prevScore: number | null = null
+
   for (let i = 0; i < ranked.length; i++) {
-    const rank = i + 1
-    const bonus = Math.max(0, 9 - rank) // 第1名+8, 第2名+7, ..., 第8名+1, 第9名起+0
     const group = ranked[i]
+    // 同分同奖：学习积分与上一名不同才进位；相同则共享名次和加分（不跳号）
+    if (prevScore === null || group.study_score !== prevScore) {
+      rank += 1
+      prevScore = group.study_score
+    }
+    const bonus = Math.max(0, 9 - rank) // 第1名+8, 第2名+7, ..., 第8名+1, 第9名起+0
 
     if (bonus > 0) {
       const newTotalScore = group.total_score + bonus
