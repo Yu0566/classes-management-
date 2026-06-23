@@ -279,9 +279,9 @@ let groups = []
 let selectedGroupId = null
 let expanded = false
 
-// 拖拽逻辑
+// 拖拽逻辑：绝对定位（起点全程不重置，传相对起点的总位移）
 let dragging = false
-let dragStartX = 0, dragStartY = 0
+let startScreenX = 0, startScreenY = 0
 let hasMoved = false
 
 const ball = document.getElementById('ball')
@@ -291,21 +291,18 @@ ball.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') return // 触摸走 touch 事件
   dragging = true
   hasMoved = false
-  dragStartX = e.screenX
-  dragStartY = e.screenY
+  startScreenX = e.screenX
+  startScreenY = e.screenY
+  api.float.dragStart()
   ball.setPointerCapture(e.pointerId)
 })
 ball.addEventListener('pointermove', (e) => {
   if (e.pointerType === 'touch') return
   if (!dragging) return
-  const dx = e.screenX - dragStartX
-  const dy = e.screenY - dragStartY
+  const dx = e.screenX - startScreenX
+  const dy = e.screenY - startScreenY
   if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true
-  if (hasMoved) {
-    api.float.move(dx, dy)
-    dragStartX = e.screenX
-    dragStartY = e.screenY
-  }
+  if (hasMoved) api.float.dragMove(dx, dy)
 })
 ball.addEventListener('pointerup', (e) => {
   if (e.pointerType === 'touch') return
@@ -320,21 +317,18 @@ ball.addEventListener('touchstart', (e) => {
   dragging = true
   hasMoved = false
   const t = e.touches[0]
-  dragStartX = t.screenX
-  dragStartY = t.screenY
+  startScreenX = t.screenX
+  startScreenY = t.screenY
+  api.float.dragStart()
 }, { passive: false })
 ball.addEventListener('touchmove', (e) => {
   if (!dragging) return
   e.preventDefault()
   const t = e.touches[0]
-  const dx = t.screenX - dragStartX
-  const dy = t.screenY - dragStartY
+  const dx = t.screenX - startScreenX
+  const dy = t.screenY - startScreenY
   if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true
-  if (hasMoved) {
-    api.float.move(dx, dy)
-    dragStartX = t.screenX
-    dragStartY = t.screenY
-  }
+  if (hasMoved) api.float.dragMove(dx, dy)
 }, { passive: false })
 ball.addEventListener('touchend', (e) => {
   e.preventDefault()

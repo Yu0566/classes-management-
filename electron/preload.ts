@@ -97,7 +97,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   float: {
     expand: () => ipcRenderer.invoke('float:expand'),
     collapse: () => ipcRenderer.invoke('float:collapse'),
-    move: (dx: number, dy: number) => ipcRenderer.invoke('float:move', dx, dy),
+    dragStart: () => ipcRenderer.invoke('float:dragStart'),
+    dragMove: (dx: number, dy: number) => ipcRenderer.invoke('float:dragMove', dx, dy),
   },
 
   // 应用功能

@@ -2,6 +2,7 @@ import { BrowserWindow, screen, ipcMain } from 'electron'
 import path from 'path'
 
 let floatWin: BrowserWindow | null = null
+let dragOrigin: [number, number] | null = null
 const BALL_SIZE = 60
 const PANEL_WIDTH = 340
 const PANEL_HEIGHT = 560
@@ -54,12 +55,17 @@ export function createFloatBall() {
     floatWin.setBounds({ x: newX, y: y + 20, width: BALL_SIZE, height: BALL_SIZE })
   })
 
-  // 拖拽移动
-  ipcMain.removeHandler('float:move')
-  ipcMain.handle('float:move', (_e, dx: number, dy: number) => {
+  // 拖拽移动：绝对定位（按下记起点，移动时窗口=起点+手指总位移，抗丢帧、始终跟手）
+  ipcMain.removeHandler('float:dragStart')
+  ipcMain.handle('float:dragStart', () => {
     if (!floatWin) return
-    const [x, y] = floatWin.getPosition()
-    floatWin.setPosition(x + dx, y + dy)
+    dragOrigin = floatWin.getPosition() as [number, number]
+  })
+
+  ipcMain.removeHandler('float:dragMove')
+  ipcMain.handle('float:dragMove', (_e, totalDx: number, totalDy: number) => {
+    if (!floatWin || !dragOrigin) return
+    floatWin.setPosition(Math.round(dragOrigin[0] + totalDx), Math.round(dragOrigin[1] + totalDy))
   })
 }
 
