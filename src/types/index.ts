@@ -174,6 +174,16 @@ export interface CopyPunishmentStudent {
   completed_at: number | null
 }
 
+export interface CopyPunishmentLog {
+  id: string
+  action: 'generate' | 'add' | 'remove'
+  detail: string | null
+  student_name: string | null
+  count: number | null
+  source: string | null
+  created_at: number
+}
+
 // 作业
 export interface Homework {
   id: string

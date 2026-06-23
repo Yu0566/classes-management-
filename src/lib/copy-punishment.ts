@@ -3,7 +3,7 @@ import { queryAll, queryOne, executeRun } from './db'
 import { calculateAllScores } from './scores'
 import { getAllScoreSettings } from './score-settings'
 import * as studentApi from './students'
-import type { CopyPunishmentWeek, CopyPunishmentStudent, DailyStatus } from '@/types'
+import type { CopyPunishmentWeek, CopyPunishmentStudent, CopyPunishmentLog, DailyStatus } from '@/types'
 
 async function ensureTables(): Promise<void> {
   await executeRun(`CREATE TABLE IF NOT EXISTS copy_punishment_weeks (
@@ -22,6 +22,39 @@ async function ensureTables(): Promise<void> {
     completed INTEGER DEFAULT 0,
     completed_at INTEGER
   )`)
+  await executeRun(`CREATE TABLE IF NOT EXISTS copy_punishment_log (
+    id TEXT PRIMARY KEY,
+    action TEXT NOT NULL,
+    detail TEXT,
+    student_name TEXT,
+    count INTEGER,
+    source TEXT,
+    created_at INTEGER NOT NULL
+  )`)
+}
+
+// 当前操作来源（设备标识），浏览器端未设置时为空
+function getSource(): string {
+  try { return localStorage.getItem('device_name') || '' } catch { return '' }
+}
+
+async function logPunishmentAction(
+  action: 'generate' | 'add' | 'remove',
+  opts: { detail?: string; studentName?: string; count?: number } = {}
+): Promise<void> {
+  await executeRun(
+    `INSERT INTO copy_punishment_log (id, action, detail, student_name, count, source, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [uuid(), action, opts.detail ?? null, opts.studentName ?? null, opts.count ?? null, getSource(), Date.now()]
+  )
+}
+
+export async function getPunishmentLog(limit: number = 50): Promise<CopyPunishmentLog[]> {
+  await ensureTables()
+  return queryAll<CopyPunishmentLog>(
+    'SELECT * FROM copy_punishment_log ORDER BY created_at DESC LIMIT ?',
+    [limit]
+  )
 }
 
 export async function getActiveWeek(): Promise<CopyPunishmentWeek | undefined> {
@@ -132,6 +165,13 @@ export async function generatePunishmentList(
     })
   }
 
+  if (topN > 0) {
+    await logPunishmentAction('generate', {
+      detail: students.map(s => s.student_name).join('、'),
+      count: students.length,
+    })
+  }
+
   return { weekId, students }
 }
 
@@ -157,10 +197,15 @@ export async function addPunishmentStudent(
      VALUES (?, ?, ?, ?, 0)`,
     [uuid(), weekId, studentId, studentName]
   )
+  await logPunishmentAction('add', { studentName })
 }
 
 export async function removePunishmentStudent(id: string): Promise<void> {
+  const row = await queryOne<{ student_name: string }>(
+    'SELECT student_name FROM copy_punishment_students WHERE id = ?', [id]
+  )
   await executeRun('DELETE FROM copy_punishment_students WHERE id = ?', [id])
+  await logPunishmentAction('remove', { studentName: row?.student_name })
 }
 
 export async function getScoreResetHistory(limit: number = 10): Promise<{ date: string; label: string }[]> {

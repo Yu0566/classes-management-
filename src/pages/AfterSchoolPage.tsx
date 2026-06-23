@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Trash2, CheckCircle, Timer, Users, RefreshCw, Copy, UserPlus, X, AlertTriangle, Plus, Clock, LogIn, Check, Lock, Megaphone } from 'lucide-react'
+import { Trash2, CheckCircle, Timer, Users, RefreshCw, Copy, UserPlus, X, AlertTriangle, Plus, Clock, LogIn, Check, Lock, Megaphone, History } from 'lucide-react'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import StudentPickerModal from '../components/ui/StudentPickerModal'
@@ -9,7 +9,7 @@ import * as detentionApi from '../lib/detention'
 import * as studentApi from '../lib/students'
 import * as groupApi from '../lib/groups'
 import { queryAll } from '../lib/db'
-import type { ReflectionRecord, ReflectionStudent, CopyPunishmentStudent, Group, DetentionRecord, DetentionStudent, StudentWithGroup } from '../types'
+import type { ReflectionRecord, ReflectionStudent, CopyPunishmentStudent, CopyPunishmentLog, Group, DetentionRecord, DetentionStudent, StudentWithGroup } from '../types'
 
 type WindowState = 'idle' | 'counting_down' | 'signing_in' | 'finished'
 
@@ -103,6 +103,8 @@ export default function AfterSchoolPage() {
   const [punishmentWeekLabel, setPunishmentWeekLabel] = useState('')
   const [allStudents, setAllStudents] = useState<StudentWithGroup[]>([])
   const [showPunishmentPicker, setShowPunishmentPicker] = useState(false)
+  const [showPunishmentLog, setShowPunishmentLog] = useState(false)
+  const [punishmentLog, setPunishmentLog] = useState<CopyPunishmentLog[]>([])
 
   // ========== 延时续费 state ==========
   const [detentionRecord, setDetentionRecord] = useState<DetentionRecord | null>(null)
@@ -586,6 +588,11 @@ export default function AfterSchoolPage() {
     setAllStudents(rows)
   }, [])
 
+  const loadPunishmentLog = useCallback(async () => {
+    const rows = await copyPunishmentApi.getPunishmentLog(50)
+    setPunishmentLog(rows)
+  }, [])
+
   const handleGenerateList = async () => {
     if (!await confirm({ message: '确认生成新的罚抄名单？\n\n将取当前个人积分最低的前5名学生。\n旧名单将被归档。', variant: 'normal' })) return
     await copyPunishmentApi.generatePunishmentList(5)
@@ -920,6 +927,13 @@ export default function AfterSchoolPage() {
                   </button>
                 )}
                 <button
+                  onClick={() => { loadPunishmentLog(); setShowPunishmentLog(true) }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-stone-50 text-stone-500 rounded-xl text-sm font-medium border border-stone-200 hover:border-amber-300 hover:text-amber-600 transition-all"
+                >
+                  <History size={16} />
+                  生成记录
+                </button>
+                <button
                   onClick={() => { loadAllStudents(); setShowPunishmentPicker(true) }}
                   className="flex items-center gap-1.5 px-4 py-2 bg-stone-50 text-stone-500 rounded-xl text-sm font-medium border border-stone-200 hover:border-amber-300 hover:text-amber-600 transition-all"
                 >
@@ -1195,6 +1209,35 @@ export default function AfterSchoolPage() {
           excludeIds={punishmentStudents.map(ps => ps.student_id)}
           onSelect={handleAddPunishmentStudent}
         />
+
+        {/* 罚抄名单生成记录 Modal */}
+        <Modal open={showPunishmentLog} onClose={() => setShowPunishmentLog(false)} title="罚抄名单记录">
+          <div className="space-y-2 max-h-96 overflow-auto">
+            {punishmentLog.length === 0 ? (
+              <p className="text-sm text-stone-400 text-center py-8">暂无记录</p>
+            ) : (
+              punishmentLog.map(log => {
+                const d = new Date(log.created_at)
+                const time = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+                const actionLabel = log.action === 'generate' ? '生成名单' : log.action === 'add' ? '手动添加' : '移除'
+                const actionColor = log.action === 'generate' ? 'bg-amber-100 text-amber-700'
+                  : log.action === 'add' ? 'bg-sky-100 text-sky-700' : 'bg-red-100 text-red-600'
+                const desc = log.action === 'generate'
+                  ? `取积分最低 ${log.count ?? 0} 人${log.detail ? '：' + log.detail : ''}`
+                  : (log.student_name || '')
+                return (
+                  <div key={log.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl border border-stone-100 bg-stone-50">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold flex-shrink-0 ${actionColor}`}>{actionLabel}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-stone-600 break-words">{desc}</p>
+                      <p className="text-[11px] text-stone-400 mt-0.5">{time} · {log.source || '浏览器/未知设备'}</p>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </Modal>
 
         {/* 延时续费密码验证 Modal */}
         <Modal
