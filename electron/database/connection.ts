@@ -65,39 +65,80 @@ export async function checkOldData(_dbPath: string): Promise<{ hasOldData: boole
 export async function initDatabase(_dbPath: string): Promise<void> {
   dbPath = _dbPath
 
-  // 确保目录存在
   const dir = path.dirname(dbPath)
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true })
   }
 
-  // 初始化 sql.js
   const SQL = await initSqlJs()
 
-  // 尝试从文件加载数据库，如果不存在则创建新的
-  if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath)
+  // 尝试从 buffer 加载数据库并做完整性校验，失败返回 null
+  function tryLoad(label: string, buffer: Uint8Array): SqlJsDatabase | null {
     try {
-      db = new SQL.Database(buffer)
-      console.log('数据库已加载:', dbPath)
-    } catch (err: any) {
-      // 只有构造函数失败才说明文件真的损坏了
-      if (err.message && (err.message.includes('not a database') || err.message.includes('file is not a database'))) {
-        console.error('数据库文件损坏，自动备份并重建:', dbPath)
-        const bakPath = dbPath + '.corrupted-' + Date.now() + '.bak'
-        fs.copyFileSync(dbPath, bakPath)
-        db = new SQL.Database()
-        console.log('数据库已重建，损坏文件备份到:', bakPath)
-      } else {
-        throw err
-      }
+      const d = new SQL.Database(buffer)
+      d.exec('SELECT count(*) FROM sqlite_master') // 完整性校验
+      return d
+    } catch {
+      console.log(`[DB] ${label} 无效`)
+      return null
     }
-  } else {
-    db = new SQL.Database()
-    console.log('数据库已创建:', dbPath)
   }
 
-  // 数据库文件存在时，运行迁移前先做一份备份
+  const backupDir = path.join(dir, 'backups')
+  let loadedFrom = ''
+
+  // 按优先级依次尝试：主文件 → .tmp → .prev → 最新备份 → 建空库
+  // 1) 主文件
+  if (fs.existsSync(dbPath)) {
+    const buffer = fs.readFileSync(dbPath)
+    db = tryLoad(dbPath, buffer)
+    if (db) loadedFrom = dbPath
+  }
+
+  // 2) .tmp（上次保存可能未完成 rename，即写入已完整但没来得及替换）
+  if (!db && fs.existsSync(dbPath + '.tmp')) {
+    const buffer = fs.readFileSync(dbPath + '.tmp')
+    db = tryLoad(dbPath + '.tmp', buffer)
+    if (db) loadedFrom = dbPath + '.tmp'
+  }
+
+  // 3) .prev（rename 前移开的上一个完好文件）
+  if (!db && fs.existsSync(dbPath + '.prev')) {
+    const buffer = fs.readFileSync(dbPath + '.prev')
+    db = tryLoad(dbPath + '.prev', buffer)
+    if (db) loadedFrom = dbPath + '.prev'
+  }
+
+  // 4) 最新备份
+  if (!db && fs.existsSync(backupDir)) {
+    const backups = fs.readdirSync(backupDir)
+      .filter(f => f.startsWith('class-management-') && f.endsWith('.db'))
+      .sort().reverse() // 最新的排前面
+    for (const f of backups) {
+      const buffer = fs.readFileSync(path.join(backupDir, f))
+      db = tryLoad(path.join(backupDir, f), buffer)
+      if (db) { loadedFrom = path.join(backupDir, f); break }
+    }
+  }
+
+  // 5) 所有尝试均失败，备份损坏文件后建空库
+  if (!db) {
+    if (fs.existsSync(dbPath)) {
+      const bakPath = dbPath + '.corrupted-' + Date.now() + '.bak'
+      fs.copyFileSync(dbPath, bakPath)
+      console.error('数据库无法恢复，原文件已备份到:', bakPath)
+    }
+    db = new SQL.Database()
+    console.log('所有恢复尝试均失败，已创建空白数据库')
+  } else if (loadedFrom !== dbPath) {
+    // 从非主文件恢复了 → 写回主文件
+    console.log('数据库从', loadedFrom, '恢复，写回主文件')
+    const data = db.export()
+    fs.writeFileSync(dbPath, Buffer.from(data))
+  }
+  console.log('数据库已加载:', dbPath)
+
+  // 数据库文件存在时，运行迁移前先做一份备份（新启动的例行备份）
   if (fs.existsSync(dbPath)) {
     backupDatabase(dbPath)
     cleanupOldBackups(dbPath)
@@ -113,15 +154,10 @@ export async function initDatabase(_dbPath: string): Promise<void> {
   // 注意：必须先删 students（外键引用 records），再删 records
   conDebugLog('cleanup starting...')
   try {
-    // 先删掉属于重复 record 的 students（否则外键约束会阻止删除 record）
     db.exec("DELETE FROM reflection_students WHERE reflection_record_id IN (SELECT id FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id))")
-    // 再删重复 record
     db.exec("DELETE FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id)")
-    // 清理孤儿学生
     db.exec("DELETE FROM reflection_students WHERE reflection_record_id NOT IN (SELECT id FROM reflection_records)")
-    // 清理 reflection_students 重复
     db.exec("DELETE FROM reflection_students WHERE id NOT IN (SELECT MIN(id) FROM reflection_students GROUP BY reflection_record_id, student_id)")
-    // 创建唯一索引
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_records_date_group ON reflection_records(date, group_id)")
     conDebugLog('idx_reflection_records_date_group created OK')
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_students_unique ON reflection_students(reflection_record_id, student_id)")
@@ -139,7 +175,21 @@ export function saveDatabase(): void {
   if (!db || !dbPath) return
   const data = db.export()
   const buffer = Buffer.from(data)
-  fs.writeFileSync(dbPath, buffer)
+
+  // 原子写入：先写 .tmp，再用 rename 替换。中途断电只会丢 .tmp，原文件完好
+  const tmpPath = dbPath + '.tmp'
+  fs.writeFileSync(tmpPath, buffer)
+
+  // rename 前保留 .prev 作为最后一版完好数据（双重保险）
+  try { fs.unlinkSync(dbPath + '.prev') } catch (_) { /* 旧 prev 不存在 */ }
+  if (fs.existsSync(dbPath)) {
+    try { fs.renameSync(dbPath, dbPath + '.prev') } catch (_) { /* dbPath 被占用 */ }
+  }
+
+  fs.renameSync(tmpPath, dbPath)
+
+  // 写入成功，清理 .prev
+  try { fs.unlinkSync(dbPath + '.prev') } catch (_) { /* ignore */ }
 }
 
 export function getDatabase(): SqlJsDatabase | null {
