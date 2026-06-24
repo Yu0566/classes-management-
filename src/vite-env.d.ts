@@ -27,6 +27,8 @@ interface Window {
       showMessageBox: (options: Record<string, unknown>) => Promise<{ response: number }>
     }
     onAppClosing: (callback: () => void) => () => void
+    onCloseRequest: (callback: () => void) => () => void
+    respondClose: (decision: 'minimize' | 'quit' | 'cancel') => void
     onDataChanged: (callback: () => void) => () => void
     onNotifyShow: (callback: (notification: { title: string; message: string }) => void) => () => void
     getAppPath: () => Promise<string>

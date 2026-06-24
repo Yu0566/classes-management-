@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import { NotificationProvider } from './components/notify/NotificationProvider'
+import CloseConfirmDialog from './components/CloseConfirmDialog'
 import MainLayout from './components/layout/MainLayout'
 import GroupsPage from './pages/GroupsPage'
 import StudentsPage from './pages/StudentsPage'
@@ -30,6 +31,7 @@ function App() {
   return (
     <NotificationProvider>
     <ConfirmProvider>
+      <CloseConfirmDialog />
       <Routes>
       <Route path="/" element={<MainLayout />}>
         <Route index element={<DashboardPage />} />

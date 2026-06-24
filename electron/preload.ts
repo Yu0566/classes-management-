@@ -29,6 +29,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('app:closing', callback)
   },
 
+  // 点叉关闭 → 主进程请求渲染端弹出确认弹窗
+  onCloseRequest: (callback: () => void) => {
+    ipcRenderer.on('app:close-request', callback)
+    return () => ipcRenderer.removeListener('app:close-request', callback)
+  },
+  respondClose: (decision: 'minimize' | 'quit' | 'cancel') =>
+    ipcRenderer.send('app:close-response', decision),
+
   // 数据变更通知（主窗口用）
   onDataChanged: (callback: () => void) => {
     const handler = () => callback()

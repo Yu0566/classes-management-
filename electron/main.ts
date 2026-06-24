@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, screen } from 'electron'
+import { app, BrowserWindow, Menu, dialog, screen, ipcMain } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { initDatabase, getDatabase, closeDatabase, checkOldData, type RecoveryDecision } from './database/connection'
@@ -26,6 +26,7 @@ if (!gotTheLock) {
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
+let closeDialogOpen = false
 const isDev = !app.isPackaged
 
 // 开发模式使用独立的 userData 目录，与正式版数据完全隔离
@@ -50,26 +51,23 @@ function createWindow() {
     },
   })
 
-  // 点叉关闭 → 拦截并确认；默认最小化（软件后台继续运行，浏览器/手机仍可连接）
+  // 点叉关闭 → 拦截，弹出应用内自定义确认弹窗（引导最小化，避免误退出断开 LAN 连接）
   mainWindow.on('close', (e) => {
     if (isQuitting) return
     e.preventDefault()
-    const choice = dialog.showMessageBoxSync(mainWindow!, {
-      type: 'question',
-      title: '关闭确认',
-      message: '确定要关闭课堂管理系统吗？',
-      detail: '关闭后将无法通过浏览器 / 手机连接本机。\n建议最小化到后台，软件继续运行。',
-      buttons: ['最小化到后台', '确认退出'],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true,
-    })
-    if (choice === 1) {
-      isQuitting = true
-      app.quit()
-    } else {
+    // 第二次点叉（弹窗可能未正常显示）→ 直接最小化兜底
+    if (closeDialogOpen) {
       mainWindow!.minimize()
+      return
     }
+    const wc = mainWindow!.webContents
+    // 渲染进程不可用（崩溃/销毁）→ 退回最小化，避免无法关闭
+    if (wc.isDestroyed() || wc.isCrashed()) {
+      mainWindow!.minimize()
+      return
+    }
+    closeDialogOpen = true
+    wc.send('app:close-request')
   })
 
   // 主窗口关闭时退出应用
@@ -86,6 +84,19 @@ function createWindow() {
     showNotificationWindow(notificationId, message, mode, duration, images, urgency, confirmMode, confirmStudents, lanPort)
   })
 }
+
+// 渲染端关闭确认弹窗的回传：最小化 / 退出 / 取消
+ipcMain.on('app:close-response', (_e, decision: 'minimize' | 'quit' | 'cancel') => {
+  closeDialogOpen = false
+  if (!mainWindow) return
+  if (decision === 'quit') {
+    isQuitting = true
+    app.quit()
+  } else if (decision === 'minimize') {
+    mainWindow.minimize()
+  }
+  // cancel：什么都不做，窗口保持打开
+})
 
 function loadApp() {
   if (!mainWindow) return
