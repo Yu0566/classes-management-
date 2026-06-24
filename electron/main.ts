@@ -25,6 +25,7 @@ if (!gotTheLock) {
 }
 
 let mainWindow: BrowserWindow | null = null
+let isQuitting = false
 const isDev = !app.isPackaged
 
 // 开发模式使用独立的 userData 目录，与正式版数据完全隔离
@@ -47,6 +48,28 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  })
+
+  // 点叉关闭 → 拦截并确认；默认最小化（软件后台继续运行，浏览器/手机仍可连接）
+  mainWindow.on('close', (e) => {
+    if (isQuitting) return
+    e.preventDefault()
+    const choice = dialog.showMessageBoxSync(mainWindow!, {
+      type: 'question',
+      title: '关闭确认',
+      message: '确定要关闭课堂管理系统吗？',
+      detail: '关闭后将无法通过浏览器 / 手机连接本机。\n建议最小化到后台，软件继续运行。',
+      buttons: ['最小化到后台', '确认退出'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    })
+    if (choice === 1) {
+      isQuitting = true
+      app.quit()
+    } else {
+      mainWindow!.minimize()
+    }
   })
 
   // 主窗口关闭时退出应用
@@ -233,6 +256,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  isQuitting = true
   closeFloatBall()
   stopTunnel()
   stopServer()

@@ -1,6 +1,6 @@
 {
   "name": "class-management",
-  "version": "3.4.0",
+  "version": "3.4.1",
   "description": "课堂管理系统 - 桌面端班级管理应用",
   "main": "dist-electron/main.js",
   "scripts": {
