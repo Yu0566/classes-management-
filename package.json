@@ -1,6 +1,6 @@
 {
   "name": "class-management",
-  "version": "3.3.7",
+  "version": "3.4.0",
   "description": "课堂管理系统 - 桌面端班级管理应用",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "android:open": "npx cap open android"
   },
   "dependencies": {
+    "better-sqlite3": "^12.11.1",
     "electron-updater": "^6.8.3",
     "sql.js": "^1.10.0",
     "uuid": "^9.0.0"
@@ -30,6 +31,7 @@
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
     "@capacitor/filesystem": "^8.1.2",
+    "@electron/rebuild": "^4.0.4",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/sql.js": "^1.4.11",
@@ -56,6 +58,7 @@
   "build": {
     "appId": "com.classmanagement.app",
     "productName": "课堂管理系统",
+    "compression": "maximum",
     "electronLanguages": [
       "zh-CN",
       "en-US"
@@ -65,7 +68,17 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "!**/node_modules/better-sqlite3/deps/**",
+      "!**/node_modules/better-sqlite3/src/**",
+      "!**/node_modules/sql.js/dist/sql-asm*",
+      "!**/node_modules/sql.js/dist/worker.sql-asm*",
+      "!**/node_modules/sql.js/dist/*debug*",
+      "!**/node_modules/sql.js/dist/*browser*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**",
+      "**/*.node"
     ],
     "publish": {
       "provider": "github",

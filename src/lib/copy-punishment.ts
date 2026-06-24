@@ -165,12 +165,12 @@ export async function generatePunishmentList(
     })
   }
 
-  if (topN > 0) {
-    await logPunishmentAction('generate', {
-      detail: students.map(s => s.student_name).join('、'),
-      count: students.length,
-    })
-  }
+  await logPunishmentAction('generate', {
+    detail: students.length > 0
+      ? students.map(s => s.student_name).join('、')
+      : (topN > 0 ? '无负分学生，生成空名单' : '手动创建空名单'),
+    count: students.length,
+  })
 
   return { weekId, students }
 }

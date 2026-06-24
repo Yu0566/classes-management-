@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { runMigrations, SCHEMA_VERSION } from './migrations'
 import { runSeed } from './seed'
+import type { SqlJsLikeDatabase } from './engine-bsqlite'
 
 function conDebugLog(msg: string): void {
   try {
@@ -13,12 +14,31 @@ function conDebugLog(msg: string): void {
   } catch (_) { /* ignore */ }
 }
 
-let db: SqlJsDatabase | null = null
+let db: SqlJsDatabase | SqlJsLikeDatabase | null = null
 let dbPath: string = ''
+// Electron 主进程用 better-sqlite3（WAL+FULL，治本断电损坏）；纯 Node 独立服务器用 sql.js
+let useBetterSqlite = false
 
 const MAX_BACKUPS = 20
 
 export { SCHEMA_VERSION }
+
+export interface BackupChoice { name: string; path: string; mtime: number }
+export type RecoveryDecision = { action: 'restore'; backupPath: string } | { action: 'fresh' }
+export type RecoveryHandler = (info: { backups: BackupChoice[]; lastFailed?: string }) => Promise<RecoveryDecision>
+
+/** 列出 backups/ 目录下的备份，按时间倒序（最新在前），返回含完整路径 */
+function getBackupList(backupDir: string): BackupChoice[] {
+  if (!fs.existsSync(backupDir)) return []
+  return fs.readdirSync(backupDir)
+    .filter(f => f.startsWith('class-management-') && f.endsWith('.db'))
+    .map(f => {
+      const p = path.join(backupDir, f)
+      const stat = fs.statSync(p)
+      return { name: f, path: p, mtime: stat.mtimeMs }
+    })
+    .sort((a, b) => b.mtime - a.mtime)
+}
 
 /**
  * 在正式初始化之前临时打开数据库，检测是否有旧版本数据。
@@ -62,7 +82,40 @@ export async function checkOldData(_dbPath: string): Promise<{ hasOldData: boole
   }
 }
 
-export async function initDatabase(_dbPath: string): Promise<void> {
+// 一次完整的初始化流水线：外键 → 迁移 → reflection 清理 → 种子。两种引擎共用（均提供 run/exec）。
+function runPipeline(d: any): void {
+  d.run('PRAGMA foreign_keys = ON')
+  runMigrations(d)
+  // 强力去重：确保 reflection 表没有重复且唯一约束存在
+  // 注意：必须先删 students（外键引用 records），再删 records
+  conDebugLog('cleanup starting...')
+  try {
+    d.exec("DELETE FROM reflection_students WHERE reflection_record_id IN (SELECT id FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id))")
+    d.exec("DELETE FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id)")
+    d.exec("DELETE FROM reflection_students WHERE reflection_record_id NOT IN (SELECT id FROM reflection_records)")
+    d.exec("DELETE FROM reflection_students WHERE id NOT IN (SELECT MIN(id) FROM reflection_students GROUP BY reflection_record_id, student_id)")
+    d.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_records_date_group ON reflection_records(date, group_id)")
+    d.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_students_unique ON reflection_students(reflection_record_id, student_id)")
+  } catch (e: any) { conDebugLog(`cleanup ERROR: ${e?.message || e}`); console.error('reflection cleanup failed:', e) }
+  // 导入种子数据（仅首次）
+  runSeed(d)
+}
+
+/** 删除主库及其 WAL/SHM 边车文件（better-sqlite3 恢复前用，避免与新文件不一致） */
+function discardMainFiles(): void {
+  for (const suffix of ['', '-wal', '-shm']) {
+    try { fs.unlinkSync(dbPath + suffix) } catch { /* ignore */ }
+  }
+}
+
+/** 将损坏的主库文件备份一次 */
+function backupCorruptMain(): void {
+  if (!fs.existsSync(dbPath)) return
+  const bakPath = dbPath + '.corrupted-' + Date.now() + '.bak'
+  try { fs.copyFileSync(dbPath, bakPath); console.error('损坏的数据库已备份到:', bakPath) } catch { /* ignore */ }
+}
+
+export async function initDatabase(_dbPath: string, onNeedRecovery?: RecoveryHandler): Promise<void> {
   dbPath = _dbPath
 
   const dir = path.dirname(dbPath)
@@ -70,102 +123,173 @@ export async function initDatabase(_dbPath: string): Promise<void> {
     fs.mkdirSync(dir, { recursive: true })
   }
 
+  useBetterSqlite = !!process.versions.electron
+  if (useBetterSqlite) {
+    await initWithBetterSqlite(onNeedRecovery)
+  } else {
+    await initWithSqlJs(onNeedRecovery)
+  }
+}
+
+// ── Electron：原生 better-sqlite3（WAL + synchronous=FULL）──────────────
+async function initWithBetterSqlite(onNeedRecovery?: RecoveryHandler): Promise<void> {
+  // 懒加载：仅在 Electron 分支 require，纯 Node 服务器永不触碰原生模块
+  const { openBetterSqlite } = require('./engine-bsqlite') as typeof import('./engine-bsqlite')
+  const dir = path.dirname(dbPath)
+  const backupDir = path.join(dir, 'backups')
+  const mainExisted = fs.existsSync(dbPath)
+
+  // 打开 dbPath（不存在则创建）并完整初始化；失败则关闭返回 null
+  function attemptMain(): SqlJsLikeDatabase | null {
+    let handle: SqlJsLikeDatabase | null = null
+    try {
+      handle = openBetterSqlite(dbPath)
+      if (!handle._integrityOk()) throw new Error('integrity_check 未通过')
+      runPipeline(handle)
+      return handle
+    } catch (e: any) {
+      console.log(`[DB] ${dbPath} 加载或迁移失败: ${e?.message || e}`)
+      if (handle) { try { handle.close() } catch { /* ignore */ } }
+      return null
+    }
+  }
+
+  db = attemptMain()
+  let recovered = false
+
+  // 主文件存在却打不开 → 损坏，进入用户决策（恢复可能涉及数据丢失）
+  if (!db && mainExisted) {
+    backupCorruptMain()
+    discardMainFiles()
+    recovered = true
+    const backups = getBackupList(backupDir)
+
+    if (onNeedRecovery) {
+      let lastFailed: string | undefined
+      while (!db) {
+        const decision = await onNeedRecovery({ backups, lastFailed })
+        if (decision.action === 'fresh') break
+        if (decision.action === 'restore' && fs.existsSync(decision.backupPath)) {
+          discardMainFiles()
+          fs.copyFileSync(decision.backupPath, dbPath)
+          db = attemptMain()
+          if (db) break
+          lastFailed = path.basename(decision.backupPath)
+        } else {
+          lastFailed = decision.action === 'restore' ? path.basename(decision.backupPath) : undefined
+        }
+      }
+    } else {
+      // 无回调（理论上 Electron 总会传，留作兜底）：自动用最新可用备份
+      for (const b of backups) {
+        discardMainFiles()
+        fs.copyFileSync(b.path, dbPath)
+        db = attemptMain()
+        if (db) break
+      }
+    }
+  }
+
+  // 仍无可用数据 → 全新空库（主库已清理，openBetterSqlite 会新建）
+  if (!db) {
+    discardMainFiles()
+    db = attemptMain()
+    recovered = recovered || mainExisted
+    console.log('已创建空白数据库')
+  }
+
+  // 例行启动备份：仅正常打开（未经历恢复）时备份，避免污染备份目录
+  if (db && !recovered) {
+    backupDatabase(dbPath)
+    cleanupOldBackups(dbPath)
+  }
+
+  console.log('数据库已加载(better-sqlite3):', dbPath)
+}
+
+// ── 纯 Node 独立服务器：sql.js（保留原有原子写 + .tmp/.prev 恢复链）──────
+async function initWithSqlJs(onNeedRecovery?: RecoveryHandler): Promise<void> {
+  const dir = path.dirname(dbPath)
   const SQL = await initSqlJs()
 
-  // 尝试从 buffer 加载数据库并做完整性校验，失败返回 null
-  function tryLoad(label: string, buffer: Uint8Array): SqlJsDatabase | null {
+  // 尝试加载一个来源并完整初始化：深度完整性校验 + 整条流水线。
+  function attempt(label: string, buffer: Uint8Array): SqlJsDatabase | null {
+    let d: SqlJsDatabase | null = null
     try {
-      const d = new SQL.Database(buffer)
-      d.exec('SELECT count(*) FROM sqlite_master') // 完整性校验
+      d = new SQL.Database(buffer)
+      const res = d.exec('PRAGMA integrity_check')
+      const ok = res?.[0]?.values?.[0]?.[0] === 'ok'
+      if (!ok) throw new Error('integrity_check 未通过')
+      runPipeline(d)
       return d
-    } catch {
-      console.log(`[DB] ${label} 无效`)
+    } catch (e: any) {
+      console.log(`[DB] ${label} 加载或迁移失败: ${e?.message || e}`)
+      if (d) { try { d.close() } catch { /* ignore */ } }
       return null
     }
   }
 
   const backupDir = path.join(dir, 'backups')
   let loadedFrom = ''
+  let builtEmpty = false
+  db = null
 
-  // 按优先级依次尝试：主文件 → .tmp → .prev → 最新备份 → 建空库
-  // 1) 主文件
-  if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath)
-    db = tryLoad(dbPath, buffer)
-    if (db) loadedFrom = dbPath
-  }
-
-  // 2) .tmp（上次保存可能未完成 rename，即写入已完整但没来得及替换）
-  if (!db && fs.existsSync(dbPath + '.tmp')) {
-    const buffer = fs.readFileSync(dbPath + '.tmp')
-    db = tryLoad(dbPath + '.tmp', buffer)
-    if (db) loadedFrom = dbPath + '.tmp'
-  }
-
-  // 3) .prev（rename 前移开的上一个完好文件）
-  if (!db && fs.existsSync(dbPath + '.prev')) {
-    const buffer = fs.readFileSync(dbPath + '.prev')
-    db = tryLoad(dbPath + '.prev', buffer)
-    if (db) loadedFrom = dbPath + '.prev'
-  }
-
-  // 4) 最新备份
-  if (!db && fs.existsSync(backupDir)) {
-    const backups = fs.readdirSync(backupDir)
-      .filter(f => f.startsWith('class-management-') && f.endsWith('.db'))
-      .sort().reverse() // 最新的排前面
-    for (const f of backups) {
-      const buffer = fs.readFileSync(path.join(backupDir, f))
-      db = tryLoad(path.join(backupDir, f), buffer)
-      if (db) { loadedFrom = path.join(backupDir, f); break }
+  // 第一档：无数据丢失来源（主文件 → .tmp → .prev），能恢复就静默恢复
+  for (const src of [dbPath, dbPath + '.tmp', dbPath + '.prev']) {
+    if (db) break
+    if (fs.existsSync(src)) {
+      db = attempt(src, fs.readFileSync(src))
+      if (db) loadedFrom = src
     }
   }
 
-  // 5) 所有尝试均失败，备份损坏文件后建空库
+  // 第二档：上述均失败，可能涉及数据丢失（回退旧备份 / 全新开始）
   if (!db) {
-    if (fs.existsSync(dbPath)) {
-      const bakPath = dbPath + '.corrupted-' + Date.now() + '.bak'
-      fs.copyFileSync(dbPath, bakPath)
-      console.error('数据库无法恢复，原文件已备份到:', bakPath)
+    const backups = getBackupList(backupDir)
+    if (onNeedRecovery) {
+      let lastFailed: string | undefined
+      while (!db) {
+        const decision = await onNeedRecovery({ backups, lastFailed })
+        if (decision.action === 'fresh') break
+        if (decision.action === 'restore' && fs.existsSync(decision.backupPath)) {
+          db = attempt(decision.backupPath, fs.readFileSync(decision.backupPath))
+          if (db) { loadedFrom = decision.backupPath; break }
+          lastFailed = path.basename(decision.backupPath)
+        } else {
+          lastFailed = decision.action === 'restore' ? path.basename(decision.backupPath) : undefined
+        }
+      }
+    } else {
+      for (const b of backups) {
+        db = attempt(b.path, fs.readFileSync(b.path))
+        if (db) { loadedFrom = b.path; break }
+      }
     }
-    db = new SQL.Database()
-    console.log('所有恢复尝试均失败，已创建空白数据库')
-  } else if (loadedFrom !== dbPath) {
-    // 从非主文件恢复了 → 写回主文件
-    console.log('数据库从', loadedFrom, '恢复，写回主文件')
-    const data = db.export()
-    fs.writeFileSync(dbPath, Buffer.from(data))
   }
-  console.log('数据库已加载:', dbPath)
 
-  // 数据库文件存在时，运行迁移前先做一份备份（新启动的例行备份）
-  if (fs.existsSync(dbPath)) {
+  // 第三档：仍无可用数据 → 备份损坏主文件后建空库
+  if (!db) {
+    backupCorruptMain()
+    db = new SQL.Database()
+    runPipeline(db)
+    builtEmpty = true
+    loadedFrom = ''
+    console.log('已创建空白数据库')
+  }
+
+  // 从非主文件恢复 → 写回主文件
+  if (loadedFrom && loadedFrom !== dbPath) {
+    console.log('数据库从', loadedFrom, '恢复，写回主文件')
+    fs.writeFileSync(dbPath, Buffer.from((db as SqlJsDatabase).export()))
+  }
+
+  // 例行启动备份（空库不备份，避免污染备份目录）
+  if (!builtEmpty && fs.existsSync(dbPath)) {
     backupDatabase(dbPath)
     cleanupOldBackups(dbPath)
   }
 
-  // 启用外键约束
-  db.run('PRAGMA foreign_keys = ON')
-
-  // 运行迁移
-  runMigrations(db)
-
-  // 强力去重：确保 reflection 表没有重复且唯一约束存在
-  // 注意：必须先删 students（外键引用 records），再删 records
-  conDebugLog('cleanup starting...')
-  try {
-    db.exec("DELETE FROM reflection_students WHERE reflection_record_id IN (SELECT id FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id))")
-    db.exec("DELETE FROM reflection_records WHERE id NOT IN (SELECT MIN(id) FROM reflection_records GROUP BY date, group_id)")
-    db.exec("DELETE FROM reflection_students WHERE reflection_record_id NOT IN (SELECT id FROM reflection_records)")
-    db.exec("DELETE FROM reflection_students WHERE id NOT IN (SELECT MIN(id) FROM reflection_students GROUP BY reflection_record_id, student_id)")
-    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_records_date_group ON reflection_records(date, group_id)")
-    conDebugLog('idx_reflection_records_date_group created OK')
-    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_reflection_students_unique ON reflection_students(reflection_record_id, student_id)")
-    conDebugLog('idx_reflection_students_unique created OK')
-  } catch (e: any) { conDebugLog(`cleanup ERROR: ${e?.message || e}`); console.error('reflection cleanup failed:', e) }
-
-  // 导入种子数据（仅首次）
-  runSeed(db)
+  console.log('数据库已加载:', dbPath)
 
   // 立即持久化
   saveDatabase()
@@ -173,7 +297,9 @@ export async function initDatabase(_dbPath: string): Promise<void> {
 
 export function saveDatabase(): void {
   if (!db || !dbPath) return
-  const data = db.export()
+  // better-sqlite3：WAL + synchronous=FULL 已逐事务落盘，无需手动保存
+  if (useBetterSqlite) return
+  const data = (db as SqlJsDatabase).export()
   const buffer = Buffer.from(data)
 
   // 原子写入：先写 .tmp，再用 rename 替换。中途断电只会丢 .tmp，原文件完好
@@ -192,11 +318,11 @@ export function saveDatabase(): void {
   try { fs.unlinkSync(dbPath + '.prev') } catch (_) { /* ignore */ }
 }
 
-export function getDatabase(): SqlJsDatabase | null {
+export function getDatabase(): any {
   return db
 }
 
-export function requireDatabase(): SqlJsDatabase {
+export function requireDatabase(): any {
   if (!db) {
     throw new Error('数据库未初始化')
   }
@@ -214,6 +340,10 @@ export function closeDatabase(): void {
 /** 将数据库文件复制到 backups/ 子目录，保留时间戳备份 */
 function backupDatabase(_dbPath: string): void {
   try {
+    // better-sqlite3：先 checkpoint 把 WAL 合并进主文件，确保拷贝单一 .db 即完整
+    if (useBetterSqlite && db) {
+      try { (db as SqlJsLikeDatabase)._checkpoint() } catch { /* ignore */ }
+    }
     const dir = path.dirname(_dbPath)
     const backupDir = path.join(dir, 'backups')
     if (!fs.existsSync(backupDir)) {
@@ -283,6 +413,12 @@ export function restoreBackup(backupName: string): boolean {
     if (db) {
       db.close()
       db = null
+    }
+    // better-sqlite3：删除残留的 WAL/SHM 边车，避免与新主文件不一致
+    if (useBetterSqlite) {
+      for (const suffix of ['-wal', '-shm']) {
+        try { fs.unlinkSync(dbPath + suffix) } catch { /* ignore */ }
+      }
     }
     // 用备份替换当前数据库文件
     fs.copyFileSync(bakPath, dbPath)

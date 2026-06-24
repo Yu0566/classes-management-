@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, dialog, screen } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { initDatabase, getDatabase, closeDatabase, checkOldData } from './database/connection'
+import { initDatabase, getDatabase, closeDatabase, checkOldData, type RecoveryDecision } from './database/connection'
 import { registerIpcHandlers } from './ipc-handlers'
 import { startServer, stopServer, setNotifier } from './lan-server'
 import { startTunnel, stopTunnel, ensureCloudflared } from './tunnel'
@@ -82,18 +82,6 @@ function loadApp() {
   }
   mainWindow.show()
 
-  // 自动适配高 DPI 大屏（如希沃 4K 触摸屏 300% 缩放，有效分辨率仅 1280×720）
-  // 每次页面加载完成后都设置，防止被 LAN 服务器 loadURL 重置
-  const display = screen.getPrimaryDisplay()
-  const { width, height } = display.workAreaSize
-  if (display.scaleFactor >= 2 && width < 1600) {
-    const zoom = Math.min(width / 1920, height / 1080)
-    mainWindow.webContents.on('did-finish-load', () => {
-      mainWindow?.webContents.setZoomFactor(zoom)
-    })
-    mainWindow.webContents.setZoomFactor(zoom)
-    console.log(`[Main] 高DPI适配: ${width}x${height} @${display.scaleFactor}x → zoomFactor=${zoom.toFixed(3)}`)
-  }
 }
 
 // 重新导出供 ipc-handlers 使用
@@ -131,7 +119,47 @@ app.whenReady().then(async () => {
     }
   }
 
-  await initDatabase(dbPath)
+  await initDatabase(dbPath, async ({ backups, lastFailed }): Promise<RecoveryDecision> => {
+    // 数据库损坏且无法静默恢复 → 弹出原生修复对话框（不依赖前端界面）
+    while (true) {
+      const buttons: string[] = []
+      if (backups.length > 0) buttons.push('从最新备份恢复')
+      buttons.push('选择备份文件…')
+      buttons.push('全新开始')
+
+      const detail =
+        (lastFailed ? `所选备份「${lastFailed}」也已损坏，请另选。\n\n` : '') +
+        '请选择恢复方式：\n\n' +
+        (backups.length > 0 ? '• 从最新备份恢复：使用最近一次自动备份的数据\n' : '') +
+        '• 选择备份文件…：手动挑选某一份备份文件\n' +
+        '• 全新开始：以空白数据启动（损坏文件会被备份保留为 .corrupted-*.bak）'
+
+      const r = await dialog.showMessageBox({
+        type: 'warning',
+        title: '数据库损坏',
+        message: '检测到数据库文件损坏，无法直接打开。',
+        detail,
+        buttons,
+        defaultId: 0,
+        cancelId: buttons.length - 1,
+        noLink: true,
+      })
+
+      const label = buttons[r.response]
+      if (label === '从最新备份恢复') return { action: 'restore', backupPath: backups[0].path }
+      if (label === '全新开始') return { action: 'fresh' }
+
+      // 选择备份文件…
+      const pick = await dialog.showOpenDialog({
+        title: '选择要恢复的备份文件',
+        defaultPath: path.join(path.dirname(dbPath), 'backups'),
+        properties: ['openFile'],
+        filters: [{ name: '数据库备份', extensions: ['db'] }],
+      })
+      if (!pick.canceled && pick.filePaths[0]) return { action: 'restore', backupPath: pick.filePaths[0] }
+      // 取消选择 → 回到主对话框
+    }
+  })
 
   // 注册 IPC 处理器
   registerIpcHandlers()

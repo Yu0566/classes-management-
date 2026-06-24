@@ -943,7 +943,7 @@ export function startServer(port: number, devMode?: boolean): Promise<{ ip: stri
         }
 
         if (url === '/api/health') {
-          sendJSON(res, { status: 'ok', uptime: process.uptime(), hostname: os.hostname(), deviceName: deviceName || undefined, nonce: tunnelNonce || undefined })
+          sendJSON(res, { status: 'ok', uptime: process.uptime(), hostname: os.hostname(), deviceName: deviceName || undefined, nonce: tunnelNonce || undefined, notifierReady: !!notifyRenderer })
           return
         }
 

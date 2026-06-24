@@ -1223,7 +1223,9 @@ export default function AfterSchoolPage() {
                 const actionColor = log.action === 'generate' ? 'bg-amber-100 text-amber-700'
                   : log.action === 'add' ? 'bg-sky-100 text-sky-700' : 'bg-red-100 text-red-600'
                 const desc = log.action === 'generate'
-                  ? `取积分最低 ${log.count ?? 0} 人${log.detail ? '：' + log.detail : ''}`
+                  ? ((log.count ?? 0) > 0
+                      ? `取积分最低 ${log.count} 人${log.detail ? '：' + log.detail : ''}`
+                      : (log.detail || '生成空名单'))
                   : (log.student_name || '')
                 return (
                   <div key={log.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl border border-stone-100 bg-stone-50">

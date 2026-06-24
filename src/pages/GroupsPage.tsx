@@ -4,7 +4,6 @@ import { useConfirm } from '@/components/ui/ConfirmDialog'
 import * as groupApi from '@/lib/groups'
 import type { Group } from '@/types'
 import { getUnifiedLedger, type LedgerEntry } from '@/lib/score-ledger'
-import { generatePunishmentList } from '@/lib/copy-punishment'
 
 export default function GroupsPage() {
   const { confirm, notify } = useConfirm()
@@ -73,15 +72,6 @@ export default function GroupsPage() {
     }
   }
 
-  // 清零后自动生成罚抄名单
-  const generatePunishmentListForReset = async () => {
-    try {
-      await generatePunishmentList(5)
-    } catch (err) {
-      console.error('[Punishment] 自动生成罚抄名单失败:', err)
-    }
-  }
-
   // 撤销上一步
   const handleUndo = async () => {
     const ok = await groupApi.undoLastScoreChange()
@@ -99,7 +89,6 @@ export default function GroupsPage() {
     }
     if (!await confirm({ message: '将按当前学习积分排名发放总积分奖励：\n第1名+8，第2名+7，第3名+6...\n执行后所有小组的学习积分将清零。\n确认执行？', variant: 'normal' })) return
     await groupApi.calculateRankingBonus()
-    await generatePunishmentListForReset()
     await loadData()
     await loadData()
   }
@@ -108,7 +97,6 @@ export default function GroupsPage() {
   const handleResetAll = async () => {
     if (!await confirm({ message: '确认将所有小组的学习积分和总积分全部清零？\n此操作可在操作历史中逐条撤销。' })) return
     await groupApi.resetAllScores()
-    await generatePunishmentListForReset()
     await loadData()
     await loadData()
   }

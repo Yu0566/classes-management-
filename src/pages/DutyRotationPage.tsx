@@ -163,7 +163,7 @@ export default function DutyRotationPage() {
       >
         <div className="w-full h-full rounded-2xl bg-stone-50 flex items-center justify-center overflow-hidden">
           {entry?.photo ? (
-            <img src={entry.photo} alt={entry.student_name} className="w-full h-full object-cover" />
+            <img src={entry.photo} alt={entry.student_name} className="w-full h-full object-contain" />
           ) : (
             <div className="flex flex-col items-center gap-1 text-stone-300">
               {icon}
@@ -233,12 +233,12 @@ export default function DutyRotationPage() {
               <div className="flex flex-col items-center gap-1.5 group -mt-3">
                 <div className="relative">
                   <div className="absolute -inset-2 rounded-[22px] bg-gradient-to-br from-amber-300/40 via-yellow-400/20 to-orange-400/30 blur-md animate-pulse" />
-                  <div className="relative w-28 h-36 xl:w-36 xl:h-44 rounded-2xl p-[4px] shadow-xl shadow-amber-300/40"
+                  <div className="relative w-28 h-36 rounded-2xl p-[4px] shadow-xl shadow-amber-300/40"
                     style={{ background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, #fcd34d, #f97316, #eab308, #fbbf24)' }}
                   >
                     <div className="w-full h-full rounded-[12px] bg-stone-900 flex items-center justify-center overflow-hidden">
                       {monitor.photo ? (
-                        <img src={monitor.photo} alt={monitor.student_name} className="w-full h-full object-cover" />
+                        <img src={monitor.photo} alt={monitor.student_name} className="w-full h-full object-contain" />
                       ) : (
                         <Shield size={48} className="text-amber-500/60" />
                       )}
@@ -298,7 +298,7 @@ export default function DutyRotationPage() {
                           <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-amber-200 p-0.5 shadow-sm">
                             <div className="w-full h-full rounded-[10px] bg-stone-50 flex items-center justify-center overflow-hidden">
                               {student.photo ? (
-                                <img src={student.photo} alt={student.student_name} className="w-full h-full object-cover" />
+                                <img src={student.photo} alt={student.student_name} className="w-full h-full object-contain" />
                               ) : (
                                 <Users size={28} className="text-amber-200" />
                               )}
