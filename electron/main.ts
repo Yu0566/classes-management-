@@ -15,9 +15,6 @@ process.on('uncaughtException', (err) => {
   console.error('[Main] 未捕获异常:', err.message, err.stack)
 })
 
-// 禁用 GPU 加速以解决 Windows 上的兼容性问题
-app.disableHardwareAcceleration()
-
 // 单实例锁定：防止重复启动
 const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
