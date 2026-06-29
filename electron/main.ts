@@ -75,6 +75,17 @@ function createWindow() {
     app.quit()
   })
 
+  // 希沃等超高分屏（物理宽 ≥3000px，如 3840×2160@300%）整体等比放大，
+  // 让所有页面观感统一放大；放大后逻辑视口降到 ~1066px，xl 断点自动失效，
+  // 已单独放大过的页面（轮值/课堂加分/作业管理）回到基准再被缩放，从而与其他页面一致。
+  // 每次加载完成都重设，避免 loadURL 切换（file → LAN）后被重置。
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (!mainWindow) return
+    const d = screen.getPrimaryDisplay()
+    const physicalWidth = d.size.width * d.scaleFactor
+    mainWindow.webContents.setZoomFactor(physicalWidth >= 3000 ? 1.2 : 1.0)
+  })
+
   // 初始化自动更新
   initUpdater(mainWindow)
 
