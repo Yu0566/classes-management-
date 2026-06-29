@@ -26,6 +26,7 @@ import DutyRotationPage from './pages/DutyRotationPage'
 import DashboardWidgetPage from './pages/DashboardWidgetPage'
 import TreePage from './pages/TreePage'
 import ChineseClassPage from './pages/ChineseClassPage'
+import DoubaoPage from './pages/DoubaoPage'
 
 function App() {
   return (
@@ -54,6 +55,7 @@ function App() {
         <Route path="after-school" element={<AfterSchoolPage />} />
         <Route path="tree" element={<TreePage />} />
         <Route path="chinese-class" element={<ChineseClassPage />} />
+        <Route path="doubao" element={<DoubaoPage />} />
       </Route>
       {/* 桌面便签看板（无侧边栏） */}
       <Route path="/dashboard-widget" element={<DashboardWidgetPage />} />

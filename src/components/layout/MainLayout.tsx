@@ -4,7 +4,7 @@ import { Reorder, useDragControls } from 'framer-motion'
 import {
   LayoutDashboard, Star, Users,
   ClipboardCheck, CalendarCheck, Utensils, Pencil, Coins,
-  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone, TrendingUp, CalendarDays, GripVertical, MessageSquare, Monitor, Clock, Lock, Unlock, TreePine, BookOpen
+  Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone, TrendingUp, CalendarDays, GripVertical, MessageSquare, Monitor, Clock, Lock, Unlock, TreePine, BookOpen, Bot
 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { getNewMessageCount } from '@/lib/message-board'
@@ -12,7 +12,7 @@ import { getUncompletedCount } from '@/lib/copy-punishment'
 
 const STORAGE_KEY = 'nav-item-order'
 const NAV_VERSION_KEY = 'nav-item-version'
-const NAV_VERSION = 4 // bump this when defaultNavItems changes
+const NAV_VERSION = 5 // bump this when defaultNavItems changes
 const MSG_LAST_VIEWED_KEY = 'message_board_last_viewed'
 
 const defaultNavItems = [
@@ -33,6 +33,7 @@ const defaultNavItems = [
   { path: '/chinese-class', label: '课堂加分', icon: BookOpen },
   { path: '/notify', label: '班级通知', icon: Megaphone },
   { path: '/message-board', label: '留言板', icon: MessageSquare },
+  { path: '/doubao', label: 'AI助手', icon: Bot },
   { path: '/after-school', label: '课后管理', icon: Clock },
 ]
 

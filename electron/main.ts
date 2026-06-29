@@ -15,21 +15,22 @@ process.on('uncaughtException', (err) => {
   console.error('[Main] 未捕获异常:', err.message, err.stack)
 })
 
-// 单实例锁定：防止重复启动
-const gotTheLock = app.requestSingleInstanceLock()
-if (!gotTheLock) {
-  app.quit()
-}
-
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 let closeDialogOpen = false
 const isDev = !app.isPackaged
 
 // 开发模式使用独立的 userData 目录，与正式版数据完全隔离
+// 注意：必须在 requestSingleInstanceLock 之前设 userData，否则 dev 和正式版共用锁
 if (isDev) {
   const devUserData = path.join(app.getPath('userData'), '..', 'class-management-dev')
   app.setPath('userData', devUserData)
+}
+
+// 单实例锁定：防止重复启动
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
 }
 
 function createWindow() {
@@ -45,6 +46,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
     },
   })
 
