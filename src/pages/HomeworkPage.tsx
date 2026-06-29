@@ -141,13 +141,13 @@ export default function HomeworkPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 xl:p-8 max-w-6xl xl:max-w-none mx-auto">
         {/* 顶部 */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-stone-800">作业管理</h1>
+          <h1 className="text-2xl xl:text-3xl font-bold text-stone-800">作业管理</h1>
           <button
             onClick={openHistory}
-            className="flex items-center gap-2 px-4 py-2 text-stone-600 border rounded-lg hover:bg-stone-50"
+            className="flex items-center gap-2 px-4 py-2 xl:text-lg text-stone-600 border rounded-lg hover:bg-stone-50"
           >
             <History size={18} /> 未交记录
           </button>
@@ -173,7 +173,7 @@ export default function HomeworkPage() {
               </>
             ) : (
               <>
-                <span className={`text-lg font-bold ${isToday ? 'text-primary-600' : 'text-stone-700'}`}>
+                <span className={`text-lg xl:text-xl font-bold ${isToday ? 'text-primary-600' : 'text-stone-700'}`}>
                   {formatDateCN(date)}
                   {isToday && <span className="ml-2 text-xs bg-primary-100 text-primary-600 px-2 py-0.5 rounded-full align-middle">今天</span>}
                 </span>
@@ -188,12 +188,12 @@ export default function HomeworkPage() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-stone-500 mr-1">今日科目：</span>
+            <span className="text-sm xl:text-base text-stone-500 mr-1">今日科目：</span>
             {ALL_SUBJECTS.map(subj => (
               <button
                 key={subj}
                 onClick={() => toggleSubject(subj)}
-                className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                className={`px-3 py-1 xl:px-4 xl:py-1.5 rounded-full text-sm xl:text-base border transition-colors ${
                   subjects.includes(subj)
                     ? 'bg-primary-100 text-primary-700 border-primary-300'
                     : 'bg-stone-50 text-stone-400 border-stone-200'
@@ -211,7 +211,7 @@ export default function HomeworkPage() {
             <button
               key={g.id}
               onClick={() => setSelectedGroup(g.id)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              className={`px-3 py-1.5 xl:px-4 xl:py-2 rounded-full text-xs xl:text-sm font-medium border transition-colors ${
                 selectedGroup === g.id
                   ? `${g.color} text-white border-transparent`
                   : 'bg-white text-stone-500 border-stone-200 hover:bg-stone-50'
@@ -230,7 +230,7 @@ export default function HomeworkPage() {
               const groupStudents = students.filter(s => s.group_id === selectedGroup)
               return (
                 <>
-                  <div className={`px-4 py-2 text-white text-sm font-medium ${group?.color || 'bg-stone-400'} flex items-center justify-between`}>
+                  <div className={`px-4 py-2 xl:py-3 text-white text-sm xl:text-base font-medium ${group?.color || 'bg-stone-400'} flex items-center justify-between`}>
                     <span>{group?.name}{group?.leader_name ? `（${group.leader_name}）` : ''} · {groupStudents.length}人</span>
                     <button
                       onClick={resetGroupAllComplete}
@@ -245,15 +245,15 @@ export default function HomeworkPage() {
                       <table className="w-full">
                         <thead>
                           <tr className="bg-stone-50 border-b">
-                            <th className="text-left px-4 py-2 text-sm font-medium text-stone-500 sticky left-0 bg-stone-50">
+                            <th className="text-left px-4 py-2 xl:py-3 text-sm xl:text-base font-medium text-stone-500 sticky left-0 bg-stone-50">
                               姓名
                             </th>
                             {subjects.map(subj => (
-                              <th key={subj} className="text-center px-3 py-2 text-sm font-medium text-stone-500 min-w-[80px]">
+                              <th key={subj} className="text-center px-3 py-2 xl:py-3 text-sm xl:text-base font-medium text-stone-500 min-w-[80px] xl:min-w-[110px]">
                                 {subj}
                               </th>
                             ))}
-                            <th className="text-center px-3 py-2 text-sm font-medium text-stone-400">
+                            <th className="text-center px-3 py-2 xl:py-3 text-sm xl:text-base font-medium text-stone-400">
                               操作
                             </th>
                           </tr>
@@ -261,7 +261,7 @@ export default function HomeworkPage() {
                         <tbody className="divide-y divide-gray-100">
                           {groupStudents.map(s => (
                             <tr key={s.id} className="hover:bg-stone-50">
-                              <td className="px-4 py-2 text-sm font-medium sticky left-0 bg-white">
+                              <td className="px-4 py-2 xl:py-3 text-sm xl:text-base font-medium sticky left-0 bg-white">
                                 <div className="flex items-center gap-1">
                                   <span>{s.name}</span>
                                   {group?.leader_name === s.name && (
@@ -276,7 +276,7 @@ export default function HomeworkPage() {
                                   <td key={subj} className="px-2 py-1.5 text-center">
                                     <button
                                       onClick={() => cycleStatus(s.id, subj)}
-                                      className={`text-xs px-3 py-1 rounded-full border cursor-pointer transition-colors ${cfg.color}`}
+                                      className={`text-xs xl:text-sm px-3 py-1 xl:px-4 xl:py-1.5 rounded-full border cursor-pointer transition-colors ${cfg.color}`}
                                     >
                                       {cfg.icon} {cfg.label}
                                     </button>
@@ -286,7 +286,7 @@ export default function HomeworkPage() {
                               <td className="px-2 py-1.5 text-center">
                                 <button
                                   onClick={() => resetStudentAllIncomplete(s.id)}
-                                  className="px-2.5 py-1 text-xs rounded-lg border border-red-200 text-red-500 hover:bg-red-50 active:scale-95 transition-all whitespace-nowrap"
+                                  className="px-2.5 py-1 xl:px-3 xl:py-1.5 text-xs xl:text-sm rounded-lg border border-red-200 text-red-500 hover:bg-red-50 active:scale-95 transition-all whitespace-nowrap"
                                 >
                                   一键未交
                                 </button>
