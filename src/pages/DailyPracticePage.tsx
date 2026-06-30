@@ -255,7 +255,7 @@ export default function DailyPracticePage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
         {/* 标题 + 日期导航 */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-stone-800">每日一练</h1>

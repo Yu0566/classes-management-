@@ -340,11 +340,8 @@ export default function DutyPage() {
   const signedInCount = dutyStudents.filter(d => d.sign_in_time).length
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="p-6 max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-stone-800 mb-4">值日管理</h1>
-
-        {/* 日期选择 */}
+    <>
+      {/* 日期选择 */}
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => { const d = new Date(date); d.setDate(d.getDate() - 1); setDate(d.toISOString().slice(0, 10)) }} className="p-2 hover:bg-stone-100 rounded-lg"><ChevronLeft size={20} /></button>
           <span className="text-lg font-medium min-w-[180px] text-center">{date}</span>
@@ -550,7 +547,7 @@ export default function DutyPage() {
                 <LogIn size={20} /> 签到窗口 - 剩余 {formatTime(signInRemaining)}
               </h2>
             </div>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
               {dutyStudents.map(ds => (
                 <button
                   key={ds.id}
@@ -700,8 +697,6 @@ export default function DutyPage() {
           </div>
         )}
 
-      </div>
-
       {/* 学生选择弹窗 */}
       <StudentPickerModal
         open={showStudentPicker}
@@ -744,7 +739,6 @@ export default function DutyPage() {
           </button>
         </div>
       </Modal>
-
-    </div>
+    </>
   )
 }

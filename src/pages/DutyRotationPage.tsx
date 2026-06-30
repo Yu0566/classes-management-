@@ -210,7 +210,7 @@ export default function DutyRotationPage() {
         {/* ========== 顶部：领导层荣誉带（横跨整屏，突出） ========== */}
         <div className="flex-[5] min-h-0 bg-gradient-to-r from-amber-50 via-yellow-50/70 to-amber-50 rounded-2xl border border-amber-200/70 shadow-sm px-6 py-3 flex flex-col">
           <h3 className="font-bold text-amber-700 text-sm mb-1 text-center shrink-0 tracking-widest">领　导　层</h3>
-          <div className="flex-1 min-h-0 flex items-center justify-center gap-12 xl:gap-24">
+          <div className="flex-1 min-h-0 flex items-center justify-center gap-24">
             {/* 队长 周一至周三 */}
             <div className="flex flex-col items-center gap-1.5">
               <span className="text-xs font-medium text-stone-500 bg-white/70 rounded-full px-3 py-0.5 border border-amber-100">周一至周三</span>

@@ -47,7 +47,7 @@ export default function DeductionsPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-stone-800 mb-4">扣分记录</h1>
 
         {/* 统计概览 */}

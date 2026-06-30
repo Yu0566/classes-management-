@@ -105,7 +105,7 @@ export default function ChineseClassPage() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 grid grid-cols-4 auto-rows-fr gap-3 xl:gap-4">
+      <div className="flex-1 min-h-0 grid grid-cols-4 auto-rows-fr gap-4">
         {groups.map(g => (
           <div
             key={g.group_id}
@@ -113,7 +113,7 @@ export default function ChineseClassPage() {
           >
             {/* 彩色头部 */}
             <div className="px-3 py-2 text-center shrink-0" style={{ backgroundColor: getHexColor(g.group_color) }}>
-              <div className="text-lg xl:text-xl font-bold text-white drop-shadow-sm leading-tight">{g.group_name}</div>
+              <div className="text-xl font-bold text-white drop-shadow-sm leading-tight">{g.group_name}</div>
               {g.leader_name && (
                 <div className="text-xs text-white/80">组长：{g.leader_name}</div>
               )}

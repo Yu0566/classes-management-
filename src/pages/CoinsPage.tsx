@@ -87,7 +87,7 @@ export default function CoinsPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-stone-800">宝龙币管理</h1>
@@ -130,7 +130,7 @@ export default function CoinsPage() {
           {groups.length > 0 && (
             <div className="mt-3 pt-3 border-t">
               <p className="text-xs text-stone-500 mb-2">结算预览：</p>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
                 {groups.map(g => {
                   const rawDelta = (g.coins - target) * 3
                   const delta = rawDelta > 0 ? Math.min(rawDelta, 12) : rawDelta
@@ -151,7 +151,7 @@ export default function CoinsPage() {
         </div>
 
         {/* 小组列表 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
           {groups.map(g => (
             <div key={g.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow">
               <div className="bg-gradient-to-br from-yellow-400 to-yellow-500 text-white rounded-t-xl p-4">

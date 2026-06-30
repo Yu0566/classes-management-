@@ -9,6 +9,7 @@ import * as detentionApi from '../lib/detention'
 import * as studentApi from '../lib/students'
 import * as groupApi from '../lib/groups'
 import { queryAll } from '../lib/db'
+import DutyPanel from './DutyPage'
 import type { ReflectionRecord, ReflectionStudent, CopyPunishmentStudent, CopyPunishmentLog, Group, DetentionRecord, DetentionStudent, StudentWithGroup } from '../types'
 
 type WindowState = 'idle' | 'counting_down' | 'signing_in' | 'finished'
@@ -33,7 +34,7 @@ function getGroupDuration(groupId: string): number {
 const isBrowser = !window.electronAPI
 
 export default function AfterSchoolPage() {
-  const [activeTab, setActiveTab] = useState<'reflection' | 'punishment' | 'detention'>('reflection')
+  const [activeTab, setActiveTab] = useState<'duty' | 'reflection' | 'punishment' | 'detention'>('duty')
 
   // ========== 小组团建 state ==========
   const [addedGroupIds, setAddedGroupIds] = useState<string[]>([])
@@ -825,11 +826,19 @@ export default function AfterSchoolPage() {
 
   return (
     <div className="h-full overflow-auto" style={PASTEL_BG}>
-      <div className="p-8 max-w-5xl mx-auto">
+      <div className="p-8 max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-stone-700 mb-6">课后管理</h1>
 
         {/* Tab 切换 */}
         <div className="flex gap-2 mb-8">
+          <button
+            onClick={() => setActiveTab('duty')}
+            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              activeTab === 'duty' ? 'bg-amber-500 text-white shadow-md' : 'bg-white text-stone-500 border border-stone-200 hover:border-amber-300'
+            }`}
+          >
+            值日
+          </button>
           <button
             onClick={() => setActiveTab('reflection')}
             className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
@@ -866,6 +875,9 @@ export default function AfterSchoolPage() {
           </button>
         </div>
 
+        {/* ==================== 值日 ==================== */}
+        {activeTab === 'duty' && <DutyPanel />}
+
         {/* ==================== 小组团建 ==================== */}
         {activeTab === 'reflection' && (
           <>
@@ -894,7 +906,7 @@ export default function AfterSchoolPage() {
 
             {/* 小组卡片 */}
             {addedGroupIds.length > 0 ? (
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
                 {addedGroupIds.map((gid, i) => renderGroupCard(gid, i))}
               </div>
             ) : (
@@ -1069,7 +1081,7 @@ export default function AfterSchoolPage() {
                     <LogIn size={20} /> 延时续费签到 - 剩余 {formatTime(detentionSignInRemaining)}
                   </h3>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
                   {detentionStudents.map(ds => (
                     <button key={ds.id}
                       onClick={() => !ds.sign_in_time && handleDetentionStudentSignIn(ds.id)}

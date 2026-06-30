@@ -120,7 +120,7 @@ export default function GroupsPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6">
         {/* 顶部操作栏 */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -199,7 +199,7 @@ export default function GroupsPage() {
         </div>
 
         {/* 小组卡片列表 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
           {groups.map(group => (
             <div key={group.id} className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow">
               {/* 卡片头部 */}

@@ -421,7 +421,7 @@ export default function StudentsPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6">
         {/* 顶部 */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -681,7 +681,7 @@ export default function StudentsPage() {
           />
 
           {/* 小组座位网格 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
             {groups.map(group => {
               const seats = getGroupSeats(group.id)
               const count = seats.filter(Boolean).length

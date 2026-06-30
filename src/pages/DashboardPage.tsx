@@ -324,7 +324,7 @@ export default function DashboardPage() {
 
   return (
     <div className="h-full overflow-auto bg-gradient-to-b from-[#fdfaf3] to-[#faf6ee]">
-      <div className="p-5 max-w-6xl mx-auto space-y-5">
+      <div className="p-5 max-w-7xl mx-auto space-y-5">
 
         {/* ===== Header ===== */}
         <div className="flex items-center justify-between">
@@ -677,7 +677,7 @@ export default function DashboardPage() {
                       {homeworkSubjects.length === 0 ? (
                         <p className="text-sm text-emerald-500">全部交齐 ✓</p>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
                           {homeworkSubjects.map(([subject, students]) => (
                             <div key={subject} className="bg-stone-50 rounded-xl p-3">
                               <div className="flex items-center justify-between mb-2">
@@ -886,7 +886,7 @@ export default function DashboardPage() {
                         </div>
                         <span className="text-xs text-stone-400 font-mono tabular-nums">目标 {COIN_TARGET}</span>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
                         {[...coinGroups].sort((a, b) => b.coins - a.coins).map(cg => {
                           const pct = Math.round((cg.coins / COIN_TARGET) * 100)
                           const reached = cg.coins >= COIN_TARGET

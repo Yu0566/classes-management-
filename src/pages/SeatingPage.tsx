@@ -163,7 +163,7 @@ export default function SeatingPage() {
         />
 
         {/* 小组座位网格 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
           {groups.map(group => {
             const seats = getGroupSeats(group.id)
             const count = seats.filter(Boolean).length

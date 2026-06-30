@@ -326,7 +326,7 @@ export default function DailyRegisterPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-stone-800">每日考勤</h1>
           <div className="flex items-center gap-3">
@@ -439,12 +439,13 @@ export default function DailyRegisterPage() {
           ))}
         </div>
 
-        {/* 按小组分框 */}
+        {/* 按小组分框 + 未分组：横向自适应网格，减少纵向下拉 */}
+        <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(440px, 1fr))' }}>
         {[...groupMap.values()].sort((a, b) => a.sort_order - b.sort_order).map(group => {
           const groupStudents = students.filter(s => s.group_id === group.id)
           if (groupStudents.length === 0) return null
           return (
-            <div key={group.id} className="mb-4 bg-white rounded-xl border-2 border-stone-200 overflow-hidden">
+            <div key={group.id} className="bg-white rounded-xl border-2 border-stone-200 overflow-hidden">
               <div className="bg-stone-100 px-4 py-2 border-b border-stone-200 flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${group.color}`} />
                 <span className="text-sm font-semibold text-stone-700">
@@ -452,7 +453,7 @@ export default function DailyRegisterPage() {
                 </span>
                 <span className="text-xs text-stone-400">{groupStudents.length}人</span>
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 p-3">
+              <div className="grid gap-2 p-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))' }}>
                 {groupStudents.map(s => {
                   const status = getAttendStatus(s.id)
                   const cfg = CARD_COLORS[status]
@@ -516,12 +517,12 @@ export default function DailyRegisterPage() {
           const ungrouped = students.filter(s => !s.group_id || !groupMap.has(s.group_id))
           if (ungrouped.length === 0) return null
           return (
-            <div className="mb-4 bg-white rounded-xl border-2 border-dashed border-stone-300 overflow-hidden">
+            <div className="bg-white rounded-xl border-2 border-dashed border-stone-300 overflow-hidden">
               <div className="bg-stone-100 px-4 py-2 border-b border-stone-200 flex items-center gap-2">
                 <span className="text-sm font-semibold text-stone-500">未分组</span>
                 <span className="text-xs text-stone-400">{ungrouped.length}人</span>
               </div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 p-3">
+              <div className="grid gap-2 p-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))' }}>
                 {ungrouped.map(s => {
                   const status = getAttendStatus(s.id)
                   const cfg = CARD_COLORS[status]
@@ -579,6 +580,7 @@ export default function DailyRegisterPage() {
             </div>
           )
         })()}
+        </div>
 
         {students.length === 0 && (
           <div className="text-center py-12 text-stone-400">暂无学生数据</div>

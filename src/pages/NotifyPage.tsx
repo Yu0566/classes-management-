@@ -178,7 +178,7 @@ export default function NotifyPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-6 max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Megaphone size={28} className="text-amber-500" />
           <div>

@@ -99,7 +99,7 @@ export default function MathHomeworkPage() {
 
   return (
     <div className="h-full overflow-auto bg-stone-50">
-      <div className="p-5 max-w-5xl mx-auto space-y-4">
+      <div className="p-5 max-w-7xl mx-auto space-y-4">
 
         {/* 顶部 */}
         <div className="flex items-center justify-between">
@@ -145,7 +145,7 @@ export default function MathHomeworkPage() {
         </div>
 
         {/* 小组切换 */}
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {groups.map(g => {
             const gStudents = students.filter(s => s.group_id === g.id)
             const gFails = gStudents.filter(s => failMap.has(s.id)).length
@@ -187,7 +187,7 @@ export default function MathHomeworkPage() {
                     <tr className="bg-stone-50/50 border-b border-stone-100">
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500 w-32">姓名</th>
                       <th className="text-left px-4 py-2.5 text-xs font-medium text-stone-500">不合格原因</th>
-                      <th className="text-center px-4 py-2.5 text-xs font-medium text-stone-500 w-28">操作</th>
+                      <th className="text-center px-4 py-2.5 text-xs font-medium text-stone-500 w-32">操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -228,7 +228,7 @@ export default function MathHomeworkPage() {
                               <button
                                 type="button"
                                 onClick={() => handleUnmark(record.id)}
-                                className="text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                className="text-xs whitespace-nowrap px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors"
                               >
                                 恢复合格
                               </button>
@@ -237,7 +237,7 @@ export default function MathHomeworkPage() {
                                 type="button"
                                 onClick={() => handleMark(s.id)}
                                 disabled={!reasons[s.id]?.trim()}
-                                className="text-xs px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="text-xs whitespace-nowrap px-3 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                               >
                                 标记不合格
                               </button>

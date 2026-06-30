@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Reorder, useDragControls } from 'framer-motion'
 import {
   LayoutDashboard, Star, Users,
-  ClipboardCheck, CalendarCheck, Utensils, Pencil, Coins,
+  ClipboardCheck, Utensils, Pencil, Coins,
   Settings, ChevronLeft, ChevronRight, ClipboardList, Contact, Calculator, Megaphone, TrendingUp, CalendarDays, GripVertical, MessageSquare, Monitor, Clock, Lock, Unlock, TreePine, BookOpen, Bot
 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
@@ -22,7 +22,6 @@ const defaultNavItems = [
   { path: '/students', label: '学生管理', icon: Contact },
   { path: '/student-scores', label: '个人积分', icon: Users },
   { path: '/growth-records', label: '成长记录', icon: TrendingUp },
-  { path: '/duty', label: '值日管理', icon: CalendarCheck, exact: true },
   { path: '/duty-rotation', label: '班级轮值', icon: CalendarDays },
   { path: '/homework', label: '作业管理', icon: ClipboardList },
   { path: '/daily-register', label: '每日考勤', icon: ClipboardCheck },
@@ -209,6 +208,7 @@ export default function MainLayout() {
 
   // 是否正在留言板页面
   const onMessageBoard = location.pathname === '/message-board'
+  const isDoubao = location.pathname === '/doubao'
 
   // 进入留言板页面时清除角标
   useEffect(() => {
@@ -219,6 +219,20 @@ export default function MainLayout() {
       setNewMsgCount(0)
     }
   }, [onMessageBoard])
+
+  // AI助手 webview 只创建一次，切换靠显隐不靠卸载，避免每次切 tab 重载
+  const webviewContainerRef = useRef<HTMLDivElement>(null)
+  const [webviewReady, setWebviewReady] = useState(false)
+
+  useEffect(() => {
+    if (isDoubao && !webviewReady && webviewContainerRef.current) {
+      const wv = document.createElement('webview')
+      wv.setAttribute('src', 'https://www.doubao.com/chat/')
+      wv.style.cssText = 'width:100%;height:100%'
+      webviewContainerRef.current.appendChild(wv)
+      setWebviewReady(true)
+    }
+  }, [isDoubao, webviewReady])
 
   // 定期轮询新留言
   const checkNewMessages = useCallback(async () => {
@@ -392,8 +406,17 @@ export default function MainLayout() {
       </aside>
 
       {/* 主内容 */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
+      <main className="flex-1 relative">
+        <div className="h-full overflow-auto" style={{ display: isDoubao ? 'none' : 'block' }}>
+          <Outlet />
+        </div>
+        {(webviewReady || isDoubao) && (
+          <div
+            ref={webviewContainerRef}
+            style={{ display: isDoubao ? 'block' : 'none' }}
+            className="absolute inset-0"
+          />
+        )}
       </main>
 
       {/* 解锁密码弹窗 */}

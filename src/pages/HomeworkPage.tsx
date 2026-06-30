@@ -141,7 +141,7 @@ export default function HomeworkPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="p-6 xl:p-8 max-w-6xl xl:max-w-none mx-auto">
+      <div className="p-6 xl:p-8 max-w-7xl mx-auto">
         {/* 顶部 */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl xl:text-3xl font-bold text-stone-800">作业管理</h1>
